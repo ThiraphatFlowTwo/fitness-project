@@ -94,4 +94,5 @@ router.get('/users/pending-count', protect, adminOnly, async (req, res) => {
     res.status(500).json({ message: 'Load pending count failed' })
   }
 })
+
 module.exports = router;

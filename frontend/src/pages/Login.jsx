@@ -1,6 +1,7 @@
 import { useState } from "react";
 import api from "../services/api";
-import { useNavigate, Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import Navbar from "../components/Navbar";
 
 export default function Login() {
   const [form, setForm] = useState({
@@ -9,6 +10,7 @@ export default function Login() {
   });
 
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -16,15 +18,16 @@ export default function Login() {
 
   const handleLogin = async () => {
     try {
-      const res = await api.post("/auth/login", form);
+      setLoading(true);
 
+      const res = await api.post("/auth/login", form);
       const { token, user } = res.data;
 
       // เก็บ token + user
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
 
-      // ⭐ Redirect ตาม role (เพิ่มตรงนี้)
+      // Redirect ตาม role
       if (user.role === "admin") {
         navigate("/admin");
       } else if (user.role === "trainer") {
@@ -36,45 +39,72 @@ export default function Login() {
       }
     } catch (err) {
       alert(err.response?.data?.message || "เข้าสู่ระบบไม่สำเร็จ");
+    } finally {
+      setLoading(false);
     }
   };
 
+  const inputClass =
+    "w-full bg-white border border-gray-200 rounded-full px-5 py-3 outline-none focus:ring-2 focus:ring-teal-300";
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-500 to-gray-200">
-      <div className="bg-white w-[420px] p-8 rounded-2xl shadow-lg">
-        <h1 className="text-2xl font-bold text-center mb-1">ยินดีต้อนรับ</h1>
-        <p className="text-center text-gray-500 mb-6">
-          กรุณาเข้าสู่ระบบเพื่อใช้งาน
-        </p>
+    <>
+      {/* Navbar */}
+      <Navbar />
 
-        <input
-          name="email"
-          placeholder="อีเมล หรือ รหัสนักศึกษา"
-          className="w-full bg-gray-100 rounded-full px-4 py-2 mb-3"
-          onChange={handleChange}
-        />
+      {/* Content */}
+      <div className="min-h-[calc(100vh-96px)] flex items-center justify-center bg-gray-50">
+        <div className="bg-white w-[420px] p-10 rounded-3xl shadow-2xl">
+          <h1 className="text-2xl font-bold text-center mb-1 text-gray-800">
+            ยินดีต้อนรับ
+          </h1>
+          <p className="text-center text-gray-500 mb-8">
+            กรุณาเข้าสู่ระบบเพื่อใช้งาน
+          </p>
 
-        <input
-          name="password"
-          type="password"
-          placeholder="รหัสผ่าน"
-          className="w-full bg-gray-100 rounded-full px-4 py-2 mb-4"
-          onChange={handleChange}
-        />
+          {/* Email */}
+          <div className="mb-5">
+            <label className="text-sm text-gray-600">อีเมล</label>
+            <input
+              name="email"
+              type="email"
+              placeholder="example@xxx.com"
+              className={inputClass}
+              onChange={handleChange}
+            />
+          </div>
 
-        <button
-          onClick={handleLogin}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-full font-semibold mb-4"
-        >
-          เข้าสู่ระบบ
-        </button>
+          {/* Password */}
+          <div className="mb-8">
+            <label className="text-sm text-gray-600">รหัสผ่าน</label>
+            <input
+              name="password"
+              type="password"
+              placeholder="กรอกรหัสผ่านของคุณ"
+              className={inputClass}
+              onChange={handleChange}
+            />
+          </div>
 
-        <div className="text-center text-sm">
-          <Link to="/register" className="text-blue-600 hover:underline">
-            ยังไม่มีบัญชี? สมัครสมาชิก
-          </Link>
+          {/* Submit */}
+          <button
+            onClick={handleLogin}
+            disabled={loading}
+            className="w-full py-3 rounded-full font-semibold text-white
+                       bg-gradient-to-r from-teal-400 to-orange-400
+                       hover:opacity-90 transition shadow-md"
+          >
+            {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
+          </button>
+
+          <div className="text-center text-sm mt-6 text-gray-600">
+            ยังไม่มีบัญชี?{" "}
+            <Link to="/register" className="text-teal-600 hover:underline">
+              สมัครสมาชิก
+            </Link>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -7,26 +7,46 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true,
     maxlength: 30,
+    trim: true,
   },
+
   email: {
-    // ❌ ไม่ unique
     type: String,
-    required: false,
+    required: true,      // ✅ บังคับ
+    unique: true,        // ✅ กันซ้ำระดับ DB
+    lowercase: true,
+    trim: true,
+    match: [
+      /^\S+@\S+\.\S+$/,
+      "รูปแบบ Email ไม่ถูกต้อง",
+    ],                    // ✅ validate format
   },
+
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+    minlength: 2,
+  },
+
   password: {
     type: String,
     required: true,
+    minlength: 6,
   },
+
   role: {
     type: String,
     enum: ["admin", "trainer", "instructor", "trainee"],
     required: true,
   },
+
   status: {
     type: String,
     enum: ["pending", "active", "inactive"],
     default: "pending",
   },
+
   created_at: {
     type: Date,
     default: Date.now,

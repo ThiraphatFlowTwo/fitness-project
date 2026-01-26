@@ -4,7 +4,9 @@ import api from "../../services/api";
 export default function ManageUsers() {
   const [users, setUsers] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
-  const [activeTab, setActiveTab] = useState("pending"); // ⭐ default = pending
+  const [activeTab, setActiveTab] = useState("pending");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [errors, setErrors] = useState({});
   const [newUser, setNewUser] = useState({
     username: "",
     password: "",
@@ -22,11 +24,36 @@ export default function ManageUsers() {
     fetchUsers();
   }, []);
 
-  // ===== ADD USER =====
+  // ===== FORM VALIDATION =====
+  const validate = () => {
+    const newErrors = {};
+
+    if (!newUser.username) newErrors.username = "กรุณากรอก Username";
+
+    if (!newUser.password) newErrors.password = "กรุณากรอกรหัสผ่าน";
+
+    if (!newUser.name) newErrors.name = "กรุณากรอกชื่อ-นามสกุล";
+
+    if (!newUser.email) {
+      newErrors.email = "กรุณากรอก Email";
+    } else if (!/^\S+@\S+\.\S+$/.test(newUser.email)) {
+      newErrors.email = "รูปแบบ Email ไม่ถูกต้อง";
+    }
+
+    if (!newUser.role) newErrors.role = "กรุณาเลือก Role";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // ===== ADD USER (ตัวเดียวเท่านั้น) =====
   const handleAddUser = async () => {
+    if (!validate()) return;
+
     try {
       await api.post("/admin/users", newUser);
       alert("เพิ่มผู้ใช้สำเร็จ");
+
       setShowAdd(false);
       setNewUser({
         username: "",
@@ -35,6 +62,7 @@ export default function ManageUsers() {
         name: "",
         email: "",
       });
+      setErrors({});
       fetchUsers();
     } catch (err) {
       alert(err.response?.data?.message || "เพิ่มผู้ใช้ไม่สำเร็จ");
@@ -71,8 +99,12 @@ export default function ManageUsers() {
     fetchUsers();
   };
 
-  // ===== FILTER BY TAB =====
-  const filteredUsers = users.filter((u) => u.status === activeTab);
+  // ===== FILTER =====
+  const filteredUsers = users.filter((u) => {
+    const matchStatus = u.status === activeTab;
+    const matchRole = roleFilter === "all" ? true : u.role === roleFilter;
+    return matchStatus && matchRole;
+  });
 
   const count = {
     pending: users.filter((u) => u.status === "pending").length,
@@ -90,6 +122,19 @@ export default function ManageUsers() {
         >
           ➕ เพิ่มผู้ใช้
         </button>
+      </div>
+
+      {/* ===== ROLE FILTER ===== */}
+      <div className="mb-4">
+        <select
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+          className="border px-3 py-2 rounded"
+        >
+          <option value="all">ทั้งหมด</option>
+          <option value="trainer">เฉพาะ Trainer</option>
+          <option value="instructor">เฉพาะ Instructor</option>
+        </select>
       </div>
 
       {/* ===== TABS ===== */}
@@ -121,41 +166,74 @@ export default function ManageUsers() {
 
           <input
             placeholder="Username / รหัส"
-            className="border p-2 w-full mb-2"
+            className={`border p-2 w-full mb-1 ${
+              errors.username ? "border-red-500" : ""
+            }`}
+            value={newUser.username}
             onChange={(e) =>
               setNewUser({ ...newUser, username: e.target.value })
             }
           />
+          {errors.username && (
+            <p className="text-red-500 text-xs mb-2">{errors.username}</p>
+          )}
 
           <input
             placeholder="รหัสผ่าน"
             type="password"
-            className="border p-2 w-full mb-2"
+            className={`border p-2 w-full mb-1 ${
+              errors.password ? "border-red-500" : ""
+            }`}
+            value={newUser.password}
             onChange={(e) =>
               setNewUser({ ...newUser, password: e.target.value })
             }
           />
+          {errors.password && (
+            <p className="text-red-500 text-xs mb-2">{errors.password}</p>
+          )}
 
           <input
             placeholder="ชื่อ-นามสกุล"
-            className="border p-2 w-full mb-2"
+            className={`border p-2 w-full mb-1 ${
+              errors.name ? "border-red-500" : ""
+            }`}
+            value={newUser.name}
             onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
           />
+          {errors.name && (
+            <p className="text-red-500 text-xs mb-2">{errors.name}</p>
+          )}
 
           <input
             placeholder="Email"
-            className="border p-2 w-full mb-2"
+            type="email"
+            className={`border p-2 w-full mb-1 ${
+              errors.email ? "border-red-500" : ""
+            }`}
+            value={newUser.email}
             onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
           />
+          {errors.email && (
+            <p className="text-red-500 text-xs mb-2">{errors.email}</p>
+          )}
 
           <select
-            className="border p-2 w-full mb-3"
+            className={`border p-2 w-full mb-1 ${
+              errors.role ? "border-red-500" : ""
+            }`}
+            value={newUser.role}
             onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
           >
+            <option value="">-- เลือก Role --</option>
             <option value="trainer">Trainer</option>
             <option value="instructor">Instructor</option>
             <option value="admin">Admin</option>
           </select>
+
+          {errors.role && (
+            <p className="text-red-500 text-xs mb-2">{errors.role}</p>
+          )}
 
           <div className="flex gap-2">
             <button
