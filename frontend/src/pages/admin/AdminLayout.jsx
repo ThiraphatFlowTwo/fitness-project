@@ -1,58 +1,63 @@
-import { useEffect, useState } from 'react'
-import { Link, Outlet } from 'react-router-dom'
-import api from '../../services/api'
+import { Outlet, Link, useNavigate } from "react-router-dom";
 
 export default function AdminLayout() {
-  const [pendingCount, setPendingCount] = useState(0)
+  const navigate = useNavigate();
 
-  const fetchPendingCount = async () => {
-    try {
-      const res = await api.get('/admin/users/pending-count')
-      setPendingCount(res.data.count)
-    } catch (err) {
-      console.error('Load pending count failed')
-    }
-  }
+  const handleLogout = () => {
+    if (!confirm("ต้องการออกจากระบบใช่หรือไม่?")) return;
 
-  useEffect(() => {
-    fetchPendingCount()
+    // ลบ token และ user
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
 
-    // ⭐ refresh badge ทุก 10 วินาที (กันข้อมูลค้าง)
-    const interval = setInterval(fetchPendingCount, 10000)
-    return () => clearInterval(interval)
-  }, [])
+    // กลับไปหน้า login
+    navigate("/login");
+  };
 
   return (
     <div className="flex min-h-screen">
-      {/* SIDEBAR */}
-      <aside className="w-64 bg-gray-900 text-white p-4">
-        <h2 className="text-xl font-bold mb-6">Admin Panel</h2>
+      {/* ===== Sidebar ===== */}
+      <aside className="w-64 bg-slate-900 text-white p-4 flex flex-col">
+        <div>
+          <h2 className="text-xl font-bold mb-6">Admin Panel</h2>
 
-        <nav className="space-y-2">
-          <Link to="/admin" className="block hover:bg-gray-700 p-2 rounded">
+          <Link
+            to="/admin"
+            className="block px-4 py-2 rounded hover:bg-slate-700"
+          >
             Dashboard
           </Link>
 
           <Link
             to="/admin/users"
-            className="flex justify-between items-center hover:bg-gray-700 p-2 rounded"
+            className="block px-4 py-2 rounded hover:bg-slate-700"
           >
-            <span>จัดการผู้ใช้</span>
-
-            {/* 🔴 BADGE */}
-            {pendingCount > 0 && (
-              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                {pendingCount}
-              </span>
-            )}
+            จัดการผู้ใช้
           </Link>
-        </nav>
+
+          <Link
+            to="/admin/academic-year"
+            className="block px-4 py-2 rounded hover:bg-slate-700"
+          >
+            จัดการปีการศึกษา
+          </Link>
+        </div>
+
+        {/* ===== Logout Button ===== */}
+        <div className="mt-auto pt-6 border-t border-slate-700">
+          <button
+            onClick={handleLogout}
+            className="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-semibold transition"
+          >
+            ออกจากระบบ (Logout)
+          </button>
+        </div>
       </aside>
 
-      {/* CONTENT */}
-      <main className="flex-1 bg-gray-100 p-6">
+      {/* ===== Main Content ===== */}
+      <main className="flex-1 bg-gray-50">
         <Outlet />
       </main>
     </div>
-  )
+  );
 }
