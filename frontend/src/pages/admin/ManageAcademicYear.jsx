@@ -1,6 +1,18 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
 import Navbar from "../../components/Navbar";
+import {
+  Calendar,
+  Plus,
+  Trash2,
+  Power,
+  CheckCircle,
+  XCircle,
+  Edit2,
+  Clock,
+  PlayCircle,
+  PauseCircle,
+} from "lucide-react";
 
 export default function ManageAcademicYear() {
   const [list, setList] = useState([]);
@@ -11,6 +23,7 @@ export default function ManageAcademicYear() {
     start_date: "",
     end_date: "",
   });
+  const [errors, setErrors] = useState({});
 
   const fetchData = async () => {
     const res = await api.get("/academic-years");
@@ -23,9 +36,44 @@ export default function ManageAcademicYear() {
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+    // Clear error when user starts typing
+    if (errors[e.target.name]) {
+      setErrors({ ...errors, [e.target.name]: "" });
+    }
+  };
+
+  const validate = () => {
+    const newErrors = {};
+
+    if (!form.academic_year) {
+      newErrors.academic_year = "กรุณากรอกปีการศึกษา";
+    } else if (!/^\d{4}$/.test(form.academic_year)) {
+      newErrors.academic_year = "ปีการศึกษาต้องเป็นตัวเลข 4 หลัก";
+    }
+
+    if (!form.semester) {
+      newErrors.semester = "กรุณากรอกภาคการศึกษา";
+    }
+
+    if (!form.start_date) {
+      newErrors.start_date = "กรุณาเลือกวันที่เริ่ม";
+    }
+
+    if (!form.end_date) {
+      newErrors.end_date = "กรุณาเลือกวันที่สิ้นสุด";
+    }
+
+    if (form.start_date && form.end_date && form.start_date > form.end_date) {
+      newErrors.end_date = "วันที่สิ้นสุดต้องมากกว่าวันที่เริ่ม";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async () => {
+    if (!validate()) return;
+
     try {
       await api.post("/academic-years", {
         academic_year: form.academic_year,
@@ -42,8 +90,10 @@ export default function ManageAcademicYear() {
         start_date: "",
         end_date: "",
       });
+      setErrors({});
 
       fetchData();
+      alert("เพิ่มปีการศึกษาสำเร็จ");
     } catch (err) {
       alert(err.response?.data?.message || "เพิ่มข้อมูลไม่สำเร็จ");
     }
@@ -64,117 +114,360 @@ export default function ManageAcademicYear() {
     }
   };
 
+  const activeYear = list.find((item) => item.status === "active");
+
   return (
     <>
       <Navbar />
 
-      <div className="p-8">
-        <h1 className="text-2xl font-bold mb-6">
-          จัดการปีการศึกษา / ภาคการศึกษา
-        </h1>
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 min-h-screen">
+        <div className="max-w-7xl mx-auto">
+          {/* ===== HEADER ===== */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="h-12 w-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+              <Calendar className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                จัดการปีการศึกษา
+              </h1>
+              <p className="text-slate-600 text-sm">
+                ทั้งหมด {list.length} รายการ
+                {activeYear && (
+                  <span className="ml-2 text-green-600 font-semibold">
+                    • ปัจจุบัน: {activeYear.academic_year}/{activeYear.semester}
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
 
-        {/* ===== FORM ===== */}
-        <div className="bg-white p-6 rounded-xl shadow mb-8 grid grid-cols-2 gap-4">
-          <input
-            name="academic_year"
-            placeholder="ปีการศึกษา (เช่น 2567)"
-            value={form.academic_year}
-            onChange={handleChange}
-            className="border p-2 rounded"
-          />
-          <input
-            name="semester"
-            placeholder="ภาคการศึกษา (เช่น 1, 2)"
-            value={form.semester}
-            onChange={handleChange}
-            className="border p-2 rounded"
-          />
-          <select
-            name="status"
-            value={form.status}
-            onChange={handleChange}
-            className="border p-2 rounded"
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-          <input
-            type="date"
-            name="start_date"
-            value={form.start_date}
-            onChange={handleChange}
-            className="border p-2 rounded"
-          />
-          <input
-            type="date"
-            name="end_date"
-            value={form.end_date}
-            onChange={handleChange}
-            className="border p-2 rounded"
-          />
+          {/* ===== FORM CARD ===== */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-white/20 mb-6">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="h-8 w-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
+                <Plus className="w-5 h-5 text-white" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-800">
+                เพิ่มปีการศึกษาใหม่
+              </h2>
+            </div>
 
-          <button
-            onClick={handleSubmit}
-            className="col-span-2 bg-teal-500 text-white py-2 rounded"
-          >
-            เพิ่มปีการศึกษา
-          </button>
-        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              {/* Academic Year */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  <Calendar className="w-4 h-4 inline mr-1" />
+                  ปีการศึกษา
+                </label>
+                <input
+                  name="academic_year"
+                  placeholder="เช่น 2567"
+                  value={form.academic_year}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                    errors.academic_year
+                      ? "border-red-500"
+                      : "border-slate-200"
+                  }`}
+                />
+                {errors.academic_year && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                    <XCircle className="w-4 h-4" />
+                    {errors.academic_year}
+                  </p>
+                )}
+              </div>
 
-        {/* ===== TABLE ===== */}
-        <div className="bg-white rounded-xl shadow overflow-x-auto">
-          <table className="w-full border">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="border p-2">ปีการศึกษา</th>
-                <th className="border p-2">ภาค</th>
-                <th className="border p-2">สถานะ</th>
-                <th className="border p-2">เริ่ม</th>
-                <th className="border p-2">สิ้นสุด</th>
-                <th className="border p-2">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((item) => (
-                <tr key={item._id}>
-                  <td className="border p-2">{item.academic_year}</td>
-                  <td className="border p-2">{item.semester}</td>
-                  <td className="border p-2">
-                    <span
-                      className={`px-2 py-1 rounded text-xs ${
-                        item.status === "active"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="border p-2">
-                    {item.start_date?.slice(0, 10)}
-                  </td>
-                  <td className="border p-2">{item.end_date?.slice(0, 10)}</td>
-                  <td className="border p-2 text-center space-x-2">
-                    <button
-                      onClick={() => handleToggleStatus(item._id)}
-                      className={`px-3 py-1 rounded text-white text-xs ${
-                        item.status === "active" ? "bg-red-500" : "bg-green-500"
-                      }`}
-                    >
-                      {item.status === "active" ? "ปิดใช้งาน" : "เปิดใช้งาน"}
-                    </button>
+              {/* Semester */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  <Clock className="w-4 h-4 inline mr-1" />
+                  ภาคการศึกษา
+                </label>
+                <input
+                  name="semester"
+                  placeholder="เช่น 1, 2, 3"
+                  value={form.semester}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                    errors.semester ? "border-red-500" : "border-slate-200"
+                  }`}
+                />
+                {errors.semester && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                    <XCircle className="w-4 h-4" />
+                    {errors.semester}
+                  </p>
+                )}
+              </div>
 
-                    <button
-                      onClick={() => handleDelete(item._id)}
-                      className="px-3 py-1 rounded text-xs bg-gray-200 hover:bg-gray-300"
-                    >
-                      ลบ
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              {/* Status */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  <Power className="w-4 h-4 inline mr-1" />
+                  สถานะ
+                </label>
+                <select
+                  name="status"
+                  value={form.status}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                >
+                  <option value="active">Active (เปิดใช้งาน)</option>
+                  <option value="inactive">Inactive (ปิดใช้งาน)</option>
+                </select>
+              </div>
+
+              {/* Start Date */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  <PlayCircle className="w-4 h-4 inline mr-1" />
+                  วันที่เริ่มต้น
+                </label>
+                <input
+                  type="date"
+                  name="start_date"
+                  value={form.start_date}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                    errors.start_date ? "border-red-500" : "border-slate-200"
+                  }`}
+                />
+                {errors.start_date && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                    <XCircle className="w-4 h-4" />
+                    {errors.start_date}
+                  </p>
+                )}
+              </div>
+
+              {/* End Date */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  <PauseCircle className="w-4 h-4 inline mr-1" />
+                  วันที่สิ้นสุด
+                </label>
+                <input
+                  type="date"
+                  name="end_date"
+                  value={form.end_date}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                    errors.end_date ? "border-red-500" : "border-slate-200"
+                  }`}
+                />
+                {errors.end_date && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                    <XCircle className="w-4 h-4" />
+                    {errors.end_date}
+                  </p>
+                )}
+              </div>
+
+              {/* Submit Button */}
+              <div className="flex items-end">
+                <button
+                  onClick={handleSubmit}
+                  className="w-full group bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+                  เพิ่มปีการศึกษา
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ===== TABLE CARD ===== */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden border border-white/20">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gradient-to-r from-slate-100 to-slate-50 border-b-2 border-slate-200">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">
+                      ปีการศึกษา / ภาค
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">
+                      สถานะ
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">
+                      วันที่เริ่มต้น
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">
+                      วันที่สิ้นสุด
+                    </th>
+                    <th className="px-6 py-4 text-center text-sm font-bold text-slate-700">
+                      จัดการ
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {list.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan="5"
+                        className="px-6 py-12 text-center text-slate-500"
+                      >
+                        <Calendar className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                        <p className="text-lg font-medium">
+                          ยังไม่มีข้อมูลปีการศึกษา
+                        </p>
+                        <p className="text-sm text-slate-400 mt-1">
+                          เพิ่มปีการศึกษาใหม่ด้วยฟอร์มด้านบน
+                        </p>
+                      </td>
+                    </tr>
+                  ) : (
+                    list.map((item) => (
+                      <tr
+                        key={item._id}
+                        className={`hover:bg-blue-50/50 transition-colors ${
+                          item.status === "active" ? "bg-green-50/30" : ""
+                        }`}
+                      >
+                        {/* Year / Semester */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold shadow-lg ${
+                                item.status === "active"
+                                  ? "bg-gradient-to-br from-green-500 to-emerald-600"
+                                  : "bg-gradient-to-br from-slate-400 to-slate-500"
+                              }`}
+                            >
+                              {item.semester}
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-800 text-lg">
+                                {item.academic_year}
+                              </p>
+                              <p className="text-sm text-slate-600">
+                                ภาคการศึกษาที่ {item.semester}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Status */}
+                        <td className="px-6 py-4">
+                          <span
+                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold shadow-sm ${
+                              item.status === "active"
+                                ? "bg-green-100 text-green-700 border-2 border-green-200"
+                                : "bg-slate-100 text-slate-600 border-2 border-slate-200"
+                            }`}
+                          >
+                            {item.status === "active" ? (
+                              <CheckCircle className="w-4 h-4" />
+                            ) : (
+                              <XCircle className="w-4 h-4" />
+                            )}
+                            {item.status === "active"
+                              ? "เปิดใช้งาน"
+                              : "ปิดใช้งาน"}
+                          </span>
+                        </td>
+
+                        {/* Start Date */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2 text-slate-700">
+                            <PlayCircle className="w-4 h-4 text-slate-400" />
+                            <span className="font-medium">
+                              {new Date(
+                                item.start_date
+                              ).toLocaleDateString("th-TH", {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* End Date */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2 text-slate-700">
+                            <PauseCircle className="w-4 h-4 text-slate-400" />
+                            <span className="font-medium">
+                              {new Date(item.end_date).toLocaleDateString(
+                                "th-TH",
+                                {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                }
+                              )}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleToggleStatus(item._id)}
+                              className={`group flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105 shadow-sm ${
+                                item.status === "active"
+                                  ? "bg-red-100 text-red-700 hover:bg-red-200"
+                                  : "bg-green-100 text-green-700 hover:bg-green-200"
+                              }`}
+                              title={
+                                item.status === "active"
+                                  ? "ปิดใช้งาน"
+                                  : "เปิดใช้งาน"
+                              }
+                            >
+                              <Power className="w-4 h-4 group-hover:rotate-180 transition-transform duration-300" />
+                              {item.status === "active"
+                                ? "ปิดใช้งาน"
+                                : "เปิดใช้งาน"}
+                            </button>
+
+                            <button
+                              onClick={() => handleDelete(item._id)}
+                              className="group flex items-center gap-1 bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-700 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105 shadow-sm"
+                              title="ลบ"
+                            >
+                              <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                              ลบ
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* ===== INFO CARD ===== */}
+          {activeYear && (
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl shadow-xl p-6 text-white border-2 border-green-300">
+              <div className="flex items-center gap-3 mb-2">
+                <CheckCircle className="w-8 h-8" />
+                <h3 className="text-xl font-bold">ปีการศึกษาปัจจุบัน</h3>
+              </div>
+              <p className="text-green-50 text-lg">
+                <strong className="text-2xl">
+                  {activeYear.academic_year} / {activeYear.semester}
+                </strong>
+              </p>
+              <p className="text-green-100 text-sm mt-2">
+                {new Date(activeYear.start_date).toLocaleDateString("th-TH", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}{" "}
+                -{" "}
+                {new Date(activeYear.end_date).toLocaleDateString("th-TH", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </>

@@ -16,6 +16,7 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ManageUsers from "./pages/admin/ManageUsers";
 import ManageAcademicYear from "./pages/admin/ManageAcademicYear";
+import ManageExercises from "./pages/admin/ManageExercises";
 
 // Auth
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -66,6 +67,9 @@ function App() {
 
           {/* ✅ /admin/academic-year */}
           <Route path="academic-year" element={<ManageAcademicYear />} />
+
+          <Route path="/admin/exercises" element={<ManageExercises />} />
+
         </Route>
 
         {/* ===== Fallback ===== */}
