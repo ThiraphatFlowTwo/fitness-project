@@ -39,6 +39,24 @@ const TYPE_COLORS = {
   คาร์ดิโอ: "from-orange-500 to-red-600",
 };
 
+const EQUIPMENT_LIST = [
+  { label: "ดัมเบล", value: "dumbbell" },
+  { label: "บาร์เบล", value: "barbell" },
+  { label: "แคทเทิลเบล", value: "kettlebell" },
+  { label: "เครื่อง", value: "machine" },
+  { label: "เคเบิล", value: "cable" },
+  { label: "คาลิสเทนิกส์", value: "calisthenics" },
+  { label: "ยางยืด", value: "resistance_band" },
+  { label: "ลูกบอลฝึกสมดุล", value: "balance_ball" },
+  { label: "ลูกบอลยาง", value: "medicine_ball" },
+  { label: "อื่นๆ", value: "other" },
+];
+
+const EQUIPMENT_LABEL_MAP = EQUIPMENT_LIST.reduce((acc, item) => {
+  acc[item.value] = item.label;
+  return acc;
+}, {});
+
 export default function ManageExercises() {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +73,7 @@ export default function ManageExercises() {
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [equipmentFilter, setEquipmentFilter] = useState("all");
   const [errors, setErrors] = useState({});
 
   // ===== LOAD =====
@@ -91,7 +110,7 @@ export default function ManageExercises() {
     setForm({
       exercise_name: ex.exercise_name,
       exercise_type: ex.exercise_type,
-      equipment_type: ex.equipment_type,
+      equipment_type: ex.equipment_type || "",
       description: ex.description || "",
     });
     setErrors({});
@@ -119,10 +138,9 @@ export default function ManageExercises() {
       newErrors.exercise_type = "กรุณาเลือกประเภทท่า";
     }
 
-    if (!form.equipment_type.trim()) {
-      newErrors.equipment_type = "กรุณากรอกอุปกรณ์";
+    if (!form.equipment_type) {
+      newErrors.equipment_type = "กรุณาเลือกอุปกรณ์";
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -163,19 +181,50 @@ export default function ManageExercises() {
 
   const filteredExercises = exercises.filter((ex) => {
     const keyword = search.toLowerCase();
+
+    const equipmentValue = Array.isArray(ex.equipment_type)
+      ? ex.equipment_type.join(" ")
+      : ex.equipment_type || "";
+
     const matchSearch =
       ex.exercise_name.toLowerCase().includes(keyword) ||
       ex.exercise_type.toLowerCase().includes(keyword) ||
-      ex.equipment_type.toLowerCase().includes(keyword);
+      equipmentValue.toLowerCase().includes(keyword);
 
     const matchType = typeFilter === "all" || ex.exercise_type === typeFilter;
 
-    return matchSearch && matchType;
+    const matchEquipment =
+      equipmentFilter === "all" ||
+      (Array.isArray(ex.equipment_type)
+        ? ex.equipment_type.includes(equipmentFilter)
+        : ex.equipment_type === equipmentFilter);
+
+    return matchSearch && matchType && matchEquipment;
   });
 
   // Get type counts
   const typeCounts = exercises.reduce((acc, ex) => {
     acc[ex.exercise_type] = (acc[ex.exercise_type] || 0) + 1;
+    return acc;
+  }, {});
+
+  // Get equipment counts
+  const exercisesByType =
+    typeFilter === "all"
+      ? exercises
+      : exercises.filter((ex) => ex.exercise_type === typeFilter);
+  const equipmentCounts = exercisesByType.reduce((acc, ex) => {
+    const eq = ex.equipment_type;
+    if (!eq) return acc;
+
+    if (Array.isArray(eq)) {
+      eq.forEach((e) => {
+        acc[e] = (acc[e] || 0) + 1;
+      });
+    } else {
+      acc[eq] = (acc[eq] || 0) + 1;
+    }
+
     return acc;
   }, {});
 
@@ -209,7 +258,7 @@ export default function ManageExercises() {
 
         {/* ===== FILTERS ===== */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg p-4 border border-white/20 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -234,6 +283,22 @@ export default function ManageExercises() {
                 {EXERCISE_TYPES.map((type) => (
                   <option key={type} value={type}>
                     {type} ({typeCounts[type] || 0})
+                  </option>
+                ))}
+              </select>
+            </div>
+            {/* Equipment Filter */}
+            <div className="relative">
+              <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <select
+                value={equipmentFilter}
+                onChange={(e) => setEquipmentFilter(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer"
+              >
+                <option value="all">ทุกอุปกรณ์</option>
+                {EQUIPMENT_LIST.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label} ({equipmentCounts[item.value] || 0})
                   </option>
                 ))}
               </select>
@@ -329,7 +394,23 @@ export default function ManageExercises() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2 text-slate-700">
                         <Package className="w-4 h-4 text-slate-400" />
-                        <span>{ex.equipment_type}</span>
+                        <div className="flex flex-wrap gap-1">
+                          {Array.isArray(ex.equipment_type) ? (
+                            ex.equipment_type.map((eq) => (
+                              <span
+                                key={eq}
+                                className="px-2 py-1 bg-slate-200 rounded-full text-xs"
+                              >
+                                {eq}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="px-2 py-1 bg-slate-200 rounded-full text-xs">
+                              {EQUIPMENT_LABEL_MAP[ex.equipment_type] ||
+                                ex.equipment_type}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
 
@@ -489,7 +570,8 @@ export default function ManageExercises() {
                     <Package className="w-4 h-4 inline mr-1" />
                     อุปกรณ์
                   </label>
-                  <input
+
+                  <select
                     name="equipment_type"
                     value={form.equipment_type}
                     onChange={handleChange}
@@ -498,8 +580,15 @@ export default function ManageExercises() {
                         ? "border-red-500"
                         : "border-slate-200"
                     }`}
-                    placeholder="เช่น Dumbbell, Barbell, None"
-                  />
+                  >
+                    <option value="">-- เลือกอุปกรณ์ --</option>
+                    {EQUIPMENT_LIST.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+
                   {errors.equipment_type && (
                     <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
                       <XCircle className="w-4 h-4" />

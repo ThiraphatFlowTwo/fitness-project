@@ -9,7 +9,11 @@ import Register from "./pages/Register";
 import TrainerDashboard from "./pages/trainer/TrainerDashboard";
 
 // Instructor
+import InstructorLayout from "./layouts/InstructorLayout";
 import InstructorDashboard from "./pages/instructor/InstructorDashboard";
+import ManageTrainees from "./pages/instructor/ManageTrainees";
+import ManagePrograms from "./pages/instructor/ManagePrograms";
+import InstructorProfile from "./pages/instructor/InstructorProfile";
 
 // Admin
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -30,9 +34,9 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* ===== Trainer ===== */}
+        {/* ===== Trainer (เทรนเนอร์) ===== */}
         <Route
-          path="/trainer/dashboard"
+          path="/trainer"
           element={
             <ProtectedRoute role="trainer">
               <TrainerDashboard />
@@ -40,17 +44,23 @@ function App() {
           }
         />
 
-        {/* ===== Instructor ===== */}
+        {/* ===== Instructor (อาจารย์) ===== */}
         <Route
-          path="/instructor/dashboard"
+          path="/instructor"
           element={
             <ProtectedRoute role="instructor">
-              <InstructorDashboard />
+              <InstructorLayout />
             </ProtectedRoute>
           }
-        />
+        >
+          {/* /instructor */}
+          <Route index element={<InstructorDashboard />} />
+          <Route path="trainees" element={<ManageTrainees />} />
+          <Route path="programs" element={<ManagePrograms />} />
+          <Route path="profile" element={<InstructorProfile />} />
+        </Route>
 
-        {/* ===== Admin (Nested Routes) ===== */}
+        {/* ===== Admin ===== */}
         <Route
           path="/admin"
           element={
@@ -61,15 +71,9 @@ function App() {
         >
           {/* /admin */}
           <Route index element={<AdminDashboard />} />
-
-          {/* /admin/users */}
           <Route path="users" element={<ManageUsers />} />
-
-          {/* ✅ /admin/academic-year */}
           <Route path="academic-year" element={<ManageAcademicYear />} />
-
-          <Route path="/admin/exercises" element={<ManageExercises />} />
-
+          <Route path="exercises" element={<ManageExercises />} />
         </Route>
 
         {/* ===== Fallback ===== */}

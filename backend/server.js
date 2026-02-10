@@ -21,5 +21,6 @@ app.use("/api/academic-years", academicYearRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/exercises", exerciseRoutes);
 
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log("Server running on port", PORT));

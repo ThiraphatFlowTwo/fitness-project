@@ -37,6 +37,26 @@ exports.deleteAcademicYear = async (req, res) => {
   }
 };
 
+// ===== UPDATE ACADEMIC YEAR =====
+exports.updateAcademicYear = async (req, res) => {
+  try {
+    const updated = await AcademicYear.findByIdAndUpdate(
+      req.params.id,
+      {
+        academic_year: req.body.academic_year,
+        semester: req.body.semester,
+        start_date: req.body.start_date,
+        end_date: req.body.end_date,
+      },
+      { new: true },
+    );
+
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
 // ===== TOGGLE STATUS =====
 exports.toggleStatus = async (req, res) => {
   try {
@@ -46,13 +66,12 @@ exports.toggleStatus = async (req, res) => {
       return res.status(404).json({ message: "ไม่พบปีการศึกษา" });
     }
 
-    const newStatus =
-      academicYear.status === "active" ? "inactive" : "active";
+    const newStatus = academicYear.status === "active" ? "inactive" : "active";
 
     if (newStatus === "active") {
       await AcademicYear.updateMany(
         { _id: { $ne: academicYear._id } },
-        { status: "inactive" }
+        { status: "inactive" },
       );
     }
 

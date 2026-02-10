@@ -33,9 +33,40 @@ export default function ManageUsers() {
     email: "",
   });
 
+  // ===== EDIT USER STATE =====
+  const [showEdit, setShowEdit] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    email: "",
+  });
+
   const fetchUsers = async () => {
     const res = await api.get("/admin/users");
     setUsers(res.data);
+  };
+
+  const openEditModal = (user) => {
+    setEditingUser(user);
+    setEditForm({
+      name: user.name || "",
+      email: user.email || "",
+    });
+    setShowEdit(true);
+  };
+
+  const handleUpdateUser = async () => {
+    try {
+      await api.put(`/admin/users/${editingUser._id}`, {
+        name: editForm.name,
+        email: editForm.email,
+      });
+
+      setShowEdit(false);
+      fetchUsers(); // โหลดข้อมูลใหม่
+    } catch (err) {
+      alert("แก้ไขไม่สำเร็จ");
+    }
   };
 
   useEffect(() => {
@@ -500,6 +531,14 @@ export default function ManageUsers() {
                           )}
 
                           <button
+                            onClick={() => openEditModal(u)}
+                            className="group flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all hover:scale-105"
+                            title="แก้ไขข้อมูล"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+
+                          <button
                             onClick={() => handleToggleStatus(u._id, u.status)}
                             className="group flex items-center gap-1 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all hover:scale-105"
                             title="เปิด/ปิดใช้งาน"
@@ -524,6 +563,63 @@ export default function ManageUsers() {
           </div>
         </div>
       </div>
+
+      {showEdit && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white p-6 rounded-t-2xl flex justify-between items-center">
+              <h2 className="text-xl font-bold">แก้ไขข้อมูลผู้ใช้</h2>
+              <button onClick={() => setShowEdit(false)}>
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block font-semibold mb-1">ชื่อ–นามสกุล</label>
+                <input
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, name: e.target.value })
+                  }
+                  className="w-full border p-3 rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, email: e.target.value })
+                  }
+                  className="w-full border p-3 rounded-xl"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 flex gap-3 border-t">
+              <button
+                onClick={handleUpdateUser}
+                className="flex-1 bg-green-600 text-white py-3 rounded-xl font-semibold"
+              >
+                บันทึก
+              </button>
+              <button
+                onClick={() => setShowEdit(false)}
+                className="flex-1 bg-gray-200 py-3 rounded-xl font-semibold"
+              >
+                ยกเลิก
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -550,6 +646,7 @@ function TabButton({ label, count, icon, active, onClick, color }) {
         "bg-white text-slate-600 border-2 border-slate-200 hover:border-red-500",
     },
   };
+
 
   return (
     <button

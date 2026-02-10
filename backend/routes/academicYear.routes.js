@@ -6,13 +6,15 @@ const {
   createAcademicYear,
   getAcademicYears,
   deleteAcademicYear,
-  toggleStatus,   // <<<< ต้องมี
+  updateAcademicYear,
+  toggleStatus,
 } = require("../controllers/academicYear.controller");
 
 // routes
 router.get("/", getAcademicYears);
 router.post("/", createAcademicYear);
 router.delete("/:id", deleteAcademicYear);
+router.put("/:id", updateAcademicYear);
 
 // ✅ toggle status
 router.patch("/:id/toggle-status", toggleStatus);
