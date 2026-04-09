@@ -23,7 +23,7 @@ const TrainerLayout = () => {
     { id: 'dashboard', label: 'หน้าหลัก', icon: Home, path: '/trainer/dashboard' },
     { id: 'trainees', label: 'จัดการผู้รับการฝึก', icon: Users, path: '/trainer/trainees' },
     { id: 'programs', label: 'โปรแกรมการฝึก', icon: ClipboardList, path: '/trainer/programs' },
-    { id: 'exercises', label: 'ท่าในการฝึก', icon: Dumbbell, path: '/trainer/exercises' },
+    { id: 'exercises', label: 'ท่าในกรฝึก', icon: Dumbbell, path: '/trainer/exercises' },
     { id: 'results', label: 'บันทึกผลการฝึก', icon: Edit, path: '/trainer/results' },
     { id: 'progress', label: 'พัฒนาการ', icon: TrendingUp, path: '/trainer/progress' },
     { id: 'profile', label: 'โปรไฟล์ส่วนตัว', icon: User, path: '/trainer/profile' }
