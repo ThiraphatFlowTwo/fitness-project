@@ -12,6 +12,7 @@ import {
   Clock,
   PlayCircle,
   PauseCircle,
+  X,
 } from "lucide-react";
 
 export default function ManageAcademicYear() {
@@ -24,6 +25,16 @@ export default function ManageAcademicYear() {
     end_date: "",
   });
   const [errors, setErrors] = useState({});
+
+  // ===== EDIT MODAL STATE =====
+  const [showEdit, setShowEdit] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({
+    academic_year: "",
+    semester: "",
+    start_date: "",
+    end_date: "",
+  });
 
   const fetchData = async () => {
     const res = await api.get("/academic-years");
@@ -114,12 +125,50 @@ export default function ManageAcademicYear() {
     }
   };
 
+  // เปิด popup พร้อมโหลดข้อมูลเดิม
+  const openEditModal = (item) => {
+    const toDateInput = (v) => {
+      if (!v) return "";
+      if (typeof v === "string") return v.slice(0, 10);
+      try {
+        return new Date(v).toISOString().slice(0, 10);
+      } catch {
+        return "";
+      }
+    };
+
+    setEditingId(item._id);
+    setEditForm({
+      academic_year: item.academic_year,
+      semester: item.semester,
+      start_date: toDateInput(item.start_date),
+      end_date: toDateInput(item.end_date),
+    });
+    setShowEdit(true);
+  };
+
+  // บันทึกการแก้ไข
+  const handleUpdate = async () => {
+    try {
+      await api.put(`/academic-years/${editingId}`, {
+        academic_year: editForm.academic_year,
+        semester: editForm.semester,
+        start_date: editForm.start_date,
+        end_date: editForm.end_date,
+      });
+
+      alert("แก้ไขข้อมูลสำเร็จ");
+      setShowEdit(false);
+      fetchData();
+    } catch (err) {
+      alert("แก้ไขไม่สำเร็จ");
+    }
+  };
+
   const activeYear = list.find((item) => item.status === "active");
 
   return (
     <>
-      <Navbar />
-
       <div className="p-4 sm:p-6 lg:p-8 space-y-6 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 min-h-screen">
         <div className="max-w-7xl mx-auto">
           {/* ===== HEADER ===== */}
@@ -166,9 +215,7 @@ export default function ManageAcademicYear() {
                   value={form.academic_year}
                   onChange={handleChange}
                   className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                    errors.academic_year
-                      ? "border-red-500"
-                      : "border-slate-200"
+                    errors.academic_year ? "border-red-500" : "border-slate-200"
                   }`}
                 />
                 {errors.academic_year && (
@@ -373,13 +420,14 @@ export default function ManageAcademicYear() {
                           <div className="flex items-center gap-2 text-slate-700">
                             <PlayCircle className="w-4 h-4 text-slate-400" />
                             <span className="font-medium">
-                              {new Date(
-                                item.start_date
-                              ).toLocaleDateString("th-TH", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              })}
+                              {new Date(item.start_date).toLocaleDateString(
+                                "th-TH",
+                                {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                },
+                              )}
                             </span>
                           </div>
                         </td>
@@ -395,7 +443,7 @@ export default function ManageAcademicYear() {
                                   year: "numeric",
                                   month: "short",
                                   day: "numeric",
-                                }
+                                },
                               )}
                             </span>
                           </div>
@@ -424,6 +472,15 @@ export default function ManageAcademicYear() {
                             </button>
 
                             <button
+                              onClick={() => openEditModal(item)}
+                              className="group flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105 shadow-sm"
+                              title="แก้ไขข้อมูล"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                              แก้ไข
+                            </button>
+
+                            <button
                               onClick={() => handleDelete(item._id)}
                               className="group flex items-center gap-1 bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-700 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105 shadow-sm"
                               title="ลบ"
@@ -440,6 +497,72 @@ export default function ManageAcademicYear() {
               </table>
             </div>
           </div>
+
+          {/* ===== EDIT POPUP MODAL ===== */}
+          {showEdit && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold">แก้ไขปีการศึกษา</h2>
+                  <button onClick={() => setShowEdit(false)}>
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <input
+                  className="w-full border p-3 rounded-xl mb-3"
+                  value={editForm.academic_year}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, academic_year: e.target.value })
+                  }
+                  placeholder="ปีการศึกษา"
+                />
+
+                <input
+                  className="w-full border p-3 rounded-xl mb-3"
+                  value={editForm.semester}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, semester: e.target.value })
+                  }
+                  placeholder="ภาคการศึกษา"
+                />
+
+                <input
+                  type="date"
+                  className="w-full border p-3 rounded-xl mb-3"
+                  value={editForm.start_date}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, start_date: e.target.value })
+                  }
+                />
+
+                <input
+                  type="date"
+                  className="w-full border p-3 rounded-xl mb-3"
+                  value={editForm.end_date}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, end_date: e.target.value })
+                  }
+                />
+
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={handleUpdate}
+                    className="flex-1 bg-green-600 text-white py-3 rounded-xl font-semibold"
+                  >
+                    บันทึก
+                  </button>
+
+                  <button
+                    onClick={() => setShowEdit(false)}
+                    className="flex-1 bg-gray-200 py-3 rounded-xl font-semibold"
+                  >
+                    ยกเลิก
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ===== INFO CARD ===== */}
           {activeYear && (
