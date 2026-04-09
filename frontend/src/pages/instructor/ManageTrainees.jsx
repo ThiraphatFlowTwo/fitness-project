@@ -2,7 +2,7 @@ export default function ManageTrainees() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">👥 ผู้รับการฝึก</h1>
+        <h1 className="text-2xl font-bold">👥 เทรนเนอร์</h1>
       </div>
 
       <div className="bg-white rounded-xl shadow overflow-x-auto">

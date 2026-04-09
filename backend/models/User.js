@@ -37,8 +37,10 @@ const userSchema = new mongoose.Schema({
 
   role: {
     type: String,
-    enum: ["admin", "trainer", "instructor", "trainee"],
+    // เพิ่ม "pending" เข้าไปเพื่อให้สมัครสมาชิกแบบยังไม่มีสิทธิ์ได้
+    enum: ["admin", "trainer", "instructor", "trainee", "pending"], 
     required: true,
+    default: "pending" // ตั้งให้เป็น pending อัตโนมัติ
   },
 
   status: {

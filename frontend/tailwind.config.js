@@ -7,40 +7,70 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: {
-          50: '#f0fdfa',
-          100: '#ccfbf1',
-          200: '#99f6e4',
-          300: '#5eead4',
-          400: '#2dd4bf',
-          500: '#14b8a6',
-          600: '#0d9488',
-          700: '#0f766e',
-          800: '#115e59',
-          900: '#134e4a',
+        // Primary - Deep Navy Blue (ความมั่นคง)
+        navy: {
+          50: '#f0f4f8',
+          100: '#d9e2ec',
+          200: '#bcccdc',
+          300: '#9fb3c8',
+          400: '#829ab1',
+          500: '#627d98',
+          600: '#486581',
+          700: '#334e68',
+          800: '#243b53',
+          900: '#102a43',
         },
-        accent: {
-          50: '#fff7ed',
-          100: '#ffedd5',
-          200: '#fed7aa',
-          300: '#fdba74',
-          400: '#fb923c',
-          500: '#f97316',
-          600: '#ea580c',
-          700: '#c2410c',
-          800: '#9a3412',
-          900: '#7c2d12',
+        // Secondary - Steel Grey (ความทันสมัย)
+        steel: {
+          50: '#f8f9fa',
+          100: '#e9ecef',
+          200: '#dee2e6',
+          300: '#ced4da',
+          400: '#adb5bd',
+          500: '#6c757d',
+          600: '#495057',
+          700: '#343a40',
+          800: '#212529',
+          900: '#0d1117',
+        },
+        // Accent - Sky Blue (ความสดใส/สุขภาพดี) - softer, calming
+        sky: {
+          50: '#e0f2fe',
+          100: '#bae6fd',
+          200: '#7dd3fc',
+          300: '#38bdf8',
+          400: '#0ea5e9',
+          500: '#0284c7',
+          600: '#0369a1',
+          700: '#075985',
+          800: '#0c4a6e',
+          900: '#082f49',
         },
       },
       backgroundImage: {
-        'gradient-primary': 'linear-gradient(to right, #2dd4bf, #fb923c)',
-        'gradient-dark': 'linear-gradient(to right, #0d9488, #ea580c)',
-        'gradient-light': 'linear-gradient(135deg, #f0fdfa 0%, #fff7ed 100%)',
+        'gradient-primary': 'linear-gradient(135deg, #486581 0%, #0ea5e9 100%)',
+        'gradient-dark': 'linear-gradient(135deg, #102a43 0%, #0369a1 100%)',
+        'gradient-light': 'linear-gradient(135deg, #f0f4f8 0%, #e9ecef 100%)',
+        'gradient-card': 'linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%)',
+        'gradient-sidebar': 'linear-gradient(180deg, #102a43 0%, #0d1117 100%)',
       },
       boxShadow: {
         'card': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
         'card-hover': '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
         'card-active': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+        'glow': '0 0 20px rgba(14, 165, 233, 0.3)',
+      },
+      borderColor: {
+        'navy': {
+          DEFAULT: '#486581',
+          light: '#829ab1',
+          dark: '#334e68',
+        },
+        'sky': {
+          DEFAULT: '#0ea5e9',
+          light: '#38bdf8',
+          dark: '#0369a1',
+        },
       },
       borderRadius: {
         '2xl': '1rem',
@@ -50,6 +80,7 @@ export default {
         'fade-in': 'fadeIn 0.3s ease-out',
         'slide-up': 'slideUp 0.3s ease-out',
         'slide-down': 'slideDown 0.3s ease-out',
+        'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -63,6 +94,10 @@ export default {
         slideDown: {
           '0%': { opacity: '0', transform: 'translateY(-10px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        pulseGlow: {
+          '0%, 100%': { boxShadow: '0 0 20px rgba(14, 165, 233, 0.3)' },
+          '50%': { boxShadow: '0 0 30px rgba(14, 165, 233, 0.6)' },
         },
       },
     },

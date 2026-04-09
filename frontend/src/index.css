@@ -1,3 +1,123 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    /* Primary Colors - Deep Navy Blue */
+    --color-navy-50: #f0f4f8;
+    --color-navy-100: #d9e2ec;
+    --color-navy-200: #bcccdc;
+    --color-navy-300: #9fb3c8;
+    --color-navy-400: #829ab1;
+    --color-navy-500: #627d98;
+    --color-navy-600: #486581;
+    --color-navy-700: #334e68;
+    --color-navy-800: #243b53;
+    --color-navy-900: #102a43;
+
+    /* Secondary Colors - Steel Grey */
+    --color-steel-50: #f8f9fa;
+    --color-steel-100: #e9ecef;
+    --color-steel-200: #dee2e6;
+    --color-steel-300: #ced4da;
+    --color-steel-400: #adb5bd;
+    --color-steel-500: #6c757d;
+    --color-steel-600: #495057;
+    --color-steel-700: #343a40;
+    --color-steel-800: #212529;
+    --color-steel-900: #0d1117;
+
+    /* Accent Colors - Sky Blue */
+    --color-sky-50: #e0f2fe;
+    --color-sky-100: #bae6fd;
+    --color-sky-200: #7dd3fc;
+    --color-sky-300: #38bdf8;
+    --color-sky-400: #0ea5e9;
+    --color-sky-500: #0284c7;
+    --color-sky-600: #0369a1;
+    --color-sky-700: #075985;
+    --color-sky-800: #0c4a6e;
+    --color-sky-900: #082f49;
+
+    /* Status Colors */
+    --color-success: #10b981;
+    --color-warning: #f59e0b;
+    --color-error: #f43f5e;
+    --color-info: #0ea5e9;
+  }
+
+  body {
+    background-color: #f8f9fa;
+    color: #212529;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    background: linear-gradient(to right, #334e68, #102a43);
+    background: linear-gradient(to right, #334e68, #0369a1);
+    color: white;
+    font-weight: 600;
+    padding: 1rem 1.5rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    transition: all 0.2s;
+  }
+
+  .btn-primary:hover {
+    background: linear-gradient(to right, #243b53, #0c4a6e);
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+  }
+
+  .btn-primary:active {
+    transform: scale(0.95);
+  }
+
+  .btn-secondary {
+    background-color: white;
+    border: 2px solid #486581;
+    color: #334e68;
+    font-weight: 600;
+    padding: 1rem 1.5rem;
+    border-radius: 0.5rem;
+    transition: all 0.2s;
+  }
+
+  .btn-secondary:hover {
+    background-color: #f0f4f8;
+  }
+
+  .card {
+    background-color: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    border: 1px solid #dee2e6;
+    transition: box-shadow 0.2s;
+  }
+
+  .card:hover {
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  }
+
+  .input-field {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid #ced4da;
+    background-color: #f8f9fa;
+    color: #212529;
+    transition: all 0.2s;
+  }
+
+  .input-field::placeholder {
+    color: #adb5bd;
+  }
+
+  .input-field:focus {
+    outline: none;
+    ring: 2px;
+    ring-color: #0ea5e9;
+    border-color: transparent;
+  }
+}

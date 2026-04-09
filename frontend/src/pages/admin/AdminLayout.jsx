@@ -1,4 +1,4 @@
-import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -55,11 +55,11 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-steel-50">
       {/* Mobile Menu Button */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-slate-900 text-white rounded-lg shadow-lg hover:bg-slate-800 transition-colors"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-gradient-to-r from-navy-700 to-sky-600 text-white rounded-xl shadow-lg hover:scale-105 transition-all"
       >
         {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
       </button>
@@ -76,7 +76,7 @@ export default function AdminLayout() {
       <aside
         className={`
           fixed lg:static inset-y-0 left-0 z-40
-          w-72 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 
+          w-72 bg-gradient-to-b from-navy-900 via-navy-800 to-steel-900
           text-white shadow-2xl
           transform transition-transform duration-300 ease-in-out
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
@@ -84,16 +84,16 @@ export default function AdminLayout() {
         `}
       >
         {/* Header */}
-        <div className="p-6 border-b border-slate-700/50">
+        <div className="p-6 border-b border-white/10">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-              <LayoutDashboard className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 bg-gradient-to-br from-sky-500 to-sky-600 rounded-xl flex items-center justify-center shadow-lg">
+              <LayoutDashboard className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
+              <h2 className="text-xl font-bold bg-gradient-to-r from-white to-sky-200 bg-clip-text text-transparent">
                 Admin Panel
               </h2>
-              <p className="text-xs text-slate-400">ระบบจัดการ</p>
+              <p className="text-xs text-steel-300">ระบบจัดการ</p>
             </div>
           </div>
         </div>
@@ -101,17 +101,16 @@ export default function AdminLayout() {
         {/* Navigation Menu */}
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {menuItems.map((item) => (
-            <Link
+            <button
               key={item.path}
-              to={item.path}
-              onClick={() => setSidebarOpen(false)}
+              onClick={() => { navigate(item.path); setSidebarOpen(false); }}
               className={`
-                group flex items-center gap-3 px-4 py-3 rounded-xl
+                group w-full flex items-center gap-3 px-4 py-3 rounded-xl
                 transition-all duration-200 relative overflow-hidden
                 ${
                   isActive(item.path)
-                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30"
-                    : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                    ? "bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/30"
+                    : "text-navy-200 hover:bg-white/10 hover:text-navy-700"
                 }
               `}
             >
@@ -125,6 +124,7 @@ export default function AdminLayout() {
                 className={`
                 relative z-10 transition-transform duration-200
                 ${isActive(item.path) ? "scale-110" : "group-hover:scale-110"}
+                ${isActive(item.path) ? "text-white" : "text-navy-400"}
               `}
               >
                 {item.icon}
@@ -139,6 +139,7 @@ export default function AdminLayout() {
               <ChevronRight
                 className={`
                   relative z-10 w-4 h-4 transition-all duration-200
+                  ${isActive(item.path) ? "text-white" : "text-navy-400"}
                   ${
                     isActive(item.path)
                       ? "opacity-100 translate-x-0"
@@ -146,23 +147,23 @@ export default function AdminLayout() {
                   }
                 `}
               />
-            </Link>
+            </button>
           ))}
         </nav>
 
         {/* User Info & Logout */}
-        <div className="p-4 space-y-3 border-t border-slate-700/50">
+        <div className="p-4 space-y-3 border-t border-white/10">
           {/* User Card */}
-          <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-4 border border-slate-700/30">
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10 shadow-lg">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center text-white font-bold shadow-lg">
+              <div className="w-10 h-10 bg-gradient-to-br from-sky-500 to-sky-600 rounded-full flex items-center justify-center text-white font-bold shadow-lg">
                 A
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-white text-sm truncate">
                   Admin User
                 </p>
-                <p className="text-xs text-slate-400">ผู้ดูแลระบบ</p>
+                <p className="text-xs text-navy-300">ผู้ดูแลระบบ</p>
               </div>
             </div>
           </div>
@@ -172,12 +173,12 @@ export default function AdminLayout() {
             onClick={handleLogout}
             className="
               w-full group relative overflow-hidden
-              bg-gradient-to-r from-red-600 to-red-700 
-              hover:from-red-700 hover:to-red-800
-              text-white py-3 rounded-xl 
+              bg-gradient-to-r from-rose-500 to-rose-600
+              hover:from-rose-600 hover:to-rose-700
+              text-white py-3 rounded-xl
               font-semibold transition-all duration-200
-              shadow-lg shadow-red-500/30
-              hover:shadow-xl hover:shadow-red-500/40
+              shadow-lg shadow-rose-500/30
+              hover:shadow-xl hover:shadow-rose-500/40
               hover:scale-105
               flex items-center justify-center gap-2
             "
@@ -192,8 +193,8 @@ export default function AdminLayout() {
       {/* ===== Main Content ===== */}
       <main className="flex-1 overflow-auto lg:ml-0">
         {/* Top Bar (Mobile) */}
-        <div className="lg:hidden h-16 bg-white border-b border-slate-200 flex items-center px-16">
-          <h1 className="text-lg font-semibold text-slate-800">
+        <div className="lg:hidden h-16 bg-white/80 backdrop-blur-md border-b border-steel-200 flex items-center px-16">
+          <h1 className="text-lg font-semibold bg-gradient-to-r from-navy-600 to-sky-600 bg-clip-text text-transparent">
             Admin Dashboard
           </h1>
         </div>
