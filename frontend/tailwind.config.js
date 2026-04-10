@@ -104,3 +104,18 @@ export default {
   },
   plugins: [],
 }
+
+module.exports = {
+  content: [
+    "./src/**/*.{js,jsx,ts,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+  safelist: [
+    {
+      pattern: /(bg|text|border)-(blue|green|yellow|purple|orange|red)-(100|500|600|800)/,
+    },
+  ],
+}
