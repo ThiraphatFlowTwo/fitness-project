@@ -25,7 +25,6 @@ const EXERCISE_TYPES = [
   "แขน",
   "แกนกลางลำตัว",
   "คาร์ดิโอ",
-
 ];
 
 const TYPE_COLORS = {
@@ -38,7 +37,6 @@ const TYPE_COLORS = {
   แขน: "from-pink-500 to-rose-600",
   แกนกลางลำตัว: "from-teal-500 to-cyan-600",
   คาร์ดิโอ: "from-orange-500 to-red-600",
-
 };
 
 const EQUIPMENT_LIST = [
@@ -51,7 +49,6 @@ const EQUIPMENT_LIST = [
   { label: "ยางยืด", value: "resistance_band" },
   { label: "ลูกบอลฝึกสมดุล", value: "balance_ball" },
   { label: "ลูกบอลยาง", value: "medicine_ball" },
-  { label: "บอล", value: "ball" },
   { label: "อื่นๆ", value: "other" },
 ];
 
@@ -275,7 +272,7 @@ export default function ManageExercises() {
             </div>
 
             {/* Type Filter */}
-            <div className="relative ">
+            <div className="relative">
               <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <select
                 value={typeFilter}
@@ -344,7 +341,7 @@ export default function ManageExercises() {
 
                 {!loading && filteredExercises.length === 0 && (
                   <tr>
-                    <td colSpan="5" className="px-6 py-12 text-center ">
+                    <td colSpan="5" className="px-6 py-12 text-center">
                       <Dumbbell className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                       <p className="text-lg font-medium text-slate-500">
                         {search || typeFilter !== "all"
@@ -462,7 +459,7 @@ export default function ManageExercises() {
         </div>
 
         {/* ===== STATS CARDS ===== */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {EXERCISE_TYPES.slice(0, 4).map((type) => (
             <div
               key={type}

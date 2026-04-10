@@ -1,8 +1,8 @@
 /**
- * SecondaryButton - Secondary action button component
+ * DangerButton - Danger action button component
  *
- * Design: Light background with dark text and border
- * Usage: Secondary actions, cancel, back navigation
+ * Design: Red background with hover effects for destructive actions
+ * Usage: Delete, cancel, logout, and other destructive actions
  *
  * @param {React.ReactNode} children - Button label/content
  * @param {Function} onClick - Click handler
@@ -13,21 +13,21 @@
 
 import { forwardRef } from 'react';
 
-const SecondaryButton = forwardRef(({ children, onClick, disabled, className = '', ...props }, ref) => {
+const DangerButton = forwardRef(({ children, onClick, disabled, className = '', ...props }, ref) => {
   return (
     <button
       ref={ref}
       onClick={onClick}
       disabled={disabled}
       className={`
-        bg-steel-50 text-navy-900
-        border-2 border-gray-200
+        bg-red-500 text-white
         font-semibold
         px-6 py-3 rounded-xl
-        hover:bg-steel-100 hover:border-gray-300
+        shadow-md hover:shadow-lg hover:bg-red-600
+        hover:scale-105
         transition-all duration-200
         font-['Kanit']
-        ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
+        ${disabled ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''}
         ${className}
       `}
       {...props}
@@ -37,6 +37,6 @@ const SecondaryButton = forwardRef(({ children, onClick, disabled, className = '
   );
 });
 
-SecondaryButton.displayName = 'SecondaryButton';
+DangerButton.displayName = 'DangerButton';
 
-export { SecondaryButton };
+export { DangerButton };

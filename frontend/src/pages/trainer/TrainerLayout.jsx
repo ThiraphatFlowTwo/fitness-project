@@ -1,157 +1,186 @@
 import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Users, 
-  ClipboardList, 
-  Dumbbell, 
-  Edit, 
-  TrendingUp, 
-  User, 
-  LogOut,
-  Bell,
-  Menu,
-  X
+import {
+  Home, Users, ClipboardList, Dumbbell,
+  Edit, TrendingUp, User, LogOut,
+  Bell, Menu, X, ChevronRight
 } from 'lucide-react';
 
-const TrainerLayout = () => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const navigate = useNavigate();
-  const location = useLocation();
+const menuItems = [
+  { id: 'dashboard', label: 'หน้าหลัก',           icon: Home,          path: '/trainer/dashboard' },
+  { id: 'trainees',  label: 'จัดการผู้รับการฝึก', icon: Users,         path: '/trainer/trainees'  },
+  { id: 'programs',  label: 'โปรแกรมการฝึก',      icon: ClipboardList, path: '/trainer/programs'  },
+  { id: 'exercises', label: 'ท่าในการฝึก',         icon: Dumbbell,      path: '/trainer/exercises' },
+  { id: 'results',   label: 'บันทึกผลการฝึก',     icon: Edit,          path: '/trainer/results'   },
+  { id: 'progress',  label: 'พัฒนาการ',            icon: TrendingUp,    path: '/trainer/progress'  },
+  { id: 'profile',   label: 'โปรไฟล์ส่วนตัว',    icon: User,          path: '/trainer/profile'   },
+];
 
-  const menuItems = [
-    { id: 'dashboard', label: 'หน้าหลัก', icon: Home, path: '/trainer/dashboard' },
-    { id: 'trainees', label: 'จัดการผู้รับการฝึก', icon: Users, path: '/trainer/trainees' },
-    { id: 'programs', label: 'โปรแกรมการฝึก', icon: ClipboardList, path: '/trainer/programs' },
-    { id: 'exercises', label: 'ท่าในการฝึก', icon: Dumbbell, path: '/trainer/exercises' },
-    { id: 'results', label: 'บันทึกผลการฝึก', icon: Edit, path: '/trainer/results' },
-    { id: 'progress', label: 'พัฒนาการ', icon: TrendingUp, path: '/trainer/progress' },
-    { id: 'profile', label: 'โปรไฟล์ส่วนตัว', icon: User, path: '/trainer/profile' }
-  ];
+const pageTitles = {
+  '/trainer/dashboard': { th: 'หน้าหลัก',           en: 'Dashboard'     },
+  '/trainer/trainees':  { th: 'จัดการผู้รับการฝึก', en: 'Trainees'      },
+  '/trainer/programs':  { th: 'โปรแกรมการฝึก',      en: 'Programs'      },
+  '/trainer/exercises': { th: 'ท่าในการฝึก',         en: 'Exercises'     },
+  '/trainer/results':   { th: 'บันทึกผลการฝึก',     en: 'Results'       },
+  '/trainer/progress':  { th: 'พัฒนาการ',            en: 'Progress'      },
+  '/trainer/profile':   { th: 'โปรไฟล์ส่วนตัว',    en: 'Profile'       },
+};
 
-  const isActiveRoute = (path) => {
-    return location.pathname === path;
-  };
+export default function TrainerLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [collapsed, setCollapsed]     = useState(false);
+  const navigate  = useNavigate();
+  const location  = useLocation();
 
-  const handleLogout = () => {
-    console.log('Logout');
-    navigate('/login');
-  };
+  const isActive = (path) => location.pathname === path;
+  const page = pageTitles[location.pathname] || { th: 'ระบบเทรนเนอร์', en: 'Trainer' };
+
+  const handleLogout = () => navigate('/login');
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
-      {/* Sidebar */}
-      <aside 
-        className={`${
-          isSidebarOpen ? 'w-64' : 'w-0'
-        } bg-gradient-to-b from-purple-600 to-purple-800 text-white transition-all duration-300 flex-shrink-0 overflow-hidden`}
+    <div className="flex h-screen overflow-hidden bg-slate-100">
+
+      {/* ── Sidebar ── */}
+      <aside
+        style={{ background: 'linear-gradient(160deg, #0B1F3A 0%, #1E293B 50%, #0EA5E9 100%)' }}
+        className={`
+          flex-shrink-0 flex flex-col h-full shadow-2xl transition-all duration-300
+          ${sidebarOpen ? (collapsed ? 'w-20' : 'w-64') : 'w-0 overflow-hidden'}
+        `}
       >
-        <div className="p-6">
-          {/* Logo & Title */}
-          <div className="flex items-center space-x-3 mb-8">
-            <Dumbbell className="w-8 h-8" />
-            <div>
-              <h1 className="text-xl font-bold">ระบบเทรนเนอร์</h1>
-              <p className="text-xs text-purple-200">มหาวิทยาลัยราชภัฏเลย</p>
+        {/* Logo */}
+        <div className={`flex items-center gap-3 px-5 py-5 border-b border-white/10 ${collapsed ? 'justify-center px-0' : ''}`}>
+          <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0 shadow-lg">
+            <Dumbbell className="w-5 h-5 text-white" />
+          </div>
+          {!collapsed && (
+            <div className="overflow-hidden">
+              <p className="font-bold text-white text-sm leading-tight">ระบบเทรนเนอร์</p>
+              <p className="text-slate-300 text-xs truncate">ม.ราชภัฏเลย</p>
+            </div>
+          )}
+        </div>
+
+        {/* User Card */}
+        {!collapsed && (
+          <div className="mx-4 mt-5 mb-2 rounded-2xl bg-white/10 border border-white/15 p-3 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-400 to-sky-400 flex items-center justify-center shrink-0 shadow">
+              <User className="w-5 h-5 text-white" />
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-white text-sm font-semibold truncate">สมชาย ใจดี</p>
+              <p className="text-slate-300 text-xs">651234567</p>
             </div>
           </div>
+        )}
 
-          {/* User Profile */}
-          <div className="bg-white bg-opacity-20 rounded-lg p-4 mb-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center">
-                <User className="text-purple-600 w-6 h-6" />
-              </div>
-              <div>
-                <p className="font-semibold">สมชาย ใจดี</p>
-                <p className="text-xs text-purple-200">รหัส: 651234567</p>
-              </div>
-            </div>
-          </div>
+        {/* Nav */}
+        <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
+          {menuItems.map(({ id, label, icon: Icon, path }) => {
+            const active = isActive(path);
+            return (
+              <button
+                key={id}
+                onClick={() => navigate(path)}
+                title={collapsed ? label : undefined}
+                className={`
+                  w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+                  transition-all duration-200 relative overflow-hidden group
+                  ${collapsed ? 'justify-center' : ''}
+                  ${active
+                    ? 'bg-white text-sky-700 shadow-lg'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'}
+                `}
+              >
+                <Icon className={`w-5 h-5 shrink-0 transition-transform duration-200 ${active ? 'scale-110' : 'group-hover:scale-105'}`} />
+                {!collapsed && <span className="truncate">{label}</span>}
+                {!collapsed && active && <ChevronRight className="w-4 h-4 ml-auto shrink-0 text-indigo-400" />}
+              </button>
+            );
+          })}
+        </nav>
 
-          {/* Navigation Menu */}
-          <nav className="space-y-2">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = isActiveRoute(item.path);
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => navigate(item.path)}
-                  className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-all ${
-                    isActive
-                      ? 'bg-white bg-opacity-20 border-l-4 border-white'
-                      : 'hover:bg-white hover:bg-opacity-10'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-            
-            {/* Logout Button */}
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center space-x-3 p-3 rounded-lg hover:bg-red-500 hover:bg-opacity-20 text-red-200 hover:text-white transition-all mt-4"
-            >
-              <LogOut className="w-5 h-5" />
-              <span>ออกจากระบบ</span>
-            </button>
-          </nav>
+        {/* Collapse toggle + Logout */}
+        <div className="px-3 pb-5 space-y-2 border-t border-white/10 pt-3">
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-300
+                        hover:bg-white/10 hover:text-white transition-all ${collapsed ? 'justify-center' : ''}`}
+          >
+            <Menu className="w-5 h-5 shrink-0" />
+            {!collapsed && <span>ย่อเมนู</span>}
+          </button>
+          <button
+            onClick={handleLogout}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+                        bg-red-500/20 text-red-300 hover:bg-red-500 hover:text-white
+                        transition-all duration-200 ${collapsed ? 'justify-center' : ''}`}
+          >
+            <LogOut className="w-5 h-5 shrink-0" />
+            {!collapsed && <span>ออกจากระบบ</span>}
+          </button>
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* ── Main ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
+
         {/* Header */}
-        <header className="bg-white shadow-sm">
-          <div className="px-6 py-4 flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              {/* Toggle Sidebar Button */}
+        <header className="bg-white border-b border-gray-200 shadow-sm z-10">
+          <div className="px-6 h-16 flex items-center justify-between">
+
+            {/* Left */}
+            <div className="flex items-center gap-4">
               <button
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
               >
-                {isSidebarOpen ? (
-                  <X className="w-6 h-6 text-gray-600" />
-                ) : (
-                  <Menu className="w-6 h-6 text-gray-600" />
-                )}
+                {sidebarOpen ? <X className="w-5 h-5 text-slate-600" /> : <Menu className="w-5 h-5 text-slate-600" />}
               </button>
-              
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800">
-                  ระบบจัดการข้อมูลเทรนเนอร์
-                </h2>
-                <p className="text-sm text-gray-500">
-                  สาขาวิชาวิทยาศาสตร์การกีฬาและการออกกำลังกาย
-                </p>
+
+              {/* Breadcrumb */}
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 text-sm">เทรนเนอร์</span>
+                <ChevronRight className="w-4 h-4 text-slate-300" />
+                <span className="text-slate-800 font-semibold text-sm">{page.th}</span>
               </div>
             </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="text-right hidden md:block">
-                <p className="text-sm text-gray-600">ปีการศึกษา 2568</p>
-                <p className="text-xs text-gray-500">ภาคเรียนที่ 1</p>
+
+            {/* Right */}
+            <div className="flex items-center gap-3">
+              {/* Semester badge */}
+              <div className="hidden md:flex flex-col items-end">
+                <span className="text-xs font-semibold text-slate-700">ปีการศึกษา 2568</span>
+                <span className="text-xs text-slate-400">ภาคเรียนที่ 1</span>
               </div>
-              <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                <Bell className="w-6 h-6 text-gray-600" />
-                <span className="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  3
-                </span>
+
+              {/* Notification */}
+              <button className="relative p-2 rounded-xl hover:bg-slate-100 transition-colors">
+                <Bell className="w-5 h-5 text-slate-600" />
+                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold
+                                 rounded-full flex items-center justify-center leading-none">3</span>
               </button>
+
+              {/* Avatar */}
+              <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-500 to-blue-500
+                                flex items-center justify-center shadow">
+                  <User className="w-4 h-4 text-white" />
+                </div>
+                <div className="hidden md:block">
+                  <p className="text-sm font-semibold text-slate-800 leading-tight">สมชาย ใจดี</p>
+                  <p className="text-xs text-slate-400">Trainer</p>
+                </div>
+              </div>
             </div>
           </div>
         </header>
 
-        {/* Page Content - Outlet จะแสดง Component ตาม Route */}
-        <main className="flex-1 overflow-y-auto">
+        {/* Page Content */}
+        <main className="flex-1 overflow-y-auto bg-slate-100">
           <Outlet />
         </main>
       </div>
     </div>
   );
-};
-
-export default TrainerLayout;
+}

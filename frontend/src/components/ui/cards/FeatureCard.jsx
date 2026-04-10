@@ -1,7 +1,7 @@
 /**
  * FeatureCard - Feature highlight card component
  *
- * Design: Interactive card with hover effects and icon
+ * Design: Interactive card with hover effects and icon, improved styling
  * Usage: Feature highlights, quick actions, service cards
  *
  * @param {React.ReactNode} icon - Icon component
@@ -29,24 +29,24 @@ const FeatureCard = ({ icon, title, description, color = 'navy', className = '',
     <div
       onClick={onClick}
       className={`
-        group bg-white rounded-2xl p-6 shadow-lg
-        hover:shadow-2xl transition-all duration-300
-        border-2 border-steel-200
+        group bg-white rounded-2xl p-6 shadow-md
+        hover:shadow-lg hover:-translate-y-1
+        transition-all duration-200
+        border-2 border-gray-200
         ${borderColorClasses[color] || borderColorClasses.navy}
         ${onClick ? 'cursor-pointer' : ''}
-        hover:-translate-y-2
         ${className}
       `}
     >
       <div className={`
         text-4xl mb-4 w-16 h-16 mx-auto bg-gradient-to-br ${colorClasses[color] || colorClasses.navy}
         rounded-xl flex items-center justify-center
-        shadow-lg group-hover:scale-110 transition-transform
+        shadow-navy group-hover:scale-110 transition-transform
       `}>
         {icon}
       </div>
-      <h3 className="font-bold text-steel-900 mb-2 text-center">{title}</h3>
-      <p className="text-sm text-steel-600 text-center">{description}</p>
+      <h3 className="font-bold text-navy-900 mb-2 text-center">{title}</h3>
+      <p className="text-sm text-steel-700 text-center">{description}</p>
     </div>
   );
 };
