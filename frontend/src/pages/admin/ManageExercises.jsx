@@ -8,14 +8,11 @@ import {
   Trash2,
   X,
   CheckCircle,
-  XCircle,
-  Filter,
-  Activity,
-  Package,
-  FileText,
+  Eye,
 } from "lucide-react";
 
 const IMAGE_URL = "http://localhost:5000/uploads/";
+const currentUserRole = localStorage.getItem("role");
 
 const EXERCISE_TYPES = [
   "ทุกส่วนของร่างกาย",
@@ -64,7 +61,10 @@ export default function ManageExercises() {
   const [loading, setLoading] = useState(true);
 
   const [showModal, setShowModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+
   const [editing, setEditing] = useState(null);
+  const [selectedExercise, setSelectedExercise] = useState(null);
 
   const [form, setForm] = useState({
     exercise_name: "",
@@ -127,6 +127,12 @@ export default function ManageExercises() {
     setShowModal(true);
   };
 
+  // ===== OPEN VIEW =====
+  const openView = (ex) => {
+    setSelectedExercise(ex);
+    setShowViewModal(true);
+  };
+
   // ===== CHANGE =====
   const handleChange = (e) => {
     setForm({
@@ -181,11 +187,8 @@ export default function ManageExercises() {
       const payload = new FormData();
 
       payload.append("exercise_name", form.exercise_name);
-
       payload.append("exercise_type", form.exercise_type);
-
       payload.append("equipment_type", form.equipment_type);
-
       payload.append("description", form.description);
 
       if (form.image instanceof File) {
@@ -211,7 +214,6 @@ export default function ManageExercises() {
       }
 
       setShowModal(false);
-
       fetchExercises();
     } catch (err) {
       alert(err.response?.data?.message || "บันทึกไม่สำเร็จ");
@@ -255,29 +257,21 @@ export default function ManageExercises() {
   });
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
         {/* HEADER */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Dumbbell className="w-7 h-7 text-white" />
-            </div>
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-800">
+              จัดการท่าออกกำลังกาย
+            </h1>
 
-            <div>
-              <h1 className="text-3xl font-bold text-slate-800">
-                จัดการท่าออกกำลังกาย
-              </h1>
-
-              <p className="text-slate-600 text-sm">
-                ทั้งหมด {exercises.length} ท่า
-              </p>
-            </div>
+            <p className="text-slate-500">ทั้งหมด {exercises.length} ท่า</p>
           </div>
 
           <button
             onClick={openAdd}
-            className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg"
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl font-semibold"
           >
             <Plus className="w-5 h-5" />
             เพิ่มท่าใหม่
@@ -285,239 +279,166 @@ export default function ManageExercises() {
         </div>
 
         {/* TABLE */}
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-100">
-                <tr>
-                  <th className="px-6 py-4 text-left">ชื่อท่า</th>
+        <div className="bg-white rounded-2xl shadow overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-slate-100">
+              <tr>
+                <th className="px-6 py-4 text-left">ชื่อท่า</th>
+                <th className="px-6 py-4 text-left">ประเภท</th>
+                <th className="px-6 py-4 text-left">อุปกรณ์</th>
+                <th className="px-6 py-4 text-left">รายละเอียด</th>
+                <th className="px-6 py-4 text-center">จัดการ</th>
+              </tr>
+            </thead>
 
-                  <th className="px-6 py-4 text-left">ประเภท</th>
+            <tbody>
+              {filteredExercises.map((ex) => (
+                <tr key={ex._id} className="border-b hover:bg-slate-50">
+                  {/* NAME */}
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={
+                          ex.image
+                            ? `${IMAGE_URL}${ex.image}`
+                            : "https://via.placeholder.com/80"
+                        }
+                        alt={ex.exercise_name}
+                        className="w-14 h-14 rounded-xl object-cover border"
+                      />
 
-                  <th className="px-6 py-4 text-left">อุปกรณ์</th>
+                      <span className="font-semibold">{ex.exercise_name}</span>
+                    </div>
+                  </td>
 
-                  <th className="px-6 py-4 text-left">รายละเอียด</th>
+                  {/* TYPE */}
+                  <td className="px-6 py-4">
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs text-white bg-gradient-to-r ${
+                        TYPE_COLORS[ex.exercise_type] ||
+                        "from-slate-400 to-slate-500"
+                      }`}
+                    >
+                      {ex.exercise_type}
+                    </span>
+                  </td>
 
-                  <th className="px-6 py-4 text-center">จัดการ</th>
-                </tr>
-              </thead>
+                  {/* EQUIPMENT */}
+                  <td className="px-6 py-4">
+                    <span className="px-2 py-1 bg-slate-200 rounded-full text-xs">
+                      {EQUIPMENT_LABEL_MAP[ex.equipment_type] ||
+                        ex.equipment_type}
+                    </span>
+                  </td>
 
-              <tbody>
-                {filteredExercises.map((ex) => (
-                  <tr key={ex._id} className="border-b hover:bg-slate-50">
-                    {/* NAME */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={
-                            ex.image
-                              ? `${IMAGE_URL}${ex.image}`
-                              : "https://via.placeholder.com/80"
-                          }
-                          alt={ex.exercise_name}
-                          className="w-14 h-14 rounded-xl object-cover border shadow"
-                        />
+                  {/* DESCRIPTION */}
+                  <td className="px-6 py-4 max-w-xs">
+                    {ex.description ? (
+                      <p className="text-sm text-slate-600 line-clamp-2">
+                        {ex.description}
+                      </p>
+                    ) : (
+                      <span className="text-slate-400 text-sm">
+                        ไม่มีรายละเอียด
+                      </span>
+                    )}
+                  </td>
 
-                        <span className="font-semibold text-slate-800">
-                          {ex.exercise_name}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* TYPE */}
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs text-white bg-gradient-to-r ${
-                          TYPE_COLORS[ex.exercise_type] ||
-                          "from-slate-400 to-slate-500"
-                        }`}
+                  {/* ACTION */}
+                  <td className="px-6 py-4">
+                    <div className="flex justify-center gap-2">
+                      {/* VIEW */}
+                      <button
+                        onClick={() => openView(ex)}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg"
                       >
-                        {ex.exercise_type}
-                      </span>
-                    </td>
+                        <Eye className="w-4 h-4" />
+                      </button>
 
-                    {/* EQUIPMENT */}
-                    <td className="px-6 py-4">
-                      <span className="px-2 py-1 bg-slate-200 rounded-full text-xs">
-                        {EQUIPMENT_LABEL_MAP[ex.equipment_type] ||
-                          ex.equipment_type}
-                      </span>
-                    </td>
+                      {/* EDIT DELETE */}
+                      {!(
+                        currentUserRole === "trainer" &&
+                        ex.ownerRole === "admin"
+                      ) && (
+                        <>
+                          <button
+                            onClick={() => openEdit(ex)}
+                            className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded-lg"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
 
-                    {/* DESCRIPTION */}
-                    <td className="px-6 py-4">
-                      <div className="max-w-xs">
-                        {ex.description ? (
-                          <p className="text-sm text-slate-600 line-clamp-2">
-                            {ex.description}
-                          </p>
-                        ) : (
-                          <span className="text-slate-400 text-sm">
-                            ไม่มีรายละเอียด
-                          </span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* ACTION */}
-                    <td className="px-6 py-4">
-                      <div className="flex justify-center gap-2">
-                        <button
-                          onClick={() => openEdit(ex)}
-                          className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded-lg"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-
-                        <button
-                          onClick={() => handleDelete(ex._id)}
-                          className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded-lg"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                          <button
+                            onClick={() => handleDelete(ex._id)}
+                            className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded-lg"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
-        {/* MODAL */}
-        {showModal && (
+        {/* VIEW MODAL */}
+        {showViewModal && selectedExercise && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden">
               {/* HEADER */}
-              <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-6 flex justify-between items-center">
-                <h2 className="text-2xl font-bold">
-                  {editing ? "แก้ไขท่า" : "เพิ่มท่าออกกำลังกาย"}
-                </h2>
+              <div className="bg-slate-800 text-white p-6 flex justify-between items-center">
+                <h2 className="text-2xl font-bold">รายละเอียดท่าออกกำลังกาย</h2>
 
-                <button onClick={() => setShowModal(false)}>
+                <button onClick={() => setShowViewModal(false)}>
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
               {/* BODY */}
-              <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                {/* NAME */}
+              <div className="p-6 space-y-5">
+                <img
+                  src={
+                    selectedExercise.image
+                      ? `${IMAGE_URL}${selectedExercise.image}`
+                      : "https://via.placeholder.com/600x300"
+                  }
+                  alt={selectedExercise.exercise_name}
+                  className="w-full h-72 object-cover rounded-xl border"
+                />
+
                 <div>
-                  <label className="block mb-2 font-semibold">ชื่อท่า</label>
-
-                  <input
-                    name="exercise_name"
-                    value={form.exercise_name}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border rounded-xl"
-                  />
-
-                  {errors.exercise_name && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.exercise_name}
-                    </p>
-                  )}
+                  <h3 className="text-3xl font-bold text-slate-800">
+                    {selectedExercise.exercise_name}
+                  </h3>
                 </div>
 
-                {/* TYPE */}
-                <div>
-                  <label className="block mb-2 font-semibold">ประเภทท่า</label>
-
-                  <select
-                    name="exercise_type"
-                    value={form.exercise_type}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border rounded-xl"
+                <div className="flex gap-3 flex-wrap">
+                  <span
+                    className={`px-4 py-2 rounded-full text-white text-sm bg-gradient-to-r ${
+                      TYPE_COLORS[selectedExercise.exercise_type] ||
+                      "from-slate-400 to-slate-500"
+                    }`}
                   >
-                    <option value="">-- เลือกประเภท --</option>
+                    {selectedExercise.exercise_type}
+                  </span>
 
-                    {EXERCISE_TYPES.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
+                  <span className="px-4 py-2 rounded-full bg-slate-200 text-sm">
+                    {EQUIPMENT_LABEL_MAP[selectedExercise.equipment_type] ||
+                      selectedExercise.equipment_type}
+                  </span>
                 </div>
 
-                {/* EQUIPMENT */}
                 <div>
-                  <label className="block mb-2 font-semibold">อุปกรณ์</label>
+                  <h4 className="font-bold text-slate-700 mb-2">รายละเอียด</h4>
 
-                  <select
-                    name="equipment_type"
-                    value={form.equipment_type}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border rounded-xl"
-                  >
-                    <option value="">-- เลือกอุปกรณ์ --</option>
-
-                    {EQUIPMENT_LIST.map((item) => (
-                      <option key={item.value} value={item.value}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
+                  <p className="text-slate-600 leading-relaxed">
+                    {selectedExercise.description || "ไม่มีรายละเอียด"}
+                  </p>
                 </div>
-
-                {/* DESCRIPTION */}
-                <div>
-                  <label className="block mb-2 font-semibold">รายละเอียด</label>
-
-                  <textarea
-                    name="description"
-                    value={form.description}
-                    onChange={handleChange}
-                    rows="4"
-                    className="w-full px-4 py-3 border rounded-xl"
-                  />
-                </div>
-
-                {/* IMAGE */}
-                <div>
-                  <label className="block mb-2 font-semibold">
-                    รูปท่าออกกำลังกาย
-                  </label>
-
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="w-full px-4 py-3 border rounded-xl"
-                  />
-                </div>
-
-                {/* PREVIEW */}
-                {form.image && (
-                  <img
-                    src={
-                      form.image instanceof File
-                        ? URL.createObjectURL(form.image)
-                        : `${IMAGE_URL}${form.image}`
-                    }
-                    alt="preview"
-                    className="w-full h-56 object-cover rounded-xl border"
-                  />
-                )}
-
-                {/* FOOTER */}
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 px-6 py-3 rounded-xl font-semibold"
-                  >
-                    ยกเลิก
-                  </button>
-
-                  <button
-                    type="submit"
-                    className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-3 rounded-xl font-semibold flex justify-center items-center gap-2"
-                  >
-                    <CheckCircle className="w-5 h-5" />
-                    บันทึก
-                  </button>
-                </div>
-              </form>
+              </div>
             </div>
           </div>
         )}

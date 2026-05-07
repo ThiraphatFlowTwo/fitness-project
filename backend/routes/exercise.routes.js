@@ -1,7 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const multer = require("multer"); // ✅ นำเข้า multer
-const path = require("path");     // ✅ นำเข้า path สำหรับจัดการชื่อไฟล์
+
+const multer = require("multer");
+const path = require("path");
 
 const {
   createExercise,
@@ -10,36 +11,40 @@ const {
   deleteExercise,
 } = require("../controllers/exercise.controller");
 
+// ✅ IMPORT MIDDLEWARE
+const { protect, adminOnly } = require("../middleware/authMiddleware");
+
 // ==========================================
-// ✅ ตั้งค่า Multer สำหรับอัปโหลดรูปภาพ
+// MULTER
 // ==========================================
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // กำหนดโฟลเดอร์สำหรับเก็บไฟล์รูปภาพ (ต้องมีโฟลเดอร์ uploads/ อยู่ในระบบ)
-    cb(null, "uploads/"); 
+    cb(null, "uploads/");
   },
+
   filename: function (req, file, cb) {
-    // ตั้งชื่อไฟล์ใหม่: ใช้วันเวลา (Date.now) + นามสกุลไฟล์เดิม เพื่อป้องกันชื่อไฟล์ซ้ำกัน
     cb(null, Date.now() + path.extname(file.originalname));
   },
 });
 
-// สร้าง middleware สำหรับอัปโหลด
-const upload = multer({ storage: storage });
+const upload = multer({
+  storage: storage,
+});
 
 // ==========================================
 // ROUTES
 // ==========================================
 
-// ❌ ตัด authMiddleware ออกก่อนกันพัง
+// ✅ ดูได้ทุกคน
 router.get("/", getExercises);
 
-// ✅ เพิ่ม upload.single("image") เข้าไปดักจับไฟล์ที่มีชื่อฟิลด์ว่า "image" ก่อนส่งไป Controller
-router.post("/", upload.single("image"), createExercise);
+// ✅ ต้อง login ก่อน
+router.post("/", protect, upload.single("image"), createExercise);
 
-// ✅ เผื่อมีการแก้ไขรูปภาพ ก็ให้ดักจับไฟล์ "image" ด้วยเช่นกัน
-router.put("/:id", upload.single("image"), updateExercise);
+// ✅ ต้อง login ก่อน
+router.put("/:id", protect, upload.single("image"), updateExercise);
 
-router.delete("/:id", deleteExercise);
+// ✅ ต้อง login ก่อน
+router.delete("/:id", protect, deleteExercise);
 
 module.exports = router;

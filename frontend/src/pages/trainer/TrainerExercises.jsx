@@ -7,6 +7,7 @@ import {
   Save,
   Dumbbell,
   Info,
+  Eye,
 } from "lucide-react";
 
 import api from "../../services/api";
@@ -17,6 +18,9 @@ function TrainerExercises() {
   const [exercises, setExercises] = useState([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // ✅ modal ดูรายละเอียด
+  const [viewExercise, setViewExercise] = useState(null);
 
   const [modalMode, setModalMode] = useState("add");
 
@@ -67,6 +71,7 @@ function TrainerExercises() {
         equipment_type: ex.equipment_type,
         exercise_type: ex.exercise_type,
         image: ex.image || null,
+        ownerRole: ex.ownerRole,
       }));
 
       setExercises(formattedData);
@@ -124,7 +129,6 @@ function TrainerExercises() {
       !formData.equipment_type
     ) {
       alert("กรุณากรอกข้อมูลให้ครบ");
-
       return;
     }
 
@@ -132,11 +136,8 @@ function TrainerExercises() {
       const payload = new FormData();
 
       payload.append("exercise_name", formData.exercise_name);
-
       payload.append("description", formData.description);
-
       payload.append("equipment_type", formData.equipment_type);
-
       payload.append("exercise_type", formData.exercise_type);
 
       if (formData.image instanceof File) {
@@ -185,7 +186,9 @@ function TrainerExercises() {
             คลังท่าฝึกสอน
           </h1>
 
-          <p className="text-slate-500">จัดการข้อมูลท่าออกกำลังกาย</p>
+          <p className="text-slate-500">
+            จัดการข้อมูลท่าออกกำลังกาย
+          </p>
         </div>
 
         <button
@@ -228,11 +231,15 @@ function TrainerExercises() {
                       className="w-16 h-16 object-cover rounded-xl border"
                     />
 
-                    <span className="font-bold">{ex.exercise_name}</span>
+                    <span className="font-bold">
+                      {ex.exercise_name}
+                    </span>
                   </div>
                 </td>
 
-                <td className="px-6 py-4">{ex.exercise_type}</td>
+                <td className="px-6 py-4">
+                  {ex.exercise_type}
+                </td>
 
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
@@ -253,19 +260,35 @@ function TrainerExercises() {
                 </td>
 
                 <td className="px-6 py-4 text-center">
+                  {/* ✅ ปุ่มดูรายละเอียด */}
                   <button
-                    onClick={() => handleOpenModal("edit", ex)}
-                    className="p-2 text-blue-600"
+                    onClick={() => setViewExercise(ex)}
+                    className="p-2 text-slate-600 hover:text-black"
                   >
-                    <Edit className="w-5 h-5" />
+                    <Eye className="w-5 h-5" />
                   </button>
 
-                  <button
-                    onClick={() => handleDelete(ex.id)}
-                    className="p-2 text-red-500"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  {ex.ownerRole === "admin" ? (
+                    <span className="text-xs text-slate-400 font-semibold">
+                      ของแอดมิน
+                    </span>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleOpenModal("edit", ex)}
+                        className="p-2 text-blue-600"
+                      >
+                        <Edit className="w-5 h-5" />
+                      </button>
+
+                      <button
+                        onClick={() => handleDelete(ex.id)}
+                        className="p-2 text-red-500"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
@@ -273,12 +296,89 @@ function TrainerExercises() {
         </table>
       </div>
 
+      {/* ✅ Modal ดูรายละเอียด */}
+      {viewExercise && (
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-xl overflow-hidden">
+
+            <div className="bg-slate-50 px-8 py-6 border-b flex justify-between items-center">
+              <h2 className="text-xl font-black">
+                รายละเอียดท่าฝึก
+              </h2>
+
+              <button onClick={() => setViewExercise(null)}>
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-8 space-y-5">
+
+              <img
+                src={
+                  viewExercise.image
+                    ? `${IMAGE_URL}${viewExercise.image}`
+                    : "https://via.placeholder.com/500x300"
+                }
+                alt={viewExercise.exercise_name}
+                className="w-full h-64 object-cover rounded-xl border"
+              />
+
+              <div>
+                <p className="text-sm text-slate-500">
+                  ชื่อท่า
+                </p>
+
+                <h3 className="text-2xl font-black">
+                  {viewExercise.exercise_name}
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="border rounded-xl p-4">
+                  <p className="text-sm text-slate-500">
+                    กลุ่มกล้ามเนื้อ
+                  </p>
+
+                  <p className="font-bold">
+                    {viewExercise.exercise_type}
+                  </p>
+                </div>
+
+                <div className="border rounded-xl p-4">
+                  <p className="text-sm text-slate-500">
+                    อุปกรณ์
+                  </p>
+
+                  <p className="font-bold">
+                    {viewExercise.equipment_type}
+                  </p>
+                </div>
+              </div>
+
+              <div className="border rounded-xl p-4">
+                <p className="text-sm text-slate-500 mb-2">
+                  รายละเอียด
+                </p>
+
+                <p>
+                  {viewExercise.description || "ไม่มีรายละเอียด"}
+                </p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Modal เพิ่ม/แก้ไข */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-xl overflow-hidden">
             <div className="bg-slate-50 px-8 py-6 border-b flex justify-between items-center">
               <h2 className="text-xl font-black">
-                {modalMode === "add" ? "เพิ่มท่าฝึกใหม่" : "แก้ไขท่าฝึก"}
+                {modalMode === "add"
+                  ? "เพิ่มท่าฝึกใหม่"
+                  : "แก้ไขท่าฝึก"}
               </h2>
 
               <button onClick={() => setIsModalOpen(false)}>
@@ -288,7 +388,9 @@ function TrainerExercises() {
 
             <div className="p-8 space-y-5">
               <div>
-                <label className="block mb-1 font-bold">ชื่อท่าฝึก</label>
+                <label className="block mb-1 font-bold">
+                  ชื่อท่าฝึก
+                </label>
 
                 <input
                   type="text"
@@ -322,7 +424,9 @@ function TrainerExercises() {
                 </div>
 
                 <div>
-                  <label className="block mb-1 font-bold">อุปกรณ์</label>
+                  <label className="block mb-1 font-bold">
+                    อุปกรณ์
+                  </label>
 
                   <select
                     name="equipment_type"
@@ -342,7 +446,9 @@ function TrainerExercises() {
               </div>
 
               <div>
-                <label className="block mb-1 font-bold">รายละเอียด</label>
+                <label className="block mb-1 font-bold">
+                  รายละเอียด
+                </label>
 
                 <textarea
                   name="description"
@@ -354,7 +460,9 @@ function TrainerExercises() {
               </div>
 
               <div>
-                <label className="block mb-1 font-bold">รูปท่าฝึก</label>
+                <label className="block mb-1 font-bold">
+                  รูปท่าฝึก
+                </label>
 
                 <input
                   type="file"
