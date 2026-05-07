@@ -3,7 +3,15 @@ const Exercise = require("../models/exercise.model");
 // CREATE
 exports.createExercise = async (req, res) => {
   try {
-    const exercise = await Exercise.create(req.body);
+    // คัดลอกข้อมูล text จาก req.body
+    const data = { ...req.body };
+    
+    // ✅ ถ้ามีการอัปโหลดรูปภาพมาด้วย (Multer จะเอาข้อมูลไฟล์ไปใส่ใน req.file)
+    if (req.file) {
+      data.image = req.file.filename; // นำชื่อไฟล์ที่ได้ไปเก็บในฟิลด์ image
+    }
+
+    const exercise = await Exercise.create(data);
     res.json(exercise);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -23,10 +31,17 @@ exports.getExercises = async (req, res) => {
 // UPDATE
 exports.updateExercise = async (req, res) => {
   try {
+    const data = { ...req.body };
+
+    // ✅ ถ้ามีการอัปโหลดไฟล์รูปภาพ "ใหม่" มาด้วย
+    if (req.file) {
+      data.image = req.file.filename;
+    }
+
     const updated = await Exercise.findByIdAndUpdate(
       req.params.id,
-      req.body,
-      { new: true }
+      data,
+      { new: true } // ให้ส่งคืนข้อมูลที่อัปเดตแล้วกลับมา
     );
     res.json(updated);
   } catch (err) {

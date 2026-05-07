@@ -1,492 +1,394 @@
-import React, { useState } from 'react';
-import { PlusCircle, Eye, Edit, Dumbbell, Target, X, Save } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import {
+  PlusCircle,
+  Edit,
+  Trash2,
+  X,
+  Save,
+  Dumbbell,
+  Info,
+} from "lucide-react";
 
-const TrainerExercises = () => {
-  // =====================================================
-  // STATE MANAGEMENT
-  // =====================================================
+import api from "../../services/api";
 
-  const [exercises] = useState([
-    {
-      id: 1,
-      nameTH: 'Bench Press',
-      nameEN: 'พัฒนากล้ามเนื้อหน้าอก ไหล่และไตรเซปส์',
-      equipment: 'บาร์เบล',
-      muscle: 'หน้าอก',
-      muscleColor: 'blue',
-      icon: '💪',
-      color: 'bg-blue-50 border-blue-200'
-    },
-    {
-      id: 2,
-      nameTH: 'Squat',
-      nameEN: 'ท่าหลักที่พัฒนากล้ามเนื้อขาและแกนกลางส่วนล่าตัว',
-      equipment: 'บาร์เบล',
-      muscle: 'ขา',
-      muscleColor: 'green',
-      icon: '🦵',
-      color: 'bg-green-50 border-green-200'
-    },
-    {
-      id: 3,
-      nameTH: 'Running',
-      nameEN: 'พัฒนาความทนทานและระบบหัวใจและหลอดเลือด',
-      equipment: 'อื่นๆ',
-      muscle: 'คาร์ดิโอ',
-      muscleColor: 'purple',
-      icon: '🏃',
-      color: 'bg-purple-50 border-purple-200'
-    },
-    {
-      id: 4,
-      nameTH: 'Deadlift',
-      nameEN: 'เน้นกล้ามเนื้อหลังล่าง สะโพก และแฮมสตริง',
-      equipment: 'บาร์เบล',
-      muscle: 'หลัง',
-      muscleColor: 'green',
-      icon: '🏋️',
-      color: 'bg-green-50 border-green-200'
-    },
-    {
-      id: 5,
-      nameTH: 'Plank',
-      nameEN: 'พัฒนากล้ามเนื้อแกนกลางและกระทรวงเชิง',
-      equipment: 'อื่นๆ',
-      muscle: 'แกนกลางล่าตัว',
-      muscleColor: 'orange',
-      icon: '🔥',
-      color: 'bg-orange-50 border-orange-200'
-    },
-    {
-      id: 6,
-      nameTH: 'Pull-up',
-      nameEN: 'พัฒนากล้ามเนื้อหลังส่วนบนและแขนขน',
-      equipment: 'อื่นๆ',
-      muscle: 'หลัง',
-      muscleColor: 'blue',
-      icon: '💪',
-      color: 'bg-blue-50 border-blue-200'
-    },
-    {
-      id: 7,
-      nameTH: 'Dumbbell Curl',
-      nameEN: 'พัฒนากล้ามเนื้อแขน',
-      equipment: 'ดัมเบล',
-      muscle: 'แขน',
-      muscleColor: 'green',
-      icon: '💪',
-      color: 'bg-green-50 border-green-200'
-    },
-    {
-      id: 8,
-      nameTH: 'Shoulder Press',
-      nameEN: 'พัฒนากล้ามเนื้อไหล่',
-      equipment: 'ดัมเบล',
-      muscle: 'หัวไหล่',
-      muscleColor: 'orange',
-      icon: '🏋️',
-      color: 'bg-orange-50 border-orange-200'
-    },
-    {
-      id: 9,
-      nameTH: 'Russian Twist',
-      nameEN: 'พัฒนากล้ามเนื้อท้องข้าง',
-      equipment: 'ลูกบอลฟิตเนส',
-      muscle: 'แกนกลางล่าตัว',
-      muscleColor: 'yellow',
-      icon: '🔥',
-      color: 'bg-yellow-50 border-yellow-200'
-    },
-    {
-      id: 10,
-      nameTH: 'Cycling',
-      nameEN: 'พัฒนาความทนทานและกล้ามเนื้อขา',
-      equipment: 'เครื่อง',
-      muscle: 'คาร์ดิโอ',
-      muscleColor: 'purple',
-      icon: '🚴',
-      color: 'bg-purple-50 border-purple-200'
-    }
-  ]);
+function TrainerExercises() {
+  const IMAGE_URL = "http://localhost:5000/uploads/";
 
-  const [selectedMuscleFilter, setSelectedMuscleFilter] = useState('ทุกส่วนของร่างกาย');
-  const [selectedEquipmentFilter, setSelectedEquipmentFilter] = useState('ทุกอุปกรณ์');
+  const [exercises, setExercises] = useState([]);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState('add');
-  const [selectedExercise, setSelectedExercise] = useState(null);
+
+  const [modalMode, setModalMode] = useState("add");
+
   const [formData, setFormData] = useState({
-    nameTH: '',
-    nameEN: '',
-    equipment: '',
-    muscle: 'ทุกส่วนของร่างกาย',
-    icon: '💪'
+    id: null,
+    exercise_name: "",
+    description: "",
+    equipment_type: "",
+    exercise_type: "",
+    image: null,
   });
 
-  const muscleOptions = [
-    { value: 'ทุกส่วนของร่างกาย', color: 'gray', icon: '💪' },
-    { value: 'ทั้งพังร่างกาย', color: 'red', icon: '🔥' },
-    { value: 'หลัง', color: 'brown', icon: '🦵' },
-    { value: 'หน้าอก', color: 'pink', icon: '💪' },
-    { value: 'หัวไหล่', color: 'orange', icon: '🏋️' },
-    { value: 'ขา', color: 'blue', icon: '🦵' },
-    { value: 'แขน', color: 'green', icon: '💪' },
-    { value: 'แกนกลางล่าตัว', color: 'yellow', icon: '🔥' },
-    { value: 'คาร์ดิโอ', color: 'purple', icon: '🏃' }
+  const muscleGroups = [
+    "หน้าอก",
+    "หลัง",
+    "หัวไหล่",
+    "ขา",
+    "แขน",
+    "แกนกลางลำตัว",
+    "คาร์ดิโอ",
+    "ทั้งร่างกาย",
   ];
 
   const equipmentOptions = [
-    { value: 'ดัมเบล', icon: '💪' },
-    { value: 'บาร์เบล', icon: '🏋️' },
-    { value: 'แคทเทิลเบล', icon: '⚫' },
-    { value: 'เครื่อง', icon: '🔧' },
-    { value: 'เคเบิล', icon: '🔗' },
-    { value: 'คาลิสเทนิกส์', icon: '🤸' },
-    { value: 'ยางยืด', icon: '🎗️' },
-    { value: 'ลูกบอลฟิตเนส', icon: '⚽' },
-    { value: 'ลูกบอลยาง', icon: '🏀' },
-    { value: 'อื่นๆ', icon: '📦' }
+    "น้ำหนักตัว",
+    "ดัมเบล",
+    "บาร์เบล",
+    "เครื่องออกกำลังกาย",
+    "เคเบิล",
+    "เคตเทิลเบล",
+    "แผ่นน้ำหนัก",
+    "ยางยืด",
+    "อื่นๆ",
   ];
 
-  const filterOptions = [
-    { id: 'all', label: 'ทั้งหมด', value: 'ทั้งหมด' },
-    { id: 'upper', label: 'ส่วนบน', value: 'ส่วนบน' },
-    { id: 'lower', label: 'ส่วนล่าง', value: 'ส่วนล่าง' },
-    { id: 'core', label: 'แกนกลาง', value: 'แกนกลาง' },
-    { id: 'cardio', label: 'คาร์ดิโอ', value: 'คาร์ดิโอ' }
-  ];
+  useEffect(() => {
+    fetchExercises();
+  }, []);
 
-  // =====================================================
-  // HANDLERS
-  // =====================================================
+  const fetchExercises = async () => {
+    try {
+      const response = await api.get("/exercises");
 
-  const handleAdd = () => {
-    setModalMode('add');
-    setFormData({
-      nameTH: '',
-      nameEN: '',
-      equipment: '',
-      muscle: 'ทุกส่วนของร่างกาย',
-      icon: '💪'
-    });
-    setIsModalOpen(true);
+      const formattedData = response.data.map((ex) => ({
+        id: ex._id,
+        exercise_name: ex.exercise_name,
+        description: ex.description || "",
+        equipment_type: ex.equipment_type,
+        exercise_type: ex.exercise_type,
+        image: ex.image || null,
+      }));
+
+      setExercises(formattedData);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  const handleView = (exercise) => {
-    setModalMode('view');
-    setSelectedExercise(exercise);
-    setFormData({
-      nameTH: exercise.nameTH,
-      nameEN: exercise.nameEN,
-      equipment: exercise.equipment,
-      muscle: exercise.muscle,
-      icon: exercise.icon
-    });
-    setIsModalOpen(true);
-  };
+  const handleOpenModal = (mode, exercise = null) => {
+    setModalMode(mode);
 
-  const handleEdit = (exercise) => {
-    setModalMode('edit');
-    setSelectedExercise(exercise);
-    setFormData({
-      nameTH: exercise.nameTH,
-      nameEN: exercise.nameEN,
-      equipment: exercise.equipment,
-      muscle: exercise.muscle,
-      icon: exercise.icon
-    });
-    setIsModalOpen(true);
-  };
-
-  const handleSave = () => {
-    if (!formData.nameTH || !formData.nameEN || !formData.equipment) {
-      alert('กรุณากรอกข้อมูลให้ครบถ้วน');
-      return;
+    if (exercise) {
+      setFormData({
+        id: exercise.id,
+        exercise_name: exercise.exercise_name,
+        description: exercise.description,
+        equipment_type: exercise.equipment_type,
+        exercise_type: exercise.exercise_type,
+        image: exercise.image || null,
+      });
+    } else {
+      setFormData({
+        id: null,
+        exercise_name: "",
+        description: "",
+        equipment_type: "",
+        exercise_type: "",
+        image: null,
+      });
     }
 
-    if (modalMode === 'add') {
-      alert('เพิ่มท่าใหม่สำเร็จ!\n\nชื่อท่า: ' + formData.nameTH);
-    } else if (modalMode === 'edit') {
-      alert('แก้ไขท่าสำเร็จ!\n\nชื่อท่า: ' + formData.nameTH);
-    }
-    
-    setIsModalOpen(false);
+    setIsModalOpen(true);
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
-    if (name === 'muscle') {
-      const muscleOption = muscleOptions.find(m => m.value === value);
-      setFormData({ 
-        ...formData, 
-        [name]: value,
-        icon: muscleOption ? muscleOption.icon : '💪'
-      });
-    } else {
-      setFormData({ ...formData, [name]: value });
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleImageChange = (e) => {
+    setFormData((prev) => ({
+      ...prev,
+      image: e.target.files[0],
+    }));
+  };
+
+  const handleSave = async () => {
+    if (
+      !formData.exercise_name ||
+      !formData.exercise_type ||
+      !formData.equipment_type
+    ) {
+      alert("กรุณากรอกข้อมูลให้ครบ");
+
+      return;
+    }
+
+    try {
+      const payload = new FormData();
+
+      payload.append("exercise_name", formData.exercise_name);
+
+      payload.append("description", formData.description);
+
+      payload.append("equipment_type", formData.equipment_type);
+
+      payload.append("exercise_type", formData.exercise_type);
+
+      if (formData.image instanceof File) {
+        payload.append("image", formData.image);
+      }
+
+      if (modalMode === "add") {
+        await api.post("/exercises", payload, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+      } else {
+        await api.put(`/exercises/${formData.id}`, payload, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+      }
+
+      setIsModalOpen(false);
+
+      fetchExercises();
+
+      alert("บันทึกสำเร็จ");
+    } catch (error) {
+      console.error(error);
+
+      alert("เกิดข้อผิดพลาด");
     }
   };
 
-  // กรองท่าการฝึก
-  const filteredExercises = exercises.filter(ex => {
-    // Filter by muscle dropdown
-    const matchesMuscle = selectedMuscleFilter === 'ทุกส่วนของร่างกาย' || ex.muscle === selectedMuscleFilter;
+  const handleDelete = async (id) => {
+    if (window.confirm("ลบท่าฝึกนี้ใช่หรือไม่?")) {
+      await api.delete(`/exercises/${id}`);
 
-    // Filter by equipment dropdown
-    const matchesEquipment = selectedEquipmentFilter === 'ทุกอุปกรณ์' || ex.equipment.includes(selectedEquipmentFilter);
-
-    return matchesMuscle && matchesEquipment;
-  });
-
-  // =====================================================
-  // COMPONENTS
-  // =====================================================
-
-  const ExerciseCard = ({ exercise }) => (
-    <div className={`${exercise.color} border-2 rounded-xl p-4 hover:shadow-lg transition-all duration-300`}>
-      <div className="flex justify-between items-start mb-3">
-        <span className="text-4xl">{exercise.icon}</span>
-        <span className={`px-3 py-1 bg-${exercise.muscleColor}-100 text-${exercise.muscleColor}-700 rounded-full text-xs font-semibold`}>
-          {exercise.muscle}
-        </span>
-      </div>
-
-      <h4 className="font-bold text-gray-800 text-lg mb-2">
-        {exercise.nameTH}
-      </h4>
-      <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-        {exercise.nameEN}
-      </p>
-
-      <div className="flex items-center text-xs text-gray-500 mb-4">
-        <Target className="w-4 h-4 mr-1" />
-        <span>{exercise.equipment}</span>
-      </div>
-
-      <div className="flex space-x-2">
-        <button 
-          onClick={() => handleView(exercise)}
-          className="flex-1 bg-white border border-gray-300 hover:bg-blue-50 hover:border-blue-400 text-gray-700 hover:text-blue-600 py-2 rounded-lg flex items-center justify-center space-x-1 text-sm transition-colors"
-        >
-          <Eye className="w-4 h-4" />
-          <span>ดู</span>
-        </button>
-        <button 
-          onClick={() => handleEdit(exercise)}
-          className="flex-1 bg-white border border-gray-300 hover:bg-green-50 hover:border-green-400 text-gray-700 hover:text-green-600 py-2 rounded-lg flex items-center justify-center space-x-1 text-sm transition-colors"
-        >
-          <Edit className="w-4 h-4" />
-          <span>แก้ไข</span>
-        </button>
-      </div>
-    </div>
-  );
-
-  // =====================================================
-  // RENDER
-  // =====================================================
+      fetchExercises();
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Top Bar */}
-      <div className="bg-white shadow-sm border-b border-gray-200 px-8 py-4">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-6">
-            <div className="text-right">
-            </div>
-            <button 
-              onClick={handleAdd}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg flex items-center space-x-2 transition-colors shadow-md"
-            >
-              <PlusCircle className="w-5 h-5" />
-              <span className="font-semibold">เพิ่มท่าใหม่</span>
-            </button>
-          </div>
+    <div className="p-8 bg-gray-50 min-h-screen font-sans">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-extrabold text-slate-800">
+            คลังท่าฝึกสอน
+          </h1>
+
+          <p className="text-slate-500">จัดการข้อมูลท่าออกกำลังกาย</p>
         </div>
+
+        <button
+          onClick={() => handleOpenModal("add")}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg"
+        >
+          <PlusCircle className="w-5 h-5" />
+          เพิ่มท่าฝึกใหม่
+        </button>
       </div>
 
-      {/* Content */}
-      <div className="p-8">
-        {/* Section Title */}
-        <h3 className="text-2xl font-bold text-gray-800 mb-6">ท่าในการฝึก</h3>
+      <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+        <table className="w-full">
+          <thead>
+            <tr className="bg-slate-50 border-b">
+              <th className="px-6 py-4">ท่าฝึก</th>
 
-        {/* Filter Dropdowns */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          {/* Muscle Filter */}
-          <div>
-            <select
-              value={selectedMuscleFilter}
-              onChange={(e) => setSelectedMuscleFilter(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 bg-white"
-            >
-              <option value="ทุกส่วนของร่างกาย">ทุกส่วนของร่างกาย</option>
-              {muscleOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.icon} {option.value}
-                </option>
-              ))}
-            </select>
-          </div>
+              <th className="px-6 py-4">กลุ่มกล้ามเนื้อ</th>
 
-          {/* Equipment Filter */}
-          <div>
-            <select
-              value={selectedEquipmentFilter}
-              onChange={(e) => setSelectedEquipmentFilter(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 bg-white"
-            >
-              <option value="ทุกอุปกรณ์">ทุกอุปกรณ์</option>
-              {equipmentOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.icon} {option.value}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+              <th className="px-6 py-4">อุปกรณ์</th>
 
-        {/* Grid Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredExercises.map(exercise => (
-            <ExerciseCard key={exercise.id} exercise={exercise} />
-          ))}
-        </div>
+              <th className="px-6 py-4">รายละเอียด</th>
 
-        {/* Empty State */}
-        {filteredExercises.length === 0 && (
-          <div className="text-center py-12">
-            <Dumbbell className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg">ไม่พบท่าในการฝึกในหมวดหมู่นี้</p>
-          </div>
-        )}
+              <th className="px-6 py-4 text-center">จัดการ</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {exercises.map((ex) => (
+              <tr key={ex.id} className="border-b hover:bg-slate-50">
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={
+                        ex.image
+                          ? `${IMAGE_URL}${ex.image}`
+                          : "https://via.placeholder.com/60"
+                      }
+                      alt={ex.exercise_name}
+                      className="w-16 h-16 object-cover rounded-xl border"
+                    />
+
+                    <span className="font-bold">{ex.exercise_name}</span>
+                  </div>
+                </td>
+
+                <td className="px-6 py-4">{ex.exercise_type}</td>
+
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-2">
+                    <Dumbbell className="w-4 h-4" />
+
+                    {ex.equipment_type}
+                  </div>
+                </td>
+
+                <td className="px-6 py-4 max-w-xs">
+                  <div className="flex gap-2">
+                    <Info className="w-4 h-4 mt-1 shrink-0" />
+
+                    <p className="text-sm line-clamp-2">
+                      {ex.description || "-"}
+                    </p>
+                  </div>
+                </td>
+
+                <td className="px-6 py-4 text-center">
+                  <button
+                    onClick={() => handleOpenModal("edit", ex)}
+                    className="p-2 text-blue-600"
+                  >
+                    <Edit className="w-5 h-5" />
+                  </button>
+
+                  <button
+                    onClick={() => handleDelete(ex.id)}
+                    className="p-2 text-red-500"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
-            <div className="p-6 border-b flex justify-between items-center bg-teal-600 text-white rounded-t-xl">
-              <h3 className="text-xl font-bold flex items-center space-x-2">
-                <PlusCircle className="w-6 h-6" />
-                <span>
-                  {modalMode === 'add' && 'เพิ่มท่าออกกำลังกาย'}
-                  {modalMode === 'edit' && 'แก้ไขท่าออกกำลังกาย'}
-                  {modalMode === 'view' && 'รายละเอียดท่าออกกำลังกาย'}
-                </span>
-              </h3>
-              <button 
-                onClick={() => setIsModalOpen(false)}
-                className="text-white hover:text-gray-200"
-              >
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-xl overflow-hidden">
+            <div className="bg-slate-50 px-8 py-6 border-b flex justify-between items-center">
+              <h2 className="text-xl font-black">
+                {modalMode === "add" ? "เพิ่มท่าฝึกใหม่" : "แก้ไขท่าฝึก"}
+              </h2>
+
+              <button onClick={() => setIsModalOpen(false)}>
                 <X className="w-6 h-6" />
               </button>
             </div>
-            
-            <div className="p-6">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <Dumbbell className="w-4 h-4 inline mr-1" />
-                      ชื่อท่า <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="nameTH"
-                      value={formData.nameTH}
-                      onChange={handleInputChange}
-                      disabled={modalMode === 'view'}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-teal-500 disabled:bg-gray-100"
-                      placeholder="กรอกชื่อท่าออกกำลังกาย"
-                    />
-                  </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      💪 ประเภทท่า <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="muscle"
-                      value={formData.muscle}
-                      onChange={handleInputChange}
-                      disabled={modalMode === 'view'}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-teal-500 disabled:bg-gray-100"
-                    >
-                      <option value="">-- เลือกประเภทท่า --</option>
-                      {muscleOptions.map(option => (
-                        <option key={option.value} value={option.value}>
-                          {option.icon} {option.value}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+            <div className="p-8 space-y-5">
+              <div>
+                <label className="block mb-1 font-bold">ชื่อท่าฝึก</label>
 
+                <input
+                  type="text"
+                  name="exercise_name"
+                  value={formData.exercise_name}
+                  onChange={handleInputChange}
+                  className="w-full border rounded-xl px-4 py-3"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    🎯 อุปกรณ์ <span className="text-red-500">*</span>
+                  <label className="block mb-1 font-bold">
+                    กลุ่มกล้ามเนื้อ
                   </label>
+
                   <select
-                    name="equipment"
-                    value={formData.equipment}
+                    name="exercise_type"
+                    value={formData.exercise_type}
                     onChange={handleInputChange}
-                    disabled={modalMode === 'view'}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-teal-500 disabled:bg-gray-100"
+                    className="w-full border rounded-xl px-4 py-3"
                   >
-                    <option value="">-- เลือกอุปกรณ์ --</option>
-                    {equipmentOptions.map(equip => (
-                      <option key={equip.value} value={equip.value}>
-                        {equip.icon} {equip.value}
+                    <option value="">เลือก</option>
+
+                    {muscleGroups.map((group) => (
+                      <option key={group} value={group}>
+                        {group}
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    📝 คำอธิบาย <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    name="nameEN"
-                    value={formData.nameEN}
+                  <label className="block mb-1 font-bold">อุปกรณ์</label>
+
+                  <select
+                    name="equipment_type"
+                    value={formData.equipment_type}
                     onChange={handleInputChange}
-                    disabled={modalMode === 'view'}
-                    rows="3"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-teal-500 disabled:bg-gray-100 resize-none"
-                    placeholder="กรุณากรอกคำอธิบายเกี่ยวกับท่าการฝึก"
-                  ></textarea>
-                </div>
-
-                {formData.icon && (
-                  <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <span className="text-6xl">{formData.icon}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex space-x-3 pt-6 mt-6 border-t">
-                {modalMode !== 'view' && (
-                  <button
-                    onClick={handleSave}
-                    className="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 transition-colors"
+                    className="w-full border rounded-xl px-4 py-3"
                   >
-                    <Save className="w-5 h-5" />
-                    <span>บันทึก</span>
-                  </button>
-                )}
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold transition-colors"
-                >
-                  {modalMode === 'view' ? 'ปิด' : 'ยกเลิก'}
-                </button>
+                    <option value="">เลือก</option>
+
+                    {equipmentOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
+
+              <div>
+                <label className="block mb-1 font-bold">รายละเอียด</label>
+
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  rows="4"
+                  className="w-full border rounded-xl px-4 py-3 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block mb-1 font-bold">รูปท่าฝึก</label>
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="w-full border rounded-xl px-4 py-3"
+                />
+              </div>
+
+              {formData.image && (
+                <img
+                  src={
+                    formData.image instanceof File
+                      ? URL.createObjectURL(formData.image)
+                      : `${IMAGE_URL}${formData.image}`
+                  }
+                  alt="preview"
+                  className="w-full h-56 object-cover rounded-xl border"
+                />
+              )}
+
+              <button
+                onClick={handleSave}
+                className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold flex justify-center items-center gap-2"
+              >
+                <Save className="w-5 h-5" />
+                บันทึกท่าฝึก
+              </button>
             </div>
           </div>
         </div>
       )}
     </div>
   );
-};
+}
 
 export default TrainerExercises;
