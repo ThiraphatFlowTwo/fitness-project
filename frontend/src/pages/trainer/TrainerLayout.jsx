@@ -3,26 +3,28 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Home, Users, ClipboardList, Dumbbell,
   Edit, TrendingUp, User, LogOut,
-  Bell, Menu, X, ChevronRight
+  Bell, Menu, X, ChevronRight, Scale // เพิ่ม Scale ตรงนี้แล้ว
 } from 'lucide-react';
 
 const menuItems = [
-  { id: 'dashboard', label: 'หน้าหลัก',           icon: Home,          path: '/trainer/dashboard' },
+  { id: 'dashboard', label: 'หน้าหลัก',         icon: Home,          path: '/trainer' }, 
   { id: 'trainees',  label: 'จัดการผู้รับการฝึก', icon: Users,         path: '/trainer/trainees'  },
   { id: 'programs',  label: 'โปรแกรมการฝึก',      icon: ClipboardList, path: '/trainer/programs'  },
   { id: 'exercises', label: 'ท่าในการฝึก',         icon: Dumbbell,      path: '/trainer/exercises' },
-  { id: 'results',   label: 'บันทึกผลการฝึก',     icon: Edit,          path: '/trainer/results'   },
-  { id: 'progress',  label: 'พัฒนาการ',            icon: TrendingUp,    path: '/trainer/progress'  },
-  { id: 'profile',   label: 'โปรไฟล์ส่วนตัว',    icon: User,          path: '/trainer/profile'   },
+  { id: 'results',   label: 'บันทึกการฝึกรายวัน',  icon: Edit,          path: '/trainer/results'   },
+  { id: 'metrics',   label: 'บันทึกการเปลี่ยนแปลง', icon: Scale,         path: '/trainer/metrics'   }, // เพิ่มเมนูใหม่
+  { id: 'progress',  label: 'พัฒนาการ (กราฟ)',     icon: TrendingUp,    path: '/trainer/progress'  },
+  { id: 'profile',   label: 'โปรไฟล์ส่วนตัว',       icon: User,          path: '/trainer/profile'   },
 ];
 
 const pageTitles = {
-  '/trainer/dashboard': { th: 'หน้าหลัก',           en: 'Dashboard'     },
+  '/trainer':           { th: 'หน้าหลัก',           en: 'Dashboard'     },
   '/trainer/trainees':  { th: 'จัดการผู้รับการฝึก', en: 'Trainees'      },
   '/trainer/programs':  { th: 'โปรแกรมการฝึก',      en: 'Programs'      },
   '/trainer/exercises': { th: 'ท่าในการฝึก',         en: 'Exercises'     },
-  '/trainer/results':   { th: 'บันทึกผลการฝึก',     en: 'Results'       },
-  '/trainer/progress':  { th: 'พัฒนาการ',            en: 'Progress'      },
+  '/trainer/results':   { th: 'บันทึกการฝึกรายวัน',  en: 'Daily Results' },
+  '/trainer/metrics':   { th: 'บันทึกการเปลี่ยนแปลง', en: 'Monthly Metrics'}, // เพิ่มหัวข้อหน้า
+  '/trainer/progress':  { th: 'พัฒนาการผู้รับการฝึก', en: 'Progress'      },
   '/trainer/profile':   { th: 'โปรไฟล์ส่วนตัว',    en: 'Profile'       },
 };
 
@@ -148,23 +150,20 @@ export default function TrainerLayout() {
 
             {/* Right */}
             <div className="flex items-center gap-3">
-              {/* Semester badge */}
               <div className="hidden md:flex flex-col items-end">
                 <span className="text-xs font-semibold text-slate-700">ปีการศึกษา 2568</span>
                 <span className="text-xs text-slate-400">ภาคเรียนที่ 1</span>
               </div>
 
-              {/* Notification */}
               <button className="relative p-2 rounded-xl hover:bg-slate-100 transition-colors">
                 <Bell className="w-5 h-5 text-slate-600" />
                 <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold
-                                 rounded-full flex items-center justify-center leading-none">3</span>
+                                  rounded-full flex items-center justify-center leading-none">3</span>
               </button>
 
-              {/* Avatar */}
               <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-500 to-blue-500
-                                flex items-center justify-center shadow">
+                                 flex items-center justify-center shadow">
                   <User className="w-4 h-4 text-white" />
                 </div>
                 <div className="hidden md:block">
