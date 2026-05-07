@@ -15,6 +15,7 @@ import TrainerExercises from "./pages/trainer/TrainerExercises";
 import TrainerResults from "./pages/trainer/TrainerResults";
 import TrainerProgress from "./pages/trainer/TrainerProgress";
 import TrainerProfile from "./pages/trainer/TrainerProfile";
+import TrainerMetrics from "./pages/trainer/TrainerMetrics";
 
 // Instructor
 import InstructorLayout from "./layouts/InstructorLayout";
@@ -52,7 +53,7 @@ function App() {
           }
         />
 
-{/* ===== Trainer (Nested Routes) ===== */}
+{/* ===== Trainer (เทรนเนอร์) - แก้ไขใหม่ ===== */}
 <Route
   path="/trainer"
   element={
@@ -61,13 +62,17 @@ function App() {
     </ProtectedRoute>
   }
 >
-  <Route path="dashboard" element={<TrainerDashboard />} />
+  {/* index หมายถึงเมื่อเข้า /trainer ให้แสดง Dashboard ทันทีภายใต้ Layout */}
+  <Route index element={<TrainerDashboard />} /> 
+  
+  {/* หน้าอื่นๆ จะกลายเป็น /trainer/trainees, /trainer/programs ฯลฯ */}
   <Route path="trainees" element={<TrainerTrainees />} />
   <Route path="programs" element={<TrainerPrograms />} />
   <Route path="exercises" element={<TrainerExercises />} />
   <Route path="results" element={<TrainerResults />} />
   <Route path="progress" element={<TrainerProgress />} />
   <Route path="profile" element={<TrainerProfile />} />
+  <Route path="metrics" element={<TrainerMetrics />} />
 </Route>
 
         {/* ===== Instructor (อาจารย์) ===== */}
