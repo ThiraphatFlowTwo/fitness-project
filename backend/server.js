@@ -5,6 +5,8 @@ const adminRoutes = require('./routes/adminRoutes')
 const academicYearRoutes = require("./routes/academicYear.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const exerciseRoutes = require("./routes/exercise.routes");
+const traineeRoutes = require("./routes/traineeRoutes");
+const fitnessRoutes = require("./routes/physicalFitnessRoutes");
 const path = require("path");
 require("dotenv").config();
 
@@ -21,6 +23,8 @@ app.use('/api/admin', adminRoutes)
 app.use("/api/academic-years", academicYearRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/exercises", exerciseRoutes);
+app.use("/api/trainees", traineeRoutes);
+app.use("/api/fitness", fitnessRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 

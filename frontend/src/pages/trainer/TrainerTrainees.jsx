@@ -1,161 +1,300 @@
-import React, { useState } from 'react';
-import { UserPlus, Eye, Edit, Trash2, X, Save } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import {
+  UserPlus,
+  Eye,
+  Edit,
+  Trash2,
+  X,
+  Save,
+  Loader2,
+  Activity,
+} from "lucide-react";
+
+const API = "http://localhost:5000/api/trainees";
+const FITNESS_API = "http://localhost:5000/api/fitness";
+
+const getToken = () => localStorage.getItem("token");
+const authHeaders = () => ({
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${getToken()}`,
+});
+
+const getGoalColor = (goal) => {
+  const map = {
+    เพิ่มมวลกล้ามเนื้อ: "green",
+    คาร์ดิโอ: "blue",
+    เพิ่มความแข็งแรง: "purple",
+    ลดไขมัน: "orange",
+  };
+  return map[goal] || "gray";
+};
+
+const EMPTY_TRAINEE = {
+  name: "",
+  gender: "ชาย",
+  age: "",
+  height: "",
+  weight: "",
+  goal: "เพิ่มมวลกล้ามเนื้อ",
+  healthCondition: "",
+};
+
+const EMPTY_FITNESS = {
+  test_date: "",
+  bmi: "",
+  body_fat_percent: "",
+  vo2_max: "",
+  muscle_strength: "",
+  flexibility: "",
+  resting_heart_rate: "",
+  remark: "",
+};
 
 const TrainerTrainees = () => {
-  const [trainees, setTrainees] = useState([
-    {
-      id: 1,
-      name: 'สมหญิง ชัยชนะ',
-      gender: 'หญิง',
-      age: 25,
-      goal: 'เพิ่มมวลกล้ามเนื้อ',
-      goalColor: 'green',
-      bmi: 22.5,
-      bodyFat: 18.2,
-      healthCondition: 'สุขภาพแข็งแรง ไม่มีโรคประจำตัว',
-      initial: 'ส'
-    },
-    {
-      id: 2,
-      name: 'ประภาส สุขใจ',
-      gender: 'ชาย',
-      age: 22,
-      goal: 'คาร์ดิโอ',
-      goalColor: 'blue',
-      bmi: 24.1,
-      bodyFat: 20.5,
-      healthCondition: 'ปกติ',
-      initial: 'ป'
-    },
-    {
-      id: 3,
-      name: 'วิชัย กล้าหาญ',
-      gender: 'ชาย',
-      age: 28,
-      goal: 'เพิ่มความแข็งแรง',
-      goalColor: 'purple',
-      bmi: 23.8,
-      bodyFat: 19.0,
-      healthCondition: 'ปกติ',
-      initial: 'ว'
-    },
-    {
-      id: 4,
-      name: 'สุดา ใจดี',
-      gender: 'หญิง',
-      age: 30,
-      goal: 'ลดไขมัน',
-      goalColor: 'orange',
-      bmi: 26.2,
-      bodyFat: 28.5,
-      healthCondition: 'เริ่มมีน้ำหนักเกิน',
-      initial: 'ส'
-    }
-  ]);
+  const [trainees, setTrainees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState('add'); // 'add', 'edit', 'view'
+  // Modal ลูกเทรน
+  const [isTraineeModal, setIsTraineeModal] = useState(false);
+  const [traineeMode, setTraineeMode] = useState("add");
+  const [selectedId, setSelectedId] = useState(null);
+  const [traineeForm, setTraineeForm] = useState(EMPTY_TRAINEE);
+
+  // Modal สมรรถภาพ
+  const [isFitnessModal, setIsFitnessModal] = useState(false);
+  const [fitnessMode, setFitnessMode] = useState("add");
   const [selectedTrainee, setSelectedTrainee] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    gender: 'ชาย',
-    age: '',
-    goal: 'เพิ่มมวลกล้ามเนื้อ',
-    bmi: '',
-    bodyFat: '',
-    healthCondition: ''
-  });
+  const [fitnessRecords, setFitnessRecords] = useState([]);
+  const [fitnessForm, setFitnessForm] = useState(EMPTY_FITNESS);
+  const [selectedFitnessId, setSelectedFitnessId] = useState(null);
+  const [fitnessLoading, setFitnessLoading] = useState(false);
 
-  // เปิด Modal เพิ่มลูกเทรน
-  const handleAdd = () => {
-    setModalMode('add');
-    setFormData({
-      name: '',
-      gender: 'ชาย',
-      age: '',
-      goal: 'เพิ่มมวลกล้ามเนื้อ',
-      bmi: '',
-      bodyFat: '',
-      healthCondition: ''
-    });
-    setIsModalOpen(true);
-  };
-
-  // เปิด Modal ดูรายละเอียด
-  const handleView = (trainee) => {
-    setModalMode('view');
-    setSelectedTrainee(trainee);
-    setFormData(trainee);
-    setIsModalOpen(true);
-  };
-
-  // เปิด Modal แก้ไข
-  const handleEdit = (trainee) => {
-    setModalMode('edit');
-    setSelectedTrainee(trainee);
-    setFormData(trainee);
-    setIsModalOpen(true);
-  };
-
-  // ลบลูกเทรน
-  const handleDelete = (id) => {
-    if (window.confirm('คุณต้องการลบผู้รับการฝึกนี้ใช่หรือไม่?')) {
-      setTrainees(trainees.filter(t => t.id !== id));
-      alert('ลบข้อมูลสำเร็จ');
+  // ── โหลดลูกเทรน ──────────────────────────────────────────────
+  const fetchTrainees = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(API, { headers: authHeaders() });
+      if (!res.ok) throw new Error();
+      setTrainees(await res.json());
+    } catch {
+      setError("โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // บันทึกข้อมูล
-  const handleSave = () => {
-    if (!formData.name || !formData.age) {
-      alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+  useEffect(() => {
+    fetchTrainees();
+  }, []);
+
+  // ── โหลดข้อมูลสมรรถภาพ ───────────────────────────────────────
+  const fetchFitness = async (traineeId) => {
+    setFitnessLoading(true);
+    try {
+      const res = await fetch(`${FITNESS_API}/${traineeId}`, {
+        headers: authHeaders(),
+      });
+      setFitnessRecords(await res.json());
+    } catch {
+      alert("โหลดข้อมูลสมรรถภาพไม่สำเร็จ");
+    } finally {
+      setFitnessLoading(false);
+    }
+  };
+
+  // ── เปิด Modal ลูกเทรน ────────────────────────────────────────
+  const handleAdd = () => {
+    setTraineeMode("add");
+    setTraineeForm(EMPTY_TRAINEE);
+    setSelectedId(null);
+    setIsTraineeModal(true);
+  };
+
+  const handleView = (t) => {
+    setTraineeMode("view");
+    setTraineeForm(t);
+    setSelectedId(t._id);
+    setIsTraineeModal(true);
+  };
+  const handleEdit = (t) => {
+    setTraineeMode("edit");
+    setTraineeForm(t);
+    setSelectedId(t._id);
+    setIsTraineeModal(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("คุณต้องการลบผู้รับการฝึกนี้ใช่หรือไม่?")) return;
+    try {
+      await fetch(`${API}/${id}`, { method: "DELETE", headers: authHeaders() });
+      setTrainees((prev) => prev.filter((t) => t._id !== id));
+    } catch {
+      alert("ลบไม่สำเร็จ");
+    }
+  };
+
+  const handleSaveTrainee = async () => {
+    if (!traineeForm.name || !traineeForm.age) {
+      alert("กรุณากรอกชื่อและอายุให้ครบถ้วน");
       return;
     }
-
-    if (modalMode === 'add') {
-      const newTrainee = {
-        ...formData,
-        id: trainees.length + 1,
-        initial: formData.name.charAt(0),
-        goalColor: getGoalColor(formData.goal)
-      };
-      setTrainees([...trainees, newTrainee]);
-      alert('เพิ่มข้อมูลสำเร็จ');
-    } else if (modalMode === 'edit') {
-      setTrainees(trainees.map(t => 
-        t.id === selectedTrainee.id 
-          ? { ...formData, id: t.id, initial: formData.name.charAt(0), goalColor: getGoalColor(formData.goal) }
-          : t
-      ));
-      alert('แก้ไขข้อมูลสำเร็จ');
+    setSaving(true);
+    try {
+      if (traineeMode === "add") {
+        const res = await fetch(API, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify(traineeForm),
+        });
+        const data = await res.json(); // ← อ่านครั้งเดียว
+        if (!res.ok) {
+          alert(`บันทึกไม่สำเร็จ: ${data.message}`);
+          return;
+        }
+        setTrainees((prev) => [data, ...prev]); // ← ใช้ data ที่อ่านไปแล้ว
+      } else {
+        const res = await fetch(`${API}/${selectedId}`, {
+          method: "PUT",
+          headers: authHeaders(),
+          body: JSON.stringify(traineeForm),
+        });
+        const data = await res.json(); // ← อ่านครั้งเดียว
+        if (!res.ok) {
+          alert(`แก้ไขไม่สำเร็จ: ${data.message}`);
+          return;
+        }
+        setTrainees((prev) =>
+          prev.map((t) => (t._id === selectedId ? data : t)),
+        );
+      }
+      setIsTraineeModal(false);
+    } catch {
+      alert("เกิดข้อผิดพลาด");
+    } finally {
+      setSaving(false);
     }
-    
-    setIsModalOpen(false);
   };
 
-  // กำหนดสีตามเป้าหมาย
-  const getGoalColor = (goal) => {
-    const colorMap = {
-      'เพิ่มมวลกล้ามเนื้อ': 'green',
-      'คาร์ดิโอ': 'blue',
-      'เพิ่มความแข็งแรง': 'purple',
-      'ลดไขมัน': 'orange'
-    };
-    return colorMap[goal] || 'gray';
+  // ── เปิด Modal สมรรถภาพ ───────────────────────────────────────
+  const handleOpenFitness = (trainee) => {
+    setSelectedTrainee(trainee);
+    setFitnessMode("list");
+    setFitnessForm(EMPTY_FITNESS);
+    setSelectedFitnessId(null);
+    fetchFitness(trainee._id);
+    setIsFitnessModal(true);
   };
 
-  // เปลี่ยนค่าในฟอร์ม
-  const handleInputChange = (e) => {
+  const handleAddFitness = () => {
+    setFitnessMode("add");
+    setFitnessForm({
+      ...EMPTY_FITNESS,
+      test_date: new Date().toISOString().split("T")[0],
+    });
+    setSelectedFitnessId(null);
+  };
+
+  const handleEditFitness = (record) => {
+    setFitnessMode("edit");
+    setSelectedFitnessId(record._id);
+    setFitnessForm({
+      ...record,
+      test_date: record.test_date?.split("T")[0] || "",
+    });
+  };
+
+  const handleDeleteFitness = async (id) => {
+    if (!window.confirm("ลบข้อมูลสมรรถภาพนี้ใช่หรือไม่?")) return;
+    try {
+      await fetch(`${FITNESS_API}/${id}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      setFitnessRecords((prev) => prev.filter((r) => r._id !== id));
+    } catch {
+      alert("ลบไม่สำเร็จ");
+    }
+  };
+
+  const handleSaveFitness = async () => {
+    if (!fitnessForm.test_date) {
+      alert("กรุณาเลือกวันที่ทดสอบ");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (fitnessMode === "add") {
+        const res = await fetch(FITNESS_API, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            ...fitnessForm,
+            trainee_id: selectedTrainee._id,
+          }),
+        });
+        if (!res.ok) {
+          const e = await res.json();
+          alert(`บันทึกไม่สำเร็จ: ${e.message}`);
+          return;
+        }
+        const saved = await res.json();
+        setFitnessRecords((prev) => [saved, ...prev]);
+      } else {
+        const res = await fetch(`${FITNESS_API}/${selectedFitnessId}`, {
+          method: "PUT",
+          headers: authHeaders(),
+          body: JSON.stringify(fitnessForm),
+        });
+        if (!res.ok) {
+          const e = await res.json();
+          alert(`แก้ไขไม่สำเร็จ: ${e.message}`);
+          return;
+        }
+        const updated = await res.json();
+        setFitnessRecords((prev) =>
+          prev.map((r) => (r._id === selectedFitnessId ? updated : r)),
+        );
+      }
+      setFitnessMode("list");
+    } catch {
+      alert("เกิดข้อผิดพลาด");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleFitnessInput = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    setFitnessForm((prev) => ({ ...prev, [name]: value }));
   };
+
+  // ── Render ────────────────────────────────────────────────────
+  if (loading)
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+        <span className="ml-2 text-gray-600">กำลังโหลดข้อมูล...</span>
+      </div>
+    );
+
+  if (error)
+    return (
+      <div className="flex items-center justify-center min-h-screen text-red-500">
+        {error}
+      </div>
+    );
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
       <div className="bg-white rounded-xl shadow-md">
+        {/* Header */}
         <div className="p-6 border-b flex justify-between items-center">
-          <h3 className="text-xl font-bold text-gray-800">จัดการข้อมูลผู้รับการฝึก</h3>
-          <button 
+          <h3 className="text-xl font-bold text-gray-800">
+            จัดการข้อมูลผู้รับการฝึก
+          </h3>
+          <button
             onClick={handleAdd}
             className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
           >
@@ -163,244 +302,550 @@ const TrainerTrainees = () => {
             <span>เพิ่มผู้รับการฝึก</span>
           </button>
         </div>
-        <div className="p-6">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ชื่อ-นามสกุล
+
+        {/* Table */}
+        <div className="p-6 overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                {[
+                  "ชื่อ-นามสกุล",
+                  "เพศ",
+                  "อายุ",
+                  "ส่วนสูง",
+                  "น้ำหนัก",
+                  "เป้าหมาย",
+                  "การจัดการ",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    {h}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    เพศ
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    อายุ
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    เป้าหมาย
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    BMI
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    การจัดการ
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {trainees.map((trainee) => (
-                  <tr key={trainee.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-blue-600 font-semibold">{trainee.initial}</span>
-                        </div>
-                        <span className="font-medium text-gray-800">{trainee.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                      {trainee.gender}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                      {trainee.age} ปี
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 bg-${trainee.goalColor}-100 text-${trainee.goalColor}-800 rounded-full text-sm`}>
-                        {trainee.goal}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                      {trainee.bmi}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex space-x-2">
-                        <button 
-                          onClick={() => handleView(trainee)}
-                          className="text-blue-600 hover:text-blue-800 transition-colors"
-                          title="ดูรายละเอียด"
-                        >
-                          <Eye className="w-5 h-5" />
-                        </button>
-                        <button 
-                          onClick={() => handleEdit(trainee)}
-                          className="text-green-600 hover:text-green-800 transition-colors"
-                          title="แก้ไข"
-                        >
-                          <Edit className="w-5 h-5" />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(trainee.id)}
-                          className="text-red-600 hover:text-red-800 transition-colors"
-                          title="ลบ"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {trainees.map((t) => (
+                <tr key={t._id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                        <span className="text-blue-600 font-semibold">
+                          {t.name.charAt(0)}
+                        </span>
+                      </div>
+                      <span className="font-medium text-gray-800">
+                        {t.name}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                    {t.gender}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                    {t.age} ปี
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                    {t.height ? `${t.height} ซม.` : "-"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                    {t.weight ? `${t.weight} กก.` : "-"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`px-3 py-1 bg-${getGoalColor(t.goal)}-100 text-${getGoalColor(t.goal)}-800 rounded-full text-sm`}
+                    >
+                      {t.goal}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex space-x-2">
+                      {/* ปุ่มสมรรถภาพ */}
+                      <button
+                        onClick={() => handleOpenFitness(t)}
+                        className="text-purple-600 hover:text-purple-800 transition-colors"
+                        title="ข้อมูลสมรรถภาพทางกาย"
+                      >
+                        <Activity className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => handleView(t)}
+                        className="text-blue-600 hover:text-blue-800"
+                        title="ดูรายละเอียด"
+                      >
+                        <Eye className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => handleEdit(t)}
+                        className="text-green-600 hover:text-green-800"
+                        title="แก้ไข"
+                      >
+                        <Edit className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(t._id)}
+                        className="text-red-600 hover:text-red-800"
+                        title="ลบ"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {trainees.length === 0 && (
+            <p className="text-center text-gray-400 py-10">
+              ยังไม่มีข้อมูลผู้รับการฝึก
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Modal */}
-      {isModalOpen && (
+      {/* ===== Modal ลูกเทรน ===== */}
+      {isTraineeModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white">
               <h3 className="text-xl font-bold text-gray-800">
-                {modalMode === 'add' && 'เพิ่มผู้รับการฝึกใหม่'}
-                {modalMode === 'edit' && 'แก้ไขข้อมูลผู้รับการฝึก'}
-                {modalMode === 'view' && 'รายละเอียดผู้รับการฝึก'}
+                {traineeMode === "add" && "เพิ่มผู้รับการฝึกใหม่"}
+                {traineeMode === "edit" && "แก้ไขข้อมูลผู้รับการฝึก"}
+                {traineeMode === "view" && "รายละเอียดผู้รับการฝึก"}
               </h3>
-              <button 
-                onClick={() => setIsModalOpen(false)}
+              <button
+                onClick={() => setIsTraineeModal(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
-            
-            <div className="p-6">
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      ชื่อ-นามสกุล <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      disabled={modalMode === 'view'}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100"
-                      placeholder="เช่น สมชาย ใจดี"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      เพศ
-                    </label>
-                    <select
-                      name="gender"
-                      value={formData.gender}
-                      onChange={handleInputChange}
-                      disabled={modalMode === 'view'}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100"
-                    >
-                      <option value="ชาย">ชาย</option>
-                      <option value="หญิง">หญิง</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      อายุ <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="age"
-                      value={formData.age}
-                      onChange={handleInputChange}
-                      disabled={modalMode === 'view'}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100"
-                      placeholder="เช่น 25"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      เป้าหมายการฝึก
-                    </label>
-                    <select
-                      name="goal"
-                      value={formData.goal}
-                      onChange={handleInputChange}
-                      disabled={modalMode === 'view'}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100"
-                    >
-                      <option value="เพิ่มมวลกล้ามเนื้อ">เพิ่มมวลกล้ามเนื้อ</option>
-                      <option value="ลดไขมัน">ลดไขมัน</option>
-                      <option value="คาร์ดิโอ">คาร์ดิโอ</option>
-                      <option value="เพิ่มความแข็งแรง">เพิ่มความแข็งแรง</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      BMI
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      name="bmi"
-                      value={formData.bmi}
-                      onChange={handleInputChange}
-                      disabled={modalMode === 'view'}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100"
-                      placeholder="เช่น 22.5"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      % ไขมัน
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      name="bodyFat"
-                      value={formData.bodyFat}
-                      onChange={handleInputChange}
-                      disabled={modalMode === 'view'}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100"
-                      placeholder="เช่น 18.2"
-                    />
-                  </div>
-                </div>
-
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    ข้อมูลสุขภาพพื้นฐาน
+                    ชื่อ-นามสกุล <span className="text-red-500">*</span>
                   </label>
-                  <textarea
-                    name="healthCondition"
-                    value={formData.healthCondition}
-                    onChange={handleInputChange}
-                    disabled={modalMode === 'view'}
-                    rows="3"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100 resize-none"
-                    placeholder="เช่น โรคประจำตัว ประวัติการบาดเจ็บ ข้อจำกัดในการออกกำลังกาย..."
-                  ></textarea>
+                  <input
+                    type="text"
+                    name="name"
+                    value={traineeForm.name}
+                    onChange={(e) =>
+                      setTraineeForm((p) => ({ ...p, name: e.target.value }))
+                    }
+                    disabled={traineeMode === "view"}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
+                    placeholder="เช่น สมชาย ใจดี"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    เพศ
+                  </label>
+                  <select
+                    name="gender"
+                    value={traineeForm.gender}
+                    onChange={(e) =>
+                      setTraineeForm((p) => ({ ...p, gender: e.target.value }))
+                    }
+                    disabled={traineeMode === "view"}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
+                  >
+                    <option value="ชาย">ชาย</option>
+                    <option value="หญิง">หญิง</option>
+                  </select>
                 </div>
               </div>
-
-              <div className="flex space-x-3 pt-6 mt-6 border-t">
-                {modalMode !== 'view' && (
-                  <button
-                    onClick={handleSave}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 transition-colors"
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    อายุ <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="age"
+                    value={traineeForm.age}
+                    onChange={(e) =>
+                      setTraineeForm((p) => ({ ...p, age: e.target.value }))
+                    }
+                    disabled={traineeMode === "view"}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
+                    placeholder="เช่น 25"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    เป้าหมายการฝึก
+                  </label>
+                  <select
+                    name="goal"
+                    value={traineeForm.goal}
+                    onChange={(e) =>
+                      setTraineeForm((p) => ({ ...p, goal: e.target.value }))
+                    }
+                    disabled={traineeMode === "view"}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
                   >
-                    <Save className="w-5 h-5" />
-                    <span>บันทึก</span>
+                    <option value="เพิ่มมวลกล้ามเนื้อ">
+                      เพิ่มมวลกล้ามเนื้อ
+                    </option>
+                    <option value="ลดไขมัน">ลดไขมัน</option>
+                    <option value="คาร์ดิโอ">คาร์ดิโอ</option>
+                    <option value="เพิ่มความแข็งแรง">เพิ่มความแข็งแรง</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    ส่วนสูง (ซม.)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    name="height"
+                    value={traineeForm.height}
+                    onChange={(e) =>
+                      setTraineeForm((p) => ({ ...p, height: e.target.value }))
+                    }
+                    disabled={traineeMode === "view"}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
+                    placeholder="เช่น 170"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    น้ำหนัก (กก.)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    name="weight"
+                    value={traineeForm.weight}
+                    onChange={(e) =>
+                      setTraineeForm((p) => ({ ...p, weight: e.target.value }))
+                    }
+                    disabled={traineeMode === "view"}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
+                    placeholder="เช่น 65"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ข้อมูลสุขภาพพื้นฐาน
+                </label>
+                <textarea
+                  name="healthCondition"
+                  value={traineeForm.healthCondition}
+                  onChange={(e) =>
+                    setTraineeForm((p) => ({
+                      ...p,
+                      healthCondition: e.target.value,
+                    }))
+                  }
+                  disabled={traineeMode === "view"}
+                  rows="3"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 resize-none"
+                  placeholder="เช่น โรคประจำตัว ประวัติการบาดเจ็บ..."
+                />
+              </div>
+              <div className="flex space-x-3 pt-4 border-t">
+                {traineeMode !== "view" && (
+                  <button
+                    onClick={handleSaveTrainee}
+                    disabled={saving}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 disabled:opacity-60"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>กำลังบันทึก...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-5 h-5" />
+                        <span>บันทึก</span>
+                      </>
+                    )}
                   </button>
                 )}
                 <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold transition-colors"
+                  onClick={() => setIsTraineeModal(false)}
+                  className="px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold"
                 >
-                  {modalMode === 'view' ? 'ปิด' : 'ยกเลิก'}
+                  {traineeMode === "view" ? "ปิด" : "ยกเลิก"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Modal สมรรถภาพทางกาย ===== */}
+      {isFitnessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white">
+              <div>
+                <h3 className="text-xl font-bold text-gray-800">
+                  ข้อมูลสมรรถภาพทางกาย
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {selectedTrainee?.name}
+                </p>
+              </div>
+              <button
+                onClick={() => setIsFitnessModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {/* รายการ หรือ ฟอร์ม */}
+              {fitnessMode === "list" ? (
+                <>
+                  <div className="flex justify-end mb-4">
+                    <button
+                      onClick={handleAddFitness}
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 text-sm transition-colors"
+                    >
+                      <Activity className="w-4 h-4" />
+                      <span>เพิ่มข้อมูลสมรรถภาพ</span>
+                    </button>
+                  </div>
+
+                  {fitnessLoading ? (
+                    <div className="flex justify-center py-10">
+                      <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+                    </div>
+                  ) : fitnessRecords.length === 0 ? (
+                    <p className="text-center text-gray-400 py-10">
+                      ยังไม่มีข้อมูลสมรรถภาพทางกาย
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {fitnessRecords.map((r) => (
+                        <div
+                          key={r._id}
+                          className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-semibold text-gray-800">
+                                วันที่ทดสอบ:{" "}
+                                {new Date(r.test_date).toLocaleDateString(
+                                  "th-TH",
+                                )}
+                              </p>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 text-sm text-gray-600">
+                                {r.bmi && <span>BMI: {r.bmi}</span>}
+                                {r.body_fat_percent && (
+                                  <span>ไขมัน: {r.body_fat_percent}%</span>
+                                )}
+                                {r.vo2_max && <span>VO2 Max: {r.vo2_max}</span>}
+                                {r.muscle_strength && (
+                                  <span>ความแข็งแรง: {r.muscle_strength}</span>
+                                )}
+                                {r.flexibility && (
+                                  <span>ความยืดหยุ่น: {r.flexibility}</span>
+                                )}
+                                {r.resting_heart_rate && (
+                                  <span>ชีพจร: {r.resting_heart_rate} bpm</span>
+                                )}
+                              </div>
+                              {r.remark && (
+                                <p className="text-xs text-gray-400 mt-1">
+                                  หมายเหตุ: {r.remark}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex space-x-2 ml-4">
+                              <button
+                                onClick={() => handleEditFitness(r)}
+                                className="text-green-600 hover:text-green-800"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteFitness(r._id)}
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* ฟอร์มเพิ่ม/แก้ไข */
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-gray-700">
+                      {fitnessMode === "add"
+                        ? "เพิ่มข้อมูลสมรรถภาพใหม่"
+                        : "แก้ไขข้อมูลสมรรถภาพ"}
+                    </h4>
+                    <button
+                      onClick={() => setFitnessMode("list")}
+                      className="text-sm text-gray-500 hover:text-gray-700"
+                    >
+                      ← กลับรายการ
+                    </button>
+                  </div>
+
+                  {/* วันที่ทดสอบ */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      วันที่ทดสอบ <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      name="test_date"
+                      value={fitnessForm.test_date}
+                      onChange={handleFitnessInput}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        BMI (ดัชนีมวลกาย)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        name="bmi"
+                        value={fitnessForm.bmi}
+                        onChange={handleFitnessInput}
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500"
+                        placeholder="เช่น 22.50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        % ไขมัน (Body Fat)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        name="body_fat_percent"
+                        value={fitnessForm.body_fat_percent}
+                        onChange={handleFitnessInput}
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500"
+                        placeholder="เช่น 18.50"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        VO2 Max
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        name="vo2_max"
+                        value={fitnessForm.vo2_max}
+                        onChange={handleFitnessInput}
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500"
+                        placeholder="เช่น 45.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        อัตราการเต้นหัวใจขณะพัก (bpm)
+                      </label>
+                      <input
+                        type="number"
+                        name="resting_heart_rate"
+                        value={fitnessForm.resting_heart_rate}
+                        onChange={handleFitnessInput}
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500"
+                        placeholder="เช่น 65"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        ความแข็งแรงกล้ามเนื้อ
+                      </label>
+                      <input
+                        type="text"
+                        name="muscle_strength"
+                        value={fitnessForm.muscle_strength}
+                        onChange={handleFitnessInput}
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500"
+                        placeholder="เช่น ดี / 80 kg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        ความยืดหยุ่น
+                      </label>
+                      <input
+                        type="text"
+                        name="flexibility"
+                        value={fitnessForm.flexibility}
+                        onChange={handleFitnessInput}
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500"
+                        placeholder="เช่น ดีมาก / 15 cm"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      หมายเหตุ
+                    </label>
+                    <textarea
+                      name="remark"
+                      value={fitnessForm.remark}
+                      onChange={handleFitnessInput}
+                      rows="3"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 resize-none"
+                      placeholder="หมายเหตุเพิ่มเติม..."
+                    />
+                  </div>
+
+                  <div className="flex space-x-3 pt-4 border-t">
+                    <button
+                      onClick={handleSaveFitness}
+                      disabled={saving}
+                      className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 disabled:opacity-60"
+                    >
+                      {saving ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>กำลังบันทึก...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-5 h-5" />
+                          <span>บันทึก</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setFitnessMode("list")}
+                      className="px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold"
+                    >
+                      ยกเลิก
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
