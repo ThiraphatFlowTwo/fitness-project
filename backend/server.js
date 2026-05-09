@@ -7,6 +7,7 @@ const dashboardRoutes = require("./routes/dashboard.routes");
 const exerciseRoutes = require("./routes/exercise.routes");
 const traineeRoutes = require("./routes/traineeRoutes");
 const fitnessRoutes = require("./routes/physicalFitnessRoutes");
+const programRoutes = require("./routes/programRoutes");
 const path = require("path");
 require("dotenv").config();
 
@@ -25,6 +26,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/exercises", exerciseRoutes);
 app.use("/api/trainees", traineeRoutes);
 app.use("/api/fitness", fitnessRoutes);
+app.use("/api/programs", programRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 

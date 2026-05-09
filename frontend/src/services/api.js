@@ -12,12 +12,4 @@ api.interceptors.request.use(config => {
   return config
 })
 
-// Trainee API
-export const traineeAPI = {
-  getAll:  ()       => api.get("/trainees"),
-  add:     (data)   => api.post("/trainees", data),
-  update:  (id, data) => api.put(`/trainees/${id}`, data),
-  delete:  (id)     => api.delete(`/trainees/${id}`),
-};
-
 export default api
