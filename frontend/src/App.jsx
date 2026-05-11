@@ -23,6 +23,7 @@ import InstructorDashboard from "./pages/instructor/InstructorDashboard";
 import ManageTrainees from "./pages/instructor/ManageTrainees";
 import ManagePrograms from "./pages/instructor/ManagePrograms";
 import InstructorProfile from "./pages/instructor/InstructorProfile";
+import TrainerDetail from "./pages/instructor/TrainerDetail";
 
 // Admin
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -53,27 +54,27 @@ function App() {
           }
         />
 
-{/* ===== Trainer (เทรนเนอร์) - แก้ไขใหม่ ===== */}
-<Route
-  path="/trainer"
-  element={
-    <ProtectedRoute role="trainer">
-      <TrainerLayout />
-    </ProtectedRoute>
-  }
->
-  {/* index หมายถึงเมื่อเข้า /trainer ให้แสดง Dashboard ทันทีภายใต้ Layout */}
-  <Route index element={<TrainerDashboard />} /> 
-  
-  {/* หน้าอื่นๆ จะกลายเป็น /trainer/trainees, /trainer/programs ฯลฯ */}
-  <Route path="trainees" element={<TrainerTrainees />} />
-  <Route path="programs" element={<TrainerPrograms />} />
-  <Route path="exercises" element={<TrainerExercises />} />
-  <Route path="results" element={<TrainerResults />} />
-  <Route path="progress" element={<TrainerProgress />} />
-  <Route path="profile" element={<TrainerProfile />} />
-  <Route path="metrics" element={<TrainerMetrics />} />
-</Route>
+        {/* ===== Trainer (เทรนเนอร์) - แก้ไขใหม่ ===== */}
+        <Route
+          path="/trainer"
+          element={
+            <ProtectedRoute role="trainer">
+              <TrainerLayout />
+            </ProtectedRoute>
+          }
+        >
+          {/* index หมายถึงเมื่อเข้า /trainer ให้แสดง Dashboard ทันทีภายใต้ Layout */}
+          <Route index element={<TrainerDashboard />} />
+
+          {/* หน้าอื่นๆ จะกลายเป็น /trainer/trainees, /trainer/programs ฯลฯ */}
+          <Route path="trainees" element={<TrainerTrainees />} />
+          <Route path="programs" element={<TrainerPrograms />} />
+          <Route path="exercises" element={<TrainerExercises />} />
+          <Route path="results" element={<TrainerResults />} />
+          <Route path="progress" element={<TrainerProgress />} />
+          <Route path="profile" element={<TrainerProfile />} />
+          <Route path="metrics" element={<TrainerMetrics />} />
+        </Route>
 
         {/* ===== Instructor (อาจารย์) ===== */}
         <Route
@@ -87,6 +88,7 @@ function App() {
           {/* /instructor */}
           <Route index element={<InstructorDashboard />} />
           <Route path="trainees" element={<ManageTrainees />} />
+          <Route path="trainees/:trainerId" element={<TrainerDetail />} />
           <Route path="programs" element={<ManagePrograms />} />
           <Route path="profile" element={<InstructorProfile />} />
         </Route>

@@ -1,32 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Home, Users, ClipboardList, Dumbbell,
   Edit, TrendingUp, User, LogOut,
-  Bell, Menu, X, ChevronRight, Scale // เพิ่ม Scale ตรงนี้แล้ว
+  Bell, Menu, X, ChevronRight, Scale
 } from 'lucide-react';
 
 const menuItems = [
-  { id: 'dashboard', label: 'หน้าหลัก',         icon: Home,          path: '/trainer' }, 
-  { id: 'trainees',  label: 'จัดการผู้รับการฝึก', icon: Users,         path: '/trainer/trainees'  },
-  { id: 'programs',  label: 'โปรแกรมการฝึก',      icon: ClipboardList, path: '/trainer/programs'  },
-  { id: 'exercises', label: 'ท่าในการฝึก',         icon: Dumbbell,      path: '/trainer/exercises' },
-  { id: 'results',   label: 'บันทึกการฝึกรายวัน',  icon: Edit,          path: '/trainer/results'   },
-  { id: 'metrics',   label: 'บันทึกการเปลี่ยนแปลง', icon: Scale,         path: '/trainer/metrics'   }, // เพิ่มเมนูใหม่
-  { id: 'progress',  label: 'พัฒนาการ (กราฟ)',     icon: TrendingUp,    path: '/trainer/progress'  },
-  { id: 'profile',   label: 'โปรไฟล์ส่วนตัว',       icon: User,          path: '/trainer/profile'   },
+  { id: 'dashboard', label: 'หน้าหลัก',           icon: Home,          path: '/trainer' }, 
+  { id: 'trainees',  label: 'จัดการผู้รับการฝึก',  icon: Users,         path: '/trainer/trainees'  },
+  { id: 'programs',  label: 'โปรแกรมการฝึก',        icon: ClipboardList, path: '/trainer/programs'  },
+  { id: 'exercises', label: 'ท่าในการฝึก',           icon: Dumbbell,      path: '/trainer/exercises' },
+  { id: 'results',   label: 'บันทึกการฝึกรายวัน',    icon: Edit,          path: '/trainer/results'   },
+  { id: 'metrics',   label: 'บันทึกการเปลี่ยนแปลง',  icon: Scale,         path: '/trainer/metrics'   },
+  { id: 'progress',  label: 'พัฒนาการ (กราฟ)',       icon: TrendingUp,    path: '/trainer/progress'  },
+  { id: 'profile',   label: 'โปรไฟล์ส่วนตัว',        icon: User,          path: '/trainer/profile'   },
 ];
 
 const pageTitles = {
-  '/trainer':           { th: 'หน้าหลัก',           en: 'Dashboard'     },
-  '/trainer/trainees':  { th: 'จัดการผู้รับการฝึก', en: 'Trainees'      },
-  '/trainer/programs':  { th: 'โปรแกรมการฝึก',      en: 'Programs'      },
-  '/trainer/exercises': { th: 'ท่าในการฝึก',         en: 'Exercises'     },
-  '/trainer/results':   { th: 'บันทึกการฝึกรายวัน',  en: 'Daily Results' },
-  '/trainer/metrics':   { th: 'บันทึกการเปลี่ยนแปลง', en: 'Monthly Metrics'}, // เพิ่มหัวข้อหน้า
-  '/trainer/progress':  { th: 'พัฒนาการผู้รับการฝึก', en: 'Progress'      },
-  '/trainer/profile':   { th: 'โปรไฟล์ส่วนตัว',    en: 'Profile'       },
+  '/trainer':           { th: 'หน้าหลัก',             en: 'Dashboard'      },
+  '/trainer/trainees':  { th: 'จัดการผู้รับการฝึก',   en: 'Trainees'       },
+  '/trainer/programs':  { th: 'โปรแกรมการฝึก',         en: 'Programs'       },
+  '/trainer/exercises': { th: 'ท่าในการฝึก',            en: 'Exercises'      },
+  '/trainer/results':   { th: 'บันทึกการฝึกรายวัน',    en: 'Daily Results'  },
+  '/trainer/metrics':   { th: 'บันทึกการเปลี่ยนแปลง',  en: 'Monthly Metrics'},
+  '/trainer/progress':  { th: 'พัฒนาการผู้รับการฝึก',  en: 'Progress'       },
+  '/trainer/profile':   { th: 'โปรไฟล์ส่วนตัว',       en: 'Profile'        },
 };
+
+// ✅ อักษรย่อจากชื่อเต็ม เช่น "สมชาย ใจดี" → "สใ"
+const getInitials = (name = "") =>
+  name.trim().split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "?";
 
 export default function TrainerLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -34,10 +38,24 @@ export default function TrainerLayout() {
   const navigate  = useNavigate();
   const location  = useLocation();
 
+  // ✅ ดึง user จาก localStorage
+  const [user, setUser] = useState(null);
+  useEffect(() => {
+    const stored = localStorage.getItem("user");
+    if (stored) {
+      try { setUser(JSON.parse(stored)); } catch { /* ignore */ }
+    }
+  }, []);
+
   const isActive = (path) => location.pathname === path;
   const page = pageTitles[location.pathname] || { th: 'ระบบเทรนเนอร์', en: 'Trainer' };
 
-  const handleLogout = () => navigate('/login');
+  const handleLogout = () => {
+    if (!confirm("ต้องการออกจากระบบใช่หรือไม่?")) return;
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate('/login');
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-100">
@@ -63,15 +81,19 @@ export default function TrainerLayout() {
           )}
         </div>
 
-        {/* User Card */}
+        {/* ✅ User Card — ชื่อจาก localStorage */}
         {!collapsed && (
           <div className="mx-4 mt-5 mb-2 rounded-2xl bg-white/10 border border-white/15 p-3 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-400 to-sky-400 flex items-center justify-center shrink-0 shadow">
-              <User className="w-5 h-5 text-white" />
+              <span className="text-white text-sm font-bold">
+                {getInitials(user?.name)}
+              </span>
             </div>
             <div className="overflow-hidden">
-              <p className="text-white text-sm font-semibold truncate">สมชาย ใจดี</p>
-              <p className="text-slate-300 text-xs">651234567</p>
+              <p className="text-white text-sm font-semibold truncate">
+                {user?.name ?? "..."}
+              </p>
+              <p className="text-slate-300 text-xs">ผู้ฝึกสอน</p>
             </div>
           </div>
         )}
@@ -139,8 +161,6 @@ export default function TrainerLayout() {
               >
                 {sidebarOpen ? <X className="w-5 h-5 text-slate-600" /> : <Menu className="w-5 h-5 text-slate-600" />}
               </button>
-
-              {/* Breadcrumb */}
               <div className="flex items-center gap-2">
                 <span className="text-slate-400 text-sm">เทรนเนอร์</span>
                 <ChevronRight className="w-4 h-4 text-slate-300" />
@@ -161,14 +181,17 @@ export default function TrainerLayout() {
                                   rounded-full flex items-center justify-center leading-none">3</span>
               </button>
 
+              {/* ✅ Header — ชื่อจาก localStorage */}
               <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-500 to-blue-500
-                                 flex items-center justify-center shadow">
-                  <User className="w-4 h-4 text-white" />
+                                 flex items-center justify-center text-white text-xs font-bold shadow">
+                  {getInitials(user?.name)}
                 </div>
                 <div className="hidden md:block">
-                  <p className="text-sm font-semibold text-slate-800 leading-tight">สมชาย ใจดี</p>
-                  <p className="text-xs text-slate-400">Trainer</p>
+                  <p className="text-sm font-semibold text-slate-800 leading-tight">
+                    {user?.name ?? "..."}
+                  </p>
+                  <p className="text-xs text-slate-400">ผู้ฝึกสอน</p>
                 </div>
               </div>
             </div>

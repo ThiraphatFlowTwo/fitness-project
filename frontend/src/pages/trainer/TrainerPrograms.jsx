@@ -16,6 +16,7 @@ import {
   Calendar,
   Dumbbell,
   GripVertical,
+  Search,
 } from "lucide-react";
 
 const API = "http://localhost:5000/api/programs";
@@ -75,6 +76,29 @@ const TrainerPrograms = () => {
   // ท่าออกกำลังกายที่เลือกในโปรแกรม
   const [selectedExercises, setSelectedExercises] = useState([]);
 
+  // ── Filter ท่าออกกำลังกาย ─────────────────────────────────────
+  const [exSearch, setExSearch] = useState("");
+  const [exTypeFilter, setExTypeFilter] = useState("");
+  const [exEquipFilter, setExEquipFilter] = useState("");
+
+  // ดึง unique ประเภทและอุปกรณ์จากข้อมูลจริง
+  const exerciseTypes = [
+    ...new Set(exercises.map((e) => e.exercise_type).filter(Boolean)),
+  ];
+  const equipmentTypes = [
+    ...new Set(exercises.map((e) => e.equipment_type).filter(Boolean)),
+  ];
+
+  // กรองท่าตาม filter
+  const filteredExercises = exercises.filter((ex) => {
+    const matchSearch = ex.exercise_name
+      .toLowerCase()
+      .includes(exSearch.toLowerCase());
+    const matchType = !exTypeFilter || ex.exercise_type === exTypeFilter;
+    const matchEquip = !exEquipFilter || ex.equipment_type === exEquipFilter;
+    return matchSearch && matchType && matchEquip;
+  });
+
   // ── โหลดข้อมูล ────────────────────────────────────────────────
   useEffect(() => {
     const loadAll = async () => {
@@ -127,6 +151,7 @@ const TrainerPrograms = () => {
         exercise_id: e.exercise_id?._id || e.exercise_id,
         name: e.exercise_id?.exercise_name || "",
         type: e.exercise_id?.exercise_type || "",
+        exercise_category: e.exercise_id?.exercise_category || "weight",
         sets: e.sets || "",
         reps: e.reps || "",
         rpe: e.rpe || "",
@@ -296,9 +321,9 @@ const TrainerPrograms = () => {
         exercise_id: ex._id,
         name: ex.exercise_name,
         type: ex.exercise_type,
+        exercise_category: ex.exercise_category || "weight",
         sets: "",
         reps: "",
-        rpe: "",
         order: prev.length + 1,
       },
     ]);
@@ -615,42 +640,124 @@ const TrainerPrograms = () => {
               )}
 
               {/* เลือกท่าออกกำลังกาย */}
+              {/* เลือกท่าออกกำลังกาย */}
               {modalMode !== "view" && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     เพิ่มท่าออกกำลังกาย <span className="text-red-500">*</span>
+                    <span className="text-purple-600 text-xs ml-2 font-normal">
+                      (เลือกแล้ว {selectedExercises.length} ท่า)
+                    </span>
                   </label>
-                  <div className="border border-gray-200 rounded-lg p-3 max-h-48 overflow-y-auto bg-gray-50">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {exercises.map((ex) => {
-                        const added = selectedExercises.find(
-                          (e) => e.exercise_id === ex._id,
-                        );
-                        return (
-                          <button
-                            key={ex._id}
-                            onClick={() => addExercise(ex)}
-                            disabled={!!added}
-                            className={`flex items-center p-2 rounded-lg text-left text-sm transition-colors ${
-                              added
-                                ? "bg-purple-100 border-2 border-purple-400 cursor-not-allowed opacity-60"
-                                : "bg-white border-2 border-transparent hover:border-purple-300 hover:bg-purple-50"
-                            }`}
-                          >
-                            <Dumbbell className="w-4 h-4 mr-2 text-purple-500 flex-shrink-0" />
-                            <div>
-                              <p className="font-medium text-gray-800">
-                                {ex.exercise_name}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {ex.exercise_type} • {ex.equipment_type}
-                              </p>
-                            </div>
-                          </button>
-                        );
-                      })}
+
+                  {/* Search + Filter bar */}
+                  <div className="flex flex-col md:flex-row gap-2 mb-2">
+                    {/* ค้นหา */}
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                      <input
+                        type="text"
+                        value={exSearch}
+                        onChange={(e) => setExSearch(e.target.value)}
+                        placeholder="ค้นหาท่า..."
+                        className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-400 outline-none"
+                      />
                     </div>
+
+                    {/* กรองประเภท */}
+                    <select
+                      value={exTypeFilter}
+                      onChange={(e) => setExTypeFilter(e.target.value)}
+                      className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 focus:ring-2 focus:ring-purple-400 outline-none"
+                    >
+                      <option value="">ทุกประเภท</option>
+                      {exerciseTypes.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* กรองอุปกรณ์ */}
+                    <select
+                      value={exEquipFilter}
+                      onChange={(e) => setExEquipFilter(e.target.value)}
+                      className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 focus:ring-2 focus:ring-purple-400 outline-none"
+                    >
+                      <option value="">ทุกอุปกรณ์</option>
+                      {equipmentTypes.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* ล้าง filter */}
+                    {(exSearch || exTypeFilter || exEquipFilter) && (
+                      <button
+                        onClick={() => {
+                          setExSearch("");
+                          setExTypeFilter("");
+                          setExEquipFilter("");
+                        }}
+                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-lg text-xs font-medium transition-colors"
+                      >
+                        ล้าง
+                      </button>
+                    )}
                   </div>
+
+                  {/* รายการท่า */}
+                  <div className="border border-gray-200 rounded-lg p-3 max-h-56 overflow-y-auto bg-gray-50">
+                    {filteredExercises.length === 0 ? (
+                      <p className="text-center text-gray-400 py-4 text-sm">
+                        ไม่พบท่าที่ค้นหา
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {filteredExercises.map((ex) => {
+                          const added = selectedExercises.find(
+                            (e) => e.exercise_id === ex._id,
+                          );
+                          return (
+                            <button
+                              key={ex._id}
+                              onClick={() => addExercise(ex)}
+                              disabled={!!added}
+                              className={`flex items-center p-2 rounded-lg text-left text-sm transition-colors ${
+                                added
+                                  ? "bg-purple-100 border-2 border-purple-400 cursor-not-allowed opacity-60"
+                                  : "bg-white border-2 border-transparent hover:border-purple-300 hover:bg-purple-50"
+                              }`}
+                            >
+                              <Dumbbell className="w-4 h-4 mr-2 text-purple-500 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-800 truncate">
+                                  {ex.exercise_name}
+                                </p>
+                                <div className="flex gap-1 mt-0.5">
+                                  <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
+                                    {ex.exercise_type}
+                                  </span>
+                                  <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
+                                    {ex.equipment_type}
+                                  </span>
+                                </div>
+                              </div>
+                              {added && (
+                                <CheckCircle className="w-4 h-4 text-purple-500 flex-shrink-0 ml-1" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* แสดงจำนวนผลลัพธ์ */}
+                  <p className="text-xs text-gray-400 mt-1">
+                    แสดง {filteredExercises.length} จาก {exercises.length} ท่า
+                  </p>
                 </div>
               )}
 
@@ -708,8 +815,8 @@ const TrainerPrograms = () => {
                           )}
                         </div>
 
-                        {/* sets / reps / rpe */}
-                        <div className="grid grid-cols-3 gap-2 mt-2">
+                        {/* sets / reps */}
+                        <div className="grid grid-cols-2 gap-2 mt-2">
                           <div>
                             <label className="block text-xs text-gray-500 mb-1">
                               Sets
@@ -748,27 +855,6 @@ const TrainerPrograms = () => {
                               className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-purple-400 disabled:bg-gray-100"
                               placeholder="10"
                               min="1"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-500 mb-1">
-                              RPE (1-10)
-                            </label>
-                            <input
-                              type="number"
-                              value={ex.rpe}
-                              onChange={(e) =>
-                                updateExerciseField(
-                                  ex.exercise_id,
-                                  "rpe",
-                                  e.target.value,
-                                )
-                              }
-                              disabled={modalMode === "view"}
-                              className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-purple-400 disabled:bg-gray-100"
-                              placeholder="7"
-                              min="1"
-                              max="10"
                             />
                           </div>
                         </div>

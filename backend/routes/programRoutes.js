@@ -41,7 +41,7 @@ router.get("/", auth, async (req, res) => {
     // ดึง exercises ของแต่ละโปรแกรมมาด้วย
     const result = await Promise.all(programs.map(async (p) => {
       const exercises = await ProgramExercise.find({ program_id: p._id })
-        .populate("exercise_id", "exercise_name exercise_type equipment_type")
+        .populate("exercise_id", "exercise_name exercise_type equipment_type exercise_category")
         .sort({ order: 1 });
       return { ...p.toObject(), exercises };
     }));
@@ -89,7 +89,7 @@ router.post("/", auth, async (req, res) => {
       .populate("trainee_id",       "name goal")
       .populate("academic_year_id", "academic_year semester");
     const exList = await ProgramExercise.find({ program_id: saved._id })
-      .populate("exercise_id", "exercise_name exercise_type equipment_type")
+      .populate("exercise_id", "exercise_name exercise_type equipment_type exercise_category")
       .sort({ order: 1 });
 
     res.status(201).json({ ...populated.toObject(), exercises: exList });
@@ -129,7 +129,7 @@ router.put("/:id", auth, async (req, res) => {
       .populate("trainee_id",       "name goal")
       .populate("academic_year_id", "academic_year semester");
     const exList = await ProgramExercise.find({ program_id: req.params.id })
-      .populate("exercise_id", "exercise_name exercise_type equipment_type")
+      .populate("exercise_id", "exercise_name exercise_type equipment_type exercise_category")
       .sort({ order: 1 });
 
     res.json({ ...updated.toObject(), exercises: exList });
@@ -237,7 +237,7 @@ router.get("/pending", auth, async (req, res) => {
 
     const result = await Promise.all(programs.map(async (p) => {
       const exercises = await ProgramExercise.find({ program_id: p._id })
-        .populate("exercise_id", "exercise_name exercise_type equipment_type")
+        .populate("exercise_id", "exercise_name exercise_type equipment_type exercise_category")
         .sort({ order: 1 });
       return { ...p.toObject(), exercises };
     }));

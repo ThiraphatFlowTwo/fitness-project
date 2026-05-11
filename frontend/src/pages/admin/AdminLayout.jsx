@@ -10,9 +10,8 @@ import {
   X,
   Bell,
   Shield,
-  User,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const menuItems = [
   { path: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -28,11 +27,32 @@ const pageTitles = {
   "/admin/exercises": "จัดการท่าออกกำลังกาย",
 };
 
+const roleLabel = {
+  admin:      "ผู้ดูแลระบบ",
+  trainer:    "ผู้ฝึกสอน",
+  instructor: "อาจารย์",
+  trainee:    "นักศึกษา",
+};
+
+// อักษรย่อจากชื่อ เช่น "สมชาย ใจดี" → "สใ"
+const getInitials = (name = "") =>
+  name.trim().split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "?";
+
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
+
+  // ✅ ดึงข้อมูล user จาก localStorage (backend เก็บไว้ตอน login)
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("user");
+    if (stored) {
+      try { setUser(JSON.parse(stored)); } catch { /* ignore */ }
+    }
+  }, []);
 
   const isActive = (path) =>
     path === "/admin"
@@ -78,25 +98,27 @@ export default function AdminLayout() {
           </div>
           {!collapsed && (
             <div className="overflow-hidden">
-              <p className="font-bold text-white text-sm leading-tight">
-                Admin Panel
-              </p>
+              <p className="font-bold text-white text-sm leading-tight">Admin Panel</p>
               <p className="text-slate-300 text-xs truncate">ม.ราชภัฏเลย</p>
             </div>
           )}
         </div>
 
-        {/* User Card */}
+        {/* ✅ User Card — ชื่อ + role จาก localStorage */}
         {!collapsed && (
           <div className="mx-4 mt-5 mb-2 rounded-2xl bg-white/10 border border-white/15 p-3 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-400 to-indigo-400 flex items-center justify-center shrink-0 shadow">
-              <User className="w-5 h-5 text-white" />
+              <span className="text-white text-sm font-bold">
+                {getInitials(user?.name)}
+              </span>
             </div>
             <div className="overflow-hidden">
               <p className="text-white text-sm font-semibold truncate">
-                Admin User
+                {user?.name ?? "..."}
               </p>
-              <p className="text-slate-300 text-xs">ผู้ดูแลระบบ</p>
+              <p className="text-slate-300 text-xs">
+                {roleLabel[user?.role] ?? user?.role ?? "..."}
+              </p>
             </div>
           </div>
         )}
@@ -181,6 +203,7 @@ export default function AdminLayout() {
                 </span>
               </div>
             </div>
+
             <div className="flex items-center gap-3">
               <div className="hidden md:flex flex-col items-end">
                 <span className="text-xs font-semibold text-slate-700">
@@ -194,20 +217,25 @@ export default function AdminLayout() {
                   3
                 </span>
               </button>
+
+              {/* ✅ Header — ชื่อ + role จาก localStorage */}
               <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold shadow">
-                  A
+                  {getInitials(user?.name)}
                 </div>
                 <div className="hidden md:block">
                   <p className="text-sm font-semibold text-slate-800 leading-tight">
-                    Admin User
+                    {user?.name ?? "..."}
                   </p>
-                  <p className="text-xs text-slate-400">ผู้ดูแลระบบ</p>
+                  <p className="text-xs text-slate-400">
+                    {roleLabel[user?.role] ?? user?.role ?? "..."}
+                  </p>
                 </div>
               </div>
             </div>
           </div>
         </header>
+
         <main className="flex-1 overflow-y-auto bg-slate-100">
           <Outlet />
         </main>

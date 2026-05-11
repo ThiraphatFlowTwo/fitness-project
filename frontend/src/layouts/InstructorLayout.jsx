@@ -11,7 +11,7 @@ import {
   Bell,
   GraduationCap,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const menuItems = [
   { path: "/instructor", label: "Dashboard", icon: LayoutDashboard },
@@ -27,12 +27,24 @@ const pageTitles = {
   "/instructor/profile": "โปรไฟล์อาจารย์",
 };
 
+// ✅ อักษรย่อจากชื่อเต็ม เช่น "สมชาย ใจดี" → "สใ"
+const getInitials = (name = "") =>
+  name.trim().split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "?";
+
 export default function InstructorLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+  // ✅ ดึง user จาก localStorage เหมือน AdminLayout
+  const [user, setUser] = useState(null);
+  useEffect(() => {
+    const stored = localStorage.getItem("user");
+    if (stored) {
+      try { setUser(JSON.parse(stored)); } catch { /* ignore */ }
+    }
+  }, []);
 
   const isActive = (path) =>
     path === "/instructor"
@@ -40,7 +52,6 @@ export default function InstructorLayout() {
       : location.pathname.startsWith(path);
 
   const currentTitle = pageTitles[location.pathname] ?? "Instructor Panel";
-  const initials = user?.name?.charAt(0)?.toUpperCase() || "I";
 
   const handleLogout = () => {
     if (!confirm("ต้องการออกจากระบบใช่หรือไม่?")) return;
@@ -51,7 +62,6 @@ export default function InstructorLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-100">
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div
           className="lg:hidden fixed inset-0 bg-black/50 z-30 backdrop-blur-sm"
@@ -79,23 +89,23 @@ export default function InstructorLayout() {
           </div>
           {!collapsed && (
             <div className="overflow-hidden">
-              <p className="font-bold text-white text-sm leading-tight">
-                Instructor Panel
-              </p>
+              <p className="font-bold text-white text-sm leading-tight">Instructor Panel</p>
               <p className="text-slate-300 text-xs truncate">ม.ราชภัฏเลย</p>
             </div>
           )}
         </div>
 
-        {/* User Card */}
+        {/* ✅ User Card — ชื่อ + role จาก localStorage */}
         {!collapsed && (
           <div className="mx-4 mt-5 mb-2 rounded-2xl bg-white/10 border border-white/15 p-3 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-400 to-blue-400 flex items-center justify-center shrink-0 shadow">
-              <span className="text-white text-sm font-bold">{initials}</span>
+              <span className="text-white text-sm font-bold">
+                {getInitials(user?.name)}
+              </span>
             </div>
             <div className="overflow-hidden">
               <p className="text-white text-sm font-semibold truncate">
-                {user?.name || "Instructor"}
+                {user?.name ?? "..."}
               </p>
               <p className="text-slate-300 text-xs">อาจารย์</p>
             </div>
@@ -182,11 +192,10 @@ export default function InstructorLayout() {
                 </span>
               </div>
             </div>
+
             <div className="flex items-center gap-3">
               <div className="hidden md:flex flex-col items-end">
-                <span className="text-xs font-semibold text-slate-700">
-                  ปีการศึกษา 2568
-                </span>
+                <span className="text-xs font-semibold text-slate-700">ปีการศึกษา 2568</span>
                 <span className="text-xs text-slate-400">ภาคเรียนที่ 1</span>
               </div>
               <button className="relative p-2 rounded-xl hover:bg-slate-100 transition-colors">
@@ -195,13 +204,15 @@ export default function InstructorLayout() {
                   2
                 </span>
               </button>
+
+              {/* ✅ Header — ชื่อ + role จาก localStorage */}
               <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-500 to-blue-500 flex items-center justify-center text-white text-xs font-bold shadow">
-                  {initials}
+                  {getInitials(user?.name)}
                 </div>
                 <div className="hidden md:block">
                   <p className="text-sm font-semibold text-slate-800 leading-tight">
-                    {user?.name || "Instructor"}
+                    {user?.name ?? "..."}
                   </p>
                   <p className="text-xs text-slate-400">อาจารย์</p>
                 </div>
@@ -209,6 +220,7 @@ export default function InstructorLayout() {
             </div>
           </div>
         </header>
+
         <main className="flex-1 overflow-y-auto bg-slate-100">
           <Outlet />
         </main>
