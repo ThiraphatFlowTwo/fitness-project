@@ -4,14 +4,7 @@ import {
   ArrowLeft, Users, Dumbbell, Clock, Loader2,
   AlertCircle, Calendar, Eye, X, Activity,
 } from "lucide-react";
-
-const BASE_API = "http://localhost:5000/api/instructor"; // ✅ ลบ LOG_API ออก
-
-const getToken    = () => localStorage.getItem("token");
-const authHeaders = () => ({
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${getToken()}`,
-});
+import api from "../../services/api"; // ✅ ใช้ axios แทน fetch
 
 const formatTime = (s) => {
   if (!s) return '-';
@@ -41,12 +34,11 @@ const STATUS_CONFIG = {
   inactive: { label: "ปิดใช้งาน", bg: "bg-slate-100",  text: "text-slate-500",   dot: "bg-slate-400"   },
 };
 
-// ✅ เพิ่ม config สถานะโปรแกรม
 const PROGRAM_STATUS = {
-  draft:    { label: "ร่าง",         bg: "bg-slate-100",  text: "text-slate-500"   },
-  pending:  { label: "รออนุมัติ",    bg: "bg-amber-50",   text: "text-amber-600"   },
-  approved: { label: "อนุมัติแล้ว",  bg: "bg-emerald-50", text: "text-emerald-600" },
-  rejected: { label: "ไม่อนุมัติ",   bg: "bg-red-50",     text: "text-red-600"     },
+  draft:    { label: "ร่าง",        bg: "bg-slate-100",  text: "text-slate-500"   },
+  pending:  { label: "รออนุมัติ",   bg: "bg-amber-50",   text: "text-amber-600"   },
+  approved: { label: "อนุมัติแล้ว", bg: "bg-emerald-50", text: "text-emerald-600" },
+  rejected: { label: "ไม่อนุมัติ",  bg: "bg-red-50",     text: "text-red-600"     },
 };
 
 export default function TrainerDetail() {
@@ -66,38 +58,29 @@ export default function TrainerDetail() {
   const [logDetail,   setLogDetail]   = useState(null);
   const [loadingLog,  setLoadingLog]  = useState(false);
 
-  // ── โหลดข้อมูล ────────────────────────────────────────────────
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
       setError('');
       try {
+        // ✅ ใช้ api (axios) แทน fetch ทั้งหมด
         const [trainerRes, traineesRes, logsRes, fitnessRes] = await Promise.all([
-          fetch(`${BASE_API}/trainers`,                      { headers: authHeaders() }),
-          fetch(`${BASE_API}/trainer/${trainerId}/trainees`, { headers: authHeaders() }),
-          fetch(`${BASE_API}/trainer/${trainerId}/logs`,     { headers: authHeaders() }),
-          fetch(`${BASE_API}/trainer/${trainerId}/fitness`,  { headers: authHeaders() }),
+          api.get("/instructor/trainers"),
+          api.get(`/instructor/trainer/${trainerId}/trainees`),
+          api.get(`/instructor/trainer/${trainerId}/logs`),
+          api.get(`/instructor/trainer/${trainerId}/fitness`),
         ]);
 
-        const [trainersData, traineesData, logsData, fitnessData] = await Promise.all([
-          trainerRes.json(), traineesRes.json(), logsRes.json(), fitnessRes.json(),
-        ]);
-
-        if (!trainerRes.ok)  throw new Error(trainersData.message  || 'โหลดข้อมูลเทรนเนอร์ไม่สำเร็จ');
-        if (!traineesRes.ok) throw new Error(traineesData.message  || 'โหลดข้อมูลลูกเทรนไม่สำเร็จ');
-        if (!logsRes.ok)     throw new Error(logsData.message      || 'โหลดประวัติการฝึกไม่สำเร็จ');
-        if (!fitnessRes.ok)  throw new Error(fitnessData.message   || 'โหลดข้อมูลสมรรถภาพไม่สำเร็จ');
-
-        const found = Array.isArray(trainersData)
-          ? trainersData.find(t => t._id === trainerId)
+        const found = Array.isArray(trainerRes.data)
+          ? trainerRes.data.find(t => t._id === trainerId)
           : null;
 
         setTrainer(found || null);
-        setTrainees(Array.isArray(traineesData) ? traineesData : []);
-        setLogs(Array.isArray(logsData)         ? logsData     : []);
-        setFitness(Array.isArray(fitnessData)   ? fitnessData  : []);
+        setTrainees(Array.isArray(traineesRes.data) ? traineesRes.data : []);
+        setLogs(Array.isArray(logsRes.data)         ? logsRes.data     : []);
+        setFitness(Array.isArray(fitnessRes.data)   ? fitnessRes.data  : []);
       } catch (err) {
-        setError(err.message || 'โหลดข้อมูลไม่สำเร็จ');
+        setError(err.response?.data?.message || 'โหลดข้อมูลไม่สำเร็จ');
       } finally {
         setLoading(false);
       }
@@ -105,25 +88,21 @@ export default function TrainerDetail() {
     fetchAll();
   }, [trainerId]);
 
-  // ── ดูรายละเอียด log ─────────────────────────────────────────
-  // ✅ เปลี่ยนมาเรียก route ของ instructor แทน
   const handleViewLog = async (log) => {
     setViewLog(log);
     setLogDetail(null);
     setLoadingLog(true);
     try {
-      const res  = await fetch(`${BASE_API}/log/${log._id}`, { headers: authHeaders() });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      setLogDetail(data);
+      // ✅ ใช้ api (axios)
+      const res = await api.get(`/instructor/log/${log._id}`);
+      setLogDetail(res.data);
     } catch (err) {
-      alert(err.message || 'โหลดรายละเอียดไม่สำเร็จ');
+      alert(err.response?.data?.message || 'โหลดรายละเอียดไม่สำเร็จ');
     } finally {
       setLoadingLog(false);
     }
   };
 
-  // ── Render ────────────────────────────────────────────────────
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen">
       <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -143,14 +122,13 @@ export default function TrainerDetail() {
     <div className="p-6 bg-slate-50 min-h-screen">
       <div className="max-w-5xl mx-auto">
 
-        {/* Back button */}
         <button onClick={() => navigate('/instructor/trainees')}
           className="flex items-center gap-2 text-slate-500 hover:text-slate-800 mb-6 transition-colors">
           <ArrowLeft className="w-4 h-4" />
           <span className="text-sm font-medium">กลับรายชื่อเทรนเนอร์</span>
         </button>
 
-        {/* ── Trainer Profile Card ── */}
+        {/* Profile Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
           <div className="flex flex-wrap items-start gap-6">
             <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-3xl font-bold shadow-lg shrink-0">
@@ -191,12 +169,12 @@ export default function TrainerDetail() {
           </div>
         </div>
 
-        {/* ── Tabs ── */}
+        {/* Tabs */}
         <div className="flex gap-2 mb-4 flex-wrap">
           {[
-            { key: 'trainees', label: `ลูกเทรน (${trainees.length})`,      icon: Users    },
-            { key: 'logs',     label: `ประวัติการฝึก (${logs.length})`,     icon: Calendar },
-            { key: 'fitness',  label: `ผลสมรรถภาพ (${fitness.length})`,     icon: Activity },
+            { key: 'trainees', label: `ลูกเทรน (${trainees.length})`,    icon: Users    },
+            { key: 'logs',     label: `ประวัติการฝึก (${logs.length})`,   icon: Calendar },
+            { key: 'fitness',  label: `ผลสมรรถภาพ (${fitness.length})`,   icon: Activity },
           ].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
@@ -210,7 +188,7 @@ export default function TrainerDetail() {
           ))}
         </div>
 
-        {/* ── Tab: ลูกเทรน ── */}
+        {/* Tab: ลูกเทรน */}
         {activeTab === 'trainees' && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100">
@@ -252,7 +230,7 @@ export default function TrainerDetail() {
           </div>
         )}
 
-        {/* ── Tab: ประวัติการฝึก ── */}
+        {/* Tab: ประวัติการฝึก */}
         {activeTab === 'logs' && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100">
@@ -271,7 +249,6 @@ export default function TrainerDetail() {
                       <th className="px-6 py-4 text-left">วันที่</th>
                       <th className="px-6 py-4 text-left">ลูกเทรน</th>
                       <th className="px-6 py-4 text-left">โปรแกรม</th>
-                      {/* ✅ เพิ่มคอลัมน์สถานะโปรแกรม */}
                       <th className="px-6 py-4 text-center">สถานะโปรแกรม</th>
                       <th className="px-6 py-4 text-center">จำนวนท่า</th>
                       <th className="px-6 py-4 text-center">เซตสำเร็จ</th>
@@ -281,7 +258,6 @@ export default function TrainerDetail() {
                   </thead>
                   <tbody className="divide-y divide-slate-50 text-sm">
                     {logs.map(log => {
-                      // ✅ คำนวณ program status badge
                       const ps = PROGRAM_STATUS[log.program_id?.status] || PROGRAM_STATUS.draft;
                       return (
                         <tr key={log._id} className="hover:bg-slate-50 transition-colors">
@@ -292,7 +268,6 @@ export default function TrainerDetail() {
                           </td>
                           <td className="px-6 py-4 text-slate-600">{log.trainee_id?.name || '-'}</td>
                           <td className="px-6 py-4 text-slate-600">{log.program_id?.program_name || '-'}</td>
-                          {/* ✅ สถานะโปรแกรม */}
                           <td className="px-6 py-4 text-center">
                             <span className={`px-2 py-1 rounded-full text-xs font-semibold ${ps.bg} ${ps.text}`}>
                               {ps.label}
@@ -330,7 +305,7 @@ export default function TrainerDetail() {
           </div>
         )}
 
-        {/* ── Tab: ผลสมรรถภาพ ── */}
+        {/* Tab: ผลสมรรถภาพ */}
         {activeTab === 'fitness' && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100">
@@ -361,9 +336,7 @@ export default function TrainerDetail() {
                       const bmi = bmiBadge(f.bmi);
                       return (
                         <tr key={f._id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-4 font-semibold text-slate-800">
-                            {f.trainee_id?.name || '-'}
-                          </td>
+                          <td className="px-6 py-4 font-semibold text-slate-800">{f.trainee_id?.name || '-'}</td>
                           <td className="px-6 py-4 text-slate-600 whitespace-nowrap">
                             {new Date(f.test_date).toLocaleDateString('th-TH', {
                               day: 'numeric', month: 'short', year: 'numeric'
@@ -414,7 +387,7 @@ export default function TrainerDetail() {
 
       </div>
 
-      {/* ===== Modal ข้อมูลลูกเทรน ===== */}
+      {/* Modal ข้อมูลลูกเทรน */}
       {viewTrainee && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -476,7 +449,7 @@ export default function TrainerDetail() {
         </div>
       )}
 
-      {/* ===== Modal รายละเอียด Log ===== */}
+      {/* Modal รายละเอียด Log */}
       {viewLog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -514,22 +487,18 @@ export default function TrainerDetail() {
                       </div>
                     ))}
                   </div>
-
-                  {/* ✅ แสดง instructor_comment ถ้ามี */}
                   {logDetail.program_id?.instructor_comment && (
                     <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl">
                       <p className="text-xs text-amber-500 font-semibold mb-1">💬 ความคิดเห็นอาจารย์</p>
                       <p className="text-sm text-amber-700">{logDetail.program_id.instructor_comment}</p>
                     </div>
                   )}
-
                   {logDetail.note && (
                     <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl">
                       <p className="text-xs text-blue-400 font-semibold mb-1">📝 หมายเหตุ</p>
                       <p className="text-sm text-blue-700">{logDetail.note}</p>
                     </div>
                   )}
-
                   {logDetail.sets && (() => {
                     const grouped = logDetail.sets.reduce((acc, s) => {
                       const key  = s.exercise_id?._id || s.exercise_id;

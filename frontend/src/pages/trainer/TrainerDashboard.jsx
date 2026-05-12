@@ -1,81 +1,80 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Users,
-  ClipboardList,
-  Clock,
-  CheckCircle,
-  History,
-  Bolt,
-  UserPlus,
-  PlusCircle,
-  Edit,
-  Dumbbell
+  Users, ClipboardList, Clock, CheckCircle,
+  History, Bolt, UserPlus, PlusCircle, Edit,
+  Dumbbell, Loader2, AlertCircle
 } from 'lucide-react';
 import { PageContainer } from "../../components/ui/layout/PageContainer";
-import { StatCard } from "../../components/ui/cards/StatCard";
-import { SectionCard } from "../../components/ui/cards/SectionCard";
-import { ActivityItem } from "../../components/ui/cards/ActivityItem";
+import { StatCard }       from "../../components/ui/cards/StatCard";
+import { SectionCard }    from "../../components/ui/cards/SectionCard";
+
+const API      = "http://localhost:5000/api/dashboard/trainer";
+const getToken    = () => localStorage.getItem("token");
+const authHeaders = () => ({
+  "Content-Type": "application/json",
+  Authorization:  `Bearer ${getToken()}`,
+});
 
 const TrainerDashboard = () => {
   const navigate = useNavigate();
 
-  const [stats] = useState({
-    totalTrainees: 12,
-    totalPrograms: 8,
-    pendingApproval: 3,
-    todayResults: 5
-  });
+  const [stats,    setStats]    = useState({ totalTrainees: 0, totalPrograms: 0, pendingApproval: 0, todayLogs: 0 });
+  const [logs,     setLogs]     = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState('');
 
-  const [recentActivities] = useState([
-    {
-      id: 1,
-      type: 'approval',
-      title: 'อนุมัติโปรแกรมการฝึก',
-      description: 'โปรแกรมเพิ่มความแข็งแรงสำหรับ สมหญิง ชัยชนะ',
-      time: '2 ชั่วโมงที่แล้ว',
-      icon: CheckCircle,
-      color: 'green'
-    },
-    {
-      id: 2,
-      type: 'trainee',
-      title: 'เพิ่มผู้รับการฝึกใหม่',
-      description: 'ประภาส สุขใจ - อายุ 22 ปี',
-      time: '5 ชั่วโมงที่แล้ว',
-      icon: UserPlus,
-      color: 'blue'
-    },
-    {
-      id: 3,
-      type: 'result',
-      title: 'บันทึกผลการฝึก',
-      description: 'บันทึกผลการฝึก 3 รายการ',
-      time: 'เมื่อวานนี้',
-      icon: Edit,
-      color: 'purple'
-    }
-  ]);
+  // ── โหลดข้อมูล ────────────────────────────────────────────────
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const res  = await fetch(API, { headers: authHeaders() });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message);
+        setStats(data.stats);
+        setLogs(data.recentLogs || []);
+      } catch (err) {
+        setError(err.message || 'โหลดข้อมูลไม่สำเร็จ');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboard();
+  }, []);
 
   const QuickActionButton = ({ icon: Icon, label, onClick, gradient }) => (
-    <button
-      onClick={onClick}
-      className={`bg-gradient-to-r ${gradient} text-white p-4 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 flex flex-col items-center space-y-2`}
-    >
+    <button onClick={onClick}
+      className={`bg-gradient-to-r ${gradient} text-white p-4 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 flex flex-col items-center space-y-2`}>
       <Icon className="w-6 h-6" />
       <span className="text-sm font-semibold">{label}</span>
     </button>
   );
 
+  if (loading) return (
+    <PageContainer>
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+        <span className="ml-2 text-gray-600">กำลังโหลดข้อมูล...</span>
+      </div>
+    </PageContainer>
+  );
+
   return (
     <PageContainer>
       <div className="space-y-8">
-        {/* ===== Header ===== */}
-        <div className="animate-fade-in">
+
+        {/* Header */}
+        <div>
           <h2 className="text-2xl font-bold text-navy-900">แดชบอร์ดเทรนเนอร์</h2>
         </div>
 
-        {/* Statistics Cards */}
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-600 text-sm">
+            <AlertCircle className="w-4 h-4 mr-2" />{error}
+          </div>
+        )}
+
+        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <StatCard
             title="ผู้รับการฝึกทั้งหมด"
@@ -97,38 +96,48 @@ const TrainerDashboard = () => {
           />
           <StatCard
             title="บันทึกผลวันนี้"
-            value={stats.todayResults}
+            value={stats.todayLogs}
             icon={<CheckCircle className="w-6 h-6" />}
             gradient="from-emerald-500 to-emerald-600"
           />
         </div>
 
-        {/* Recent Activities & Quick Actions */}
+        {/* Activities + Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          {/* กิจกรรมล่าสุด */}
           <SectionCard
             icon={<History className="w-5 h-5 text-white" />}
             title="กิจกรรมล่าสุด"
             borderColor="navy"
           >
-            <div className="space-y-4">
-              {recentActivities.map(activity => {
-                const Icon = activity.icon;
-                return (
-                  <div key={activity.id} className="flex items-start gap-3 pb-4 border-b last:border-b-0 border-gray-200">
-                    <div className="w-10 h-10 bg-navy-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Icon className="text-navy-900 w-5 h-5" />
+            {logs.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-6">ยังไม่มีกิจกรรม</p>
+            ) : (
+              <div className="space-y-4">
+                {logs.map(log => (
+                  <div key={log._id} className="flex items-start gap-3 pb-4 border-b last:border-b-0 border-gray-200">
+                    <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center shrink-0">
+                      <Edit className="text-purple-600 w-5 h-5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-navy-900">{activity.title}</p>
-                      <p className="text-xs text-steel-700">{activity.description}</p>
-                      <p className="text-xs text-steel-500 mt-1">{activity.time}</p>
+                      <p className="text-sm font-semibold text-gray-800">บันทึกผลการฝึก</p>
+                      <p className="text-xs text-gray-500">
+                        {log.trainee_id?.name || '-'} — {log.program_id?.program_name || '-'}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {new Date(log.training_date).toLocaleDateString('th-TH', {
+                          day: 'numeric', month: 'short', year: 'numeric'
+                        })}
+                      </p>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
           </SectionCard>
 
+          {/* การดำเนินการด่วน */}
           <SectionCard
             icon={<Bolt className="w-5 h-5 text-white" />}
             title="การดำเนินการด่วน"
@@ -136,31 +145,28 @@ const TrainerDashboard = () => {
           >
             <div className="grid grid-cols-2 gap-4">
               <QuickActionButton
-                icon={UserPlus}
-                label="เพิ่มผู้รับการฝึก"
+                icon={UserPlus}   label="เพิ่มผู้รับการฝึก"
                 gradient="from-navy-900 to-navy-700"
                 onClick={() => navigate('/trainer/trainees')}
               />
               <QuickActionButton
-                icon={PlusCircle}
-                label="สร้างโปรแกรมฝึก"
+                icon={PlusCircle} label="สร้างโปรแกรมฝึก"
                 gradient="from-navy-800 to-navy-600"
                 onClick={() => navigate('/trainer/programs')}
               />
               <QuickActionButton
-                icon={Dumbbell}
-                label="เพิ่มท่าการฝึก"
+                icon={Dumbbell}   label="เพิ่มท่าการฝึก"
                 gradient="from-sky-500 to-sky-600"
                 onClick={() => navigate('/trainer/exercises')}
               />
               <QuickActionButton
-                icon={Edit}
-                label="บันทึกผลการฝึก"
+                icon={Edit}       label="บันทึกผลการฝึก"
                 gradient="from-emerald-500 to-emerald-600"
                 onClick={() => navigate('/trainer/results')}
               />
             </div>
           </SectionCard>
+
         </div>
       </div>
     </PageContainer>

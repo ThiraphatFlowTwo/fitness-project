@@ -1,22 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Search,
-  Eye,
-  Users,
-  Activity,
-  Clock,
-  Loader2,
-  AlertCircle,
-  Dumbbell,
+  Search, Eye, Users, Activity,
+  Clock, Loader2, AlertCircle, Dumbbell,
 } from "lucide-react";
-
-const API = "http://localhost:5000/api/instructor/trainers";
-const getToken = () => localStorage.getItem("token");
-const authHeaders = () => ({
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${getToken()}`,
-});
+import api from "../../services/api"; // ✅ ใช้ axios แทน fetch
 
 const GRADIENTS = [
   "from-teal-400 to-cyan-500",
@@ -29,44 +17,26 @@ const GRADIENTS = [
 ];
 
 const STATUS_CONFIG = {
-  active: {
-    label: "ใช้งานอยู่",
-    bg: "bg-emerald-50",
-    text: "text-emerald-700",
-    dot: "bg-emerald-500",
-  },
-  pending: {
-    label: "รออนุมัติ",
-    bg: "bg-amber-50",
-    text: "text-amber-700",
-    dot: "bg-amber-500",
-  },
-  inactive: {
-    label: "ปิดใช้งาน",
-    bg: "bg-slate-100",
-    text: "text-slate-500",
-    dot: "bg-slate-400",
-  },
+  active:   { label: "ใช้งานอยู่", bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
+  pending:  { label: "รออนุมัติ",  bg: "bg-amber-50",   text: "text-amber-700",   dot: "bg-amber-500"   },
+  inactive: { label: "ปิดใช้งาน", bg: "bg-slate-100",  text: "text-slate-500",   dot: "bg-slate-400"   },
 };
 
 export default function ManageTrainees() {
   const navigate = useNavigate();
   const [trainers, setTrainers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all");
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState("");
+  const [search,   setSearch]   = useState("");
+  const [filter,   setFilter]   = useState("all");
 
-  // ── โหลดข้อมูล ────────────────────────────────────────────────
   useEffect(() => {
     const fetchTrainers = async () => {
       try {
-        const res = await fetch(API, { headers: authHeaders() });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message);
-        setTrainers(Array.isArray(data) ? data : []);
+        const res = await api.get("/instructor/trainers"); // ✅
+        setTrainers(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
-        setError(err.message || "โหลดข้อมูลไม่สำเร็จ");
+        setError(err.response?.data?.message || "โหลดข้อมูลไม่สำเร็จ");
       } finally {
         setLoading(false);
       }
@@ -74,32 +44,29 @@ export default function ManageTrainees() {
     fetchTrainers();
   }, []);
 
-  // ── คำนวณสถิติ ────────────────────────────────────────────────
-  const total = trainers.length;
-  const active = trainers.filter((t) => t.status === "active").length;
-  const pending = trainers.filter((t) => t.status === "pending").length;
+  const total   = trainers.length;
+  const active  = trainers.filter(t => t.status === "active").length;
+  const pending = trainers.filter(t => t.status === "pending").length;
 
-  const filtered = trainers.filter((t) => {
+  const filtered = trainers.filter(t => {
+    const q = search.trim().toLowerCase();
     const matchSearch =
-      t.name?.includes(search) ||
-      t.email?.includes(search) ||
-      t.username?.includes(search);
+      t.name?.toLowerCase().includes(q) ||
+      t.email?.toLowerCase().includes(q) ||
+      t.username?.toLowerCase().includes(q);
     const matchFilter = filter === "all" || t.status === filter;
     return matchSearch && matchFilter;
   });
 
-  // ── Render ────────────────────────────────────────────────────
-  if (loading)
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        <span className="ml-2 text-gray-600">กำลังโหลดข้อมูล...</span>
-      </div>
-    );
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-screen">
+      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <span className="ml-2 text-gray-600">กำลังโหลดข้อมูล...</span>
+    </div>
+  );
 
   return (
     <div className="w-full min-h-screen p-6 bg-slate-50">
-      {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-xl font-bold text-slate-800">รายชื่อเทรนเนอร์</h1>
@@ -109,47 +76,20 @@ export default function ManageTrainees() {
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center text-red-600 text-sm">
-          <AlertCircle className="w-4 h-4 mr-2" />
-          {error}
+          <AlertCircle className="w-4 h-4 mr-2" />{error}
         </div>
       )}
 
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         {[
-          {
-            label: "ทั้งหมด",
-            value: total,
-            icon: Users,
-            from: "from-blue-500",
-            to: "to-violet-500",
-          },
-          {
-            label: "ใช้งานอยู่",
-            value: active,
-            icon: Activity,
-            from: "from-emerald-500",
-            to: "to-teal-500",
-          },
-          {
-            label: "รออนุมัติ",
-            value: pending,
-            icon: Clock,
-            from: "from-amber-500",
-            to: "to-orange-500",
-          },
+          { label: "ทั้งหมด",   value: total,   icon: Users,    from: "from-blue-500",    to: "to-violet-500"  },
+          { label: "ใช้งานอยู่", value: active,  icon: Activity, from: "from-emerald-500", to: "to-teal-500"    },
+          { label: "รออนุมัติ",  value: pending, icon: Clock,    from: "from-amber-500",   to: "to-orange-500"  },
         ].map(({ label, value, icon: Icon, from, to }) => (
-          <div
-            key={label}
-            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100"
-          >
+          <div key={label} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium text-slate-400">
-                {label}
-              </span>
-              <div
-                className={`w-8 h-8 rounded-lg bg-gradient-to-br ${from} ${to} flex items-center justify-center`}
-              >
+              <span className="text-xs font-medium text-slate-400">{label}</span>
+              <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${from} ${to} flex items-center justify-center`}>
                 <Icon className="w-4 h-4 text-white" />
               </div>
             </div>
@@ -158,21 +98,20 @@ export default function ManageTrainees() {
         ))}
       </div>
 
-      {/* Search & Filter */}
       <div className="flex gap-3 mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={e => setSearch(e.target.value)}
             placeholder="ค้นหาชื่อ อีเมล หรือรหัสผู้ใช้..."
             className="w-full pl-10 pr-4 py-2.5 bg-white border-2 border-slate-100 rounded-xl text-sm outline-none focus:border-blue-400 transition-all"
           />
         </div>
         <select
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+          onChange={e => setFilter(e.target.value)}
           className="px-4 py-2.5 bg-white border-2 border-slate-100 rounded-xl text-sm text-slate-600 outline-none focus:border-blue-400 transition-all"
         >
           <option value="all">ทุกสถานะ</option>
@@ -182,7 +121,6 @@ export default function ManageTrainees() {
         </select>
       </div>
 
-      {/* Trainer List */}
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-slate-400">
           <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -191,33 +129,18 @@ export default function ManageTrainees() {
       ) : (
         <div className="flex flex-col gap-2">
           {filtered.map((t, i) => {
-            const st = STATUS_CONFIG[t.status] || STATUS_CONFIG.pending;
+            const st       = STATUS_CONFIG[t.status] || STATUS_CONFIG.pending;
             const gradient = GRADIENTS[i % GRADIENTS.length];
-            const initials = t.name?.charAt(0) || "?";
-
             return (
-              <div
-                key={t._id}
-                className="flex items-center gap-4 bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 hover:border-blue-200 hover:shadow-md transition-all group"
-              >
-                {/* Avatar */}
-                <div
-                  className={`w-11 h-11 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm`}
-                >
-                  {initials}
+              <div key={t._id}
+                className="flex items-center gap-4 bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 hover:border-blue-200 hover:shadow-md transition-all group">
+                <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm`}>
+                  {t.name?.charAt(0) || "?"}
                 </div>
-
-                {/* ข้อมูลหลัก */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 group-hover:text-blue-700 transition-colors">
-                    {t.name}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-0.5 truncate">
-                    {t.email}
-                  </p>
+                  <p className="text-sm font-semibold text-slate-800 group-hover:text-blue-700 transition-colors">{t.name}</p>
+                  <p className="text-xs text-slate-400 mt-0.5 truncate">{t.email}</p>
                 </div>
-
-                {/* สถิติ */}
                 <div className="hidden md:flex items-center gap-4 text-xs text-slate-500 shrink-0">
                   <div className="flex items-center gap-1">
                     <Users className="w-3.5 h-3.5 text-blue-400" />
@@ -228,22 +151,14 @@ export default function ManageTrainees() {
                     <span>{t.programCount || 0} โปรแกรม</span>
                   </div>
                 </div>
-
-                {/* สถานะ */}
-                <span
-                  className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium shrink-0 ${st.bg} ${st.text}`}
-                >
+                <span className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium shrink-0 ${st.bg} ${st.text}`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
                   {st.label}
                 </span>
-
-                {/* ปุ่มดูรายละเอียด */}
                 <button
                   onClick={() => navigate(`/instructor/trainees/${t._id}`)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-slate-100 rounded-xl text-xs text-slate-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all shrink-0"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  รายละเอียด
+                  className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-slate-100 rounded-xl text-xs text-slate-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all shrink-0">
+                  <Eye className="w-3.5 h-3.5" />รายละเอียด
                 </button>
               </div>
             );

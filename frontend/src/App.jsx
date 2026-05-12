@@ -15,7 +15,6 @@ import TrainerExercises from "./pages/trainer/TrainerExercises";
 import TrainerResults from "./pages/trainer/TrainerResults";
 import TrainerProgress from "./pages/trainer/TrainerProgress";
 import TrainerProfile from "./pages/trainer/TrainerProfile";
-import TrainerMetrics from "./pages/trainer/TrainerMetrics";
 
 // Instructor
 import InstructorLayout from "./layouts/InstructorLayout";
@@ -73,7 +72,6 @@ function App() {
           <Route path="results" element={<TrainerResults />} />
           <Route path="progress" element={<TrainerProgress />} />
           <Route path="profile" element={<TrainerProfile />} />
-          <Route path="metrics" element={<TrainerMetrics />} />
         </Route>
 
         {/* ===== Instructor (อาจารย์) ===== */}

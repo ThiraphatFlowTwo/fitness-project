@@ -1,44 +1,34 @@
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard,
-  Users,
-  FileText,
-  User,
-  LogOut,
-  ChevronRight,
-  Menu,
-  X,
-  Bell,
-  GraduationCap,
+  LayoutDashboard, Users, FileText, User,
+  LogOut, ChevronRight, Menu, X, Bell, GraduationCap,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const menuItems = [
-  { path: "/instructor", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/instructor/trainees", label: "เทรนเนอร์", icon: Users },
-  { path: "/instructor/programs", label: "โปรแกรมฝึก", icon: FileText },
-  { path: "/instructor/profile", label: "โปรไฟล์อาจารย์", icon: User },
+  { path: "/instructor",          label: "Dashboard",      icon: LayoutDashboard },
+  { path: "/instructor/trainees", label: "เทรนเนอร์",      icon: Users           },
+  { path: "/instructor/programs", label: "โปรแกรมฝึก",     icon: FileText        },
+  { path: "/instructor/profile",  label: "โปรไฟล์อาจารย์", icon: User            },
 ];
 
 const pageTitles = {
-  "/instructor": "Dashboard",
+  "/instructor":          "Dashboard",
   "/instructor/trainees": "เทรนเนอร์",
   "/instructor/programs": "โปรแกรมฝึก",
-  "/instructor/profile": "โปรไฟล์อาจารย์",
+  "/instructor/profile":  "โปรไฟล์อาจารย์",
 };
 
-// ✅ อักษรย่อจากชื่อเต็ม เช่น "สมชาย ใจดี" → "สใ"
 const getInitials = (name = "") =>
-  name.trim().split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "?";
+  name.trim().split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2) || "?";
 
 export default function InstructorLayout() {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate  = useNavigate();
+  const location  = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed,   setCollapsed]   = useState(false);
+  const [user,        setUser]        = useState(null);
 
-  // ✅ ดึง user จาก localStorage เหมือน AdminLayout
-  const [user, setUser] = useState(null);
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (stored) {
@@ -51,7 +41,12 @@ export default function InstructorLayout() {
       ? location.pathname === "/instructor"
       : location.pathname.startsWith(path);
 
-  const currentTitle = pageTitles[location.pathname] ?? "Instructor Panel";
+  // ── currentTitle รองรับ dynamic path ──────────────────────────
+  const currentTitle = (() => {
+    if (pageTitles[location.pathname]) return pageTitles[location.pathname];
+    if (location.pathname.startsWith("/instructor/trainees/")) return "รายละเอียดเทรนเนอร์";
+    return "Instructor Panel";
+  })();
 
   const handleLogout = () => {
     if (!confirm("ต้องการออกจากระบบใช่หรือไม่?")) return;
@@ -63,27 +58,19 @@ export default function InstructorLayout() {
   return (
     <div className="flex h-screen overflow-hidden bg-slate-100">
       {sidebarOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-30 backdrop-blur-sm"
-          onClick={() => setSidebarOpen(false)}
-        />
+        <div className="lg:hidden fixed inset-0 bg-black/50 z-30 backdrop-blur-sm"
+          onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* ── Sidebar ── */}
       <aside
-        style={{
-          background:
-            "linear-gradient(160deg, #0B1F3A 0%, #1E293B 50%, #0EA5E9 100%)",
-        }}
-        className={`
-          flex-shrink-0 flex flex-col h-full shadow-2xl transition-all duration-300
-          ${sidebarOpen ? (collapsed ? "w-20" : "w-64") : "w-0 overflow-hidden"}
-        `}
+        style={{ background: "linear-gradient(160deg, #0B1F3A 0%, #1E293B 50%, #0EA5E9 100%)" }}
+        className={`flex-shrink-0 flex flex-col h-full shadow-2xl transition-all duration-300 ${
+          sidebarOpen ? (collapsed ? "w-20" : "w-64") : "w-0 overflow-hidden"
+        }`}
       >
         {/* Logo */}
-        <div
-          className={`flex items-center gap-3 px-5 py-5 border-b border-white/10 ${collapsed ? "justify-center px-0" : ""}`}
-        >
+        <div className={`flex items-center gap-3 px-5 py-5 border-b border-white/10 ${collapsed ? "justify-center px-0" : ""}`}>
           <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0 shadow-lg">
             <GraduationCap className="w-5 h-5 text-white" />
           </div>
@@ -95,18 +82,14 @@ export default function InstructorLayout() {
           )}
         </div>
 
-        {/* ✅ User Card — ชื่อ + role จาก localStorage */}
+        {/* User Card */}
         {!collapsed && (
           <div className="mx-4 mt-5 mb-2 rounded-2xl bg-white/10 border border-white/15 p-3 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-400 to-blue-400 flex items-center justify-center shrink-0 shadow">
-              <span className="text-white text-sm font-bold">
-                {getInitials(user?.name)}
-              </span>
+              <span className="text-white text-sm font-bold">{getInitials(user?.name)}</span>
             </div>
             <div className="overflow-hidden">
-              <p className="text-white text-sm font-semibold truncate">
-                {user?.name ?? "..."}
-              </p>
+              <p className="text-white text-sm font-semibold truncate">{user?.name ?? "..."}</p>
               <p className="text-slate-300 text-xs">อาจารย์</p>
             </div>
           </div>
@@ -117,31 +100,16 @@ export default function InstructorLayout() {
           {menuItems.map(({ path, label, icon: Icon }) => {
             const active = isActive(path);
             return (
-              <button
-                key={path}
-                onClick={() => {
-                  navigate(path);
-                  if (window.innerWidth < 1024) setSidebarOpen(false);
-                }}
+              <button key={path}
+                onClick={() => { navigate(path); if (window.innerWidth < 1024) setSidebarOpen(false); }}
                 title={collapsed ? label : undefined}
-                className={`
-                  w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
-                  transition-all duration-200 group
-                  ${collapsed ? "justify-center" : ""}
-                  ${
-                    active
-                      ? "bg-white text-sky-700 shadow-lg"
-                      : "text-slate-200 hover:bg-white/10 hover:text-white"
-                  }
-                `}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
+                  collapsed ? "justify-center" : ""
+                } ${active ? "bg-white text-sky-700 shadow-lg" : "text-slate-200 hover:bg-white/10 hover:text-white"}`}
               >
-                <Icon
-                  className={`w-5 h-5 shrink-0 transition-transform duration-200 ${active ? "scale-110" : "group-hover:scale-105"}`}
-                />
+                <Icon className={`w-5 h-5 shrink-0 transition-transform duration-200 ${active ? "scale-110" : "group-hover:scale-105"}`} />
                 {!collapsed && <span className="truncate">{label}</span>}
-                {!collapsed && active && (
-                  <ChevronRight className="w-4 h-4 ml-auto shrink-0 text-sky-400" />
-                )}
+                {!collapsed && active && <ChevronRight className="w-4 h-4 ml-auto shrink-0 text-sky-400" />}
               </button>
             );
           })}
@@ -149,20 +117,13 @@ export default function InstructorLayout() {
 
         {/* Bottom */}
         <div className="px-3 pb-5 space-y-2 border-t border-white/10 pt-3">
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-sky-200
-                        hover:bg-white/10 hover:text-white transition-all ${collapsed ? "justify-center" : ""}`}
-          >
+          <button onClick={() => setCollapsed(!collapsed)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-sky-200 hover:bg-white/10 hover:text-white transition-all ${collapsed ? "justify-center" : ""}`}>
             <Menu className="w-5 h-5 shrink-0" />
             {!collapsed && <span>ย่อเมนู</span>}
           </button>
-          <button
-            onClick={handleLogout}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
-                        bg-red-500/20 text-red-300 hover:bg-red-500 hover:text-white
-                        transition-all duration-200 ${collapsed ? "justify-center" : ""}`}
-          >
+          <button onClick={handleLogout}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium bg-red-500/20 text-red-300 hover:bg-red-500 hover:text-white transition-all duration-200 ${collapsed ? "justify-center" : ""}`}>
             <LogOut className="w-5 h-5 shrink-0" />
             {!collapsed && <span>ออกจากระบบ</span>}
           </button>
@@ -174,22 +135,26 @@ export default function InstructorLayout() {
         <header className="bg-white border-b border-gray-200 shadow-sm z-10">
           <div className="px-6 h-16 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
-              >
-                {sidebarOpen ? (
-                  <X className="w-5 h-5 text-slate-600" />
-                ) : (
-                  <Menu className="w-5 h-5 text-slate-600" />
-                )}
+              <button onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2 rounded-lg hover:bg-slate-100 transition-colors">
+                {sidebarOpen ? <X className="w-5 h-5 text-slate-600" /> : <Menu className="w-5 h-5 text-slate-600" />}
               </button>
               <div className="flex items-center gap-2">
                 <span className="text-slate-400 text-sm">Instructor</span>
                 <ChevronRight className="w-4 h-4 text-slate-300" />
-                <span className="text-slate-800 font-semibold text-sm">
-                  {currentTitle}
-                </span>
+                {/* breadcrumb เมื่ออยู่หน้า TrainerDetail */}
+                {location.pathname.startsWith("/instructor/trainees/") ? (
+                  <>
+                    <button onClick={() => navigate("/instructor/trainees")}
+                      className="text-slate-400 text-sm hover:text-blue-600 transition-colors">
+                      เทรนเนอร์
+                    </button>
+                    <ChevronRight className="w-4 h-4 text-slate-300" />
+                    <span className="text-slate-800 font-semibold text-sm">รายละเอียดเทรนเนอร์</span>
+                  </>
+                ) : (
+                  <span className="text-slate-800 font-semibold text-sm">{currentTitle}</span>
+                )}
               </div>
             </div>
 
@@ -204,16 +169,12 @@ export default function InstructorLayout() {
                   2
                 </span>
               </button>
-
-              {/* ✅ Header — ชื่อ + role จาก localStorage */}
               <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-500 to-blue-500 flex items-center justify-center text-white text-xs font-bold shadow">
                   {getInitials(user?.name)}
                 </div>
                 <div className="hidden md:block">
-                  <p className="text-sm font-semibold text-slate-800 leading-tight">
-                    {user?.name ?? "..."}
-                  </p>
+                  <p className="text-sm font-semibold text-slate-800 leading-tight">{user?.name ?? "..."}</p>
                   <p className="text-xs text-slate-400">อาจารย์</p>
                 </div>
               </div>

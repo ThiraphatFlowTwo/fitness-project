@@ -4,10 +4,17 @@ import { Search, ClipboardList, Clock, CheckCircle, XCircle, Eye, Check, X, Load
 const API = "http://localhost:5000/api/programs";
 
 const getToken    = () => localStorage.getItem("token");
-const authHeaders = () => ({
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${getToken()}`
-});
+const authHeaders = () => {
+  const token = localStorage.getItem("token");
+  if (!token) {
+    window.location.href = "/login"; // ✅ redirect ถ้าไม่มี token
+    return {};
+  }
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+};
 
 const statusConfig = {
   pending:  { label: "รออนุมัติ",   bg: "bg-amber-50",   text: "text-amber-700",   dot: "bg-amber-500",   border: "border-amber-300"  },

@@ -3,6 +3,7 @@ const router = express.Router();   // ⭐⭐ สำคัญมาก (ที่
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const { protect } = require("../middleware/authMiddleware");
 
 /* =========================
    REGISTER
@@ -111,6 +112,66 @@ router.post("/login", async (req, res) => {
     });
   } catch (err) {
     console.error("LOGIN ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/* =========================
+   GET PROFILE
+========================= */
+router.get("/profile", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) return res.status(404).json({ message: "ไม่พบผู้ใช้" });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/* =========================
+   UPDATE PROFILE
+========================= */
+router.put("/profile", protect, async (req, res) => {
+  try {
+    const { name, email } = req.body;
+
+    // เช็ค email ซ้ำกับคนอื่น
+    const exist = await User.findOne({ email, _id: { $ne: req.user.id } });
+    if (exist) return res.status(400).json({ message: "Email นี้ถูกใช้งานแล้ว" });
+
+    const updated = await User.findByIdAndUpdate(
+      req.user.id,
+      { name, email },
+      { new: true }
+    ).select("-password");
+
+    res.json({ message: "อัปเดตโปรไฟล์สำเร็จ", user: updated });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/* =========================
+   CHANGE PASSWORD
+========================= */
+router.put("/change-password", protect, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(req.user.id);
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) return res.status(400).json({ message: "รหัสผ่านปัจจุบันไม่ถูกต้อง" });
+
+    if (newPassword.length < 6)
+      return res.status(400).json({ message: "รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร" });
+
+    const salt           = await bcrypt.genSalt(10);
+    user.password        = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    res.json({ message: "เปลี่ยนรหัสผ่านสำเร็จ" });
+  } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
 });

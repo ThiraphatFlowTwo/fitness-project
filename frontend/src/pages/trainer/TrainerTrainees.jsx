@@ -14,10 +14,17 @@ const API = "http://localhost:5000/api/trainees";
 const FITNESS_API = "http://localhost:5000/api/fitness";
 
 const getToken = () => localStorage.getItem("token");
-const authHeaders = () => ({
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${getToken()}`,
-});
+const authHeaders = () => {
+  const token = localStorage.getItem("token");
+  if (!token) {
+    window.location.href = "/login"; // ✅ redirect ถ้าไม่มี token
+    return {};
+  }
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+};
 
 const getGoalColor = (goal) => {
   const map = {

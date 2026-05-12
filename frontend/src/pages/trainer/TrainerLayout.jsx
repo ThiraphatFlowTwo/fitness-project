@@ -12,7 +12,6 @@ const menuItems = [
   { id: 'programs',  label: 'โปรแกรมการฝึก',        icon: ClipboardList, path: '/trainer/programs'  },
   { id: 'exercises', label: 'ท่าในการฝึก',           icon: Dumbbell,      path: '/trainer/exercises' },
   { id: 'results',   label: 'บันทึกการฝึกรายวัน',    icon: Edit,          path: '/trainer/results'   },
-  { id: 'metrics',   label: 'บันทึกการเปลี่ยนแปลง',  icon: Scale,         path: '/trainer/metrics'   },
   { id: 'progress',  label: 'พัฒนาการ (กราฟ)',       icon: TrendingUp,    path: '/trainer/progress'  },
   { id: 'profile',   label: 'โปรไฟล์ส่วนตัว',        icon: User,          path: '/trainer/profile'   },
 ];
@@ -23,7 +22,6 @@ const pageTitles = {
   '/trainer/programs':  { th: 'โปรแกรมการฝึก',         en: 'Programs'       },
   '/trainer/exercises': { th: 'ท่าในการฝึก',            en: 'Exercises'      },
   '/trainer/results':   { th: 'บันทึกการฝึกรายวัน',    en: 'Daily Results'  },
-  '/trainer/metrics':   { th: 'บันทึกการเปลี่ยนแปลง',  en: 'Monthly Metrics'},
   '/trainer/progress':  { th: 'พัฒนาการผู้รับการฝึก',  en: 'Progress'       },
   '/trainer/profile':   { th: 'โปรไฟล์ส่วนตัว',       en: 'Profile'        },
 };
