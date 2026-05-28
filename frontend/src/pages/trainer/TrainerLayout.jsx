@@ -6,38 +6,24 @@ import {
   Bell, Menu, X, ChevronRight, Scale // เพิ่ม Scale ตรงนี้แล้ว
 } from 'lucide-react';
 
-const menuItems = [
-  { id: 'dashboard', label: 'หน้าหลัก',         icon: Home,          path: '/trainer' }, 
-  { id: 'trainees',  label: 'จัดการผู้รับการฝึก', icon: Users,         path: '/trainer/trainees'  },
-  { id: 'programs',  label: 'โปรแกรมการฝึก',      icon: ClipboardList, path: '/trainer/programs'  },
-  { id: 'exercises', label: 'ท่าในการฝึก',         icon: Dumbbell,      path: '/trainer/exercises' },
-  { id: 'results',   label: 'บันทึกการฝึกรายวัน',  icon: Edit,          path: '/trainer/results'   },
-  { id: 'metrics',   label: 'บันทึกการเปลี่ยนแปลง', icon: Scale,         path: '/trainer/metrics'   }, // เพิ่มเมนูใหม่
-  { id: 'progress',  label: 'พัฒนาการ (กราฟ)',     icon: TrendingUp,    path: '/trainer/progress'  },
-  { id: 'profile',   label: 'โปรไฟล์ส่วนตัว',       icon: User,          path: '/trainer/profile'   },
-];
+  const menuItems = [
+    { id: 'dashboard', label: 'หน้าหลัก', icon: Home, path: '/trainer/dashboard' },
+    { id: 'trainees', label: 'จัดการผู้รับการฝึก', icon: Users, path: '/trainer/trainees' },
+    { id: 'programs', label: 'โปรแกรมการฝึก', icon: ClipboardList, path: '/trainer/programs' },
+    { id: 'exercises', label: 'ท่าในการฝึก', icon: Dumbbell, path: '/trainer/exercises' },
+    { id: 'results', label: 'บันทึกผลการฝึก', icon: Edit, path: '/trainer/results' },
+    { id: 'progress', label: 'พัฒนาการ', icon: TrendingUp, path: '/trainer/progress' },
+    { id: 'profile', label: 'โปรไฟล์ส่วนตัว', icon: User, path: '/trainer/profile' }
+  ];
 
-const pageTitles = {
-  '/trainer':           { th: 'หน้าหลัก',           en: 'Dashboard'     },
-  '/trainer/trainees':  { th: 'จัดการผู้รับการฝึก', en: 'Trainees'      },
-  '/trainer/programs':  { th: 'โปรแกรมการฝึก',      en: 'Programs'      },
-  '/trainer/exercises': { th: 'ท่าในการฝึก',         en: 'Exercises'     },
-  '/trainer/results':   { th: 'บันทึกการฝึกรายวัน',  en: 'Daily Results' },
-  '/trainer/metrics':   { th: 'บันทึกการเปลี่ยนแปลง', en: 'Monthly Metrics'}, // เพิ่มหัวข้อหน้า
-  '/trainer/progress':  { th: 'พัฒนาการผู้รับการฝึก', en: 'Progress'      },
-  '/trainer/profile':   { th: 'โปรไฟล์ส่วนตัว',    en: 'Profile'       },
-};
+  const isActiveRoute = (path) => {
+    return location.pathname === path;
+  };
 
-export default function TrainerLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [collapsed, setCollapsed]     = useState(false);
-  const navigate  = useNavigate();
-  const location  = useLocation();
-
-  const isActive = (path) => location.pathname === path;
-  const page = pageTitles[location.pathname] || { th: 'ระบบเทรนเนอร์', en: 'Trainer' };
-
-  const handleLogout = () => navigate('/login');
+  const handleLogout = () => {
+    console.log('Logout');
+    navigate('/login');
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-100">
