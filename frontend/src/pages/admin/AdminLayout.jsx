@@ -12,6 +12,8 @@ import {
   Shield,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import api from "../../services/api";
+import { useTopbarData } from "../../hooks/useTopbarData";
 
 const menuItems = [
   { path: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -46,6 +48,7 @@ export default function AdminLayout() {
 
   // ✅ ดึงข้อมูล user จาก localStorage (backend เก็บไว้ตอน login)
   const [user, setUser] = useState(null);
+  const { activeYear, notifCount } = useTopbarData("admin");
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
@@ -207,15 +210,19 @@ export default function AdminLayout() {
             <div className="flex items-center gap-3">
               <div className="hidden md:flex flex-col items-end">
                 <span className="text-xs font-semibold text-slate-700">
-                  ปีการศึกษา 2568
+                  {activeYear ? `ปีการศึกษา ${activeYear.academic_year}` : "ไม่มีปีการศึกษา"}
                 </span>
-                <span className="text-xs text-slate-400">ภาคเรียนที่ 1</span>
+                <span className="text-xs text-slate-400">
+                  {activeYear ? `ภาคเรียนที่ ${activeYear.semester}` : "ที่เปิดใช้งาน"}
+                </span>
               </div>
               <button className="relative p-2 rounded-xl hover:bg-slate-100 transition-colors">
                 <Bell className="w-5 h-5 text-slate-600" />
-                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
-                  3
-                </span>
+                {notifCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                    {notifCount > 99 ? "99+" : notifCount}
+                  </span>
+                )}
               </button>
 
               {/* ✅ Header — ชื่อ + role จาก localStorage */}

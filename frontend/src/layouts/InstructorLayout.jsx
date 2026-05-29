@@ -1,14 +1,16 @@
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, FileText, User,
-  LogOut, ChevronRight, Menu, X, Bell, GraduationCap,
+  LogOut, ChevronRight, Menu, X, Bell, GraduationCap, BarChart2,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useTopbarData } from "../hooks/useTopbarData";
 
 const menuItems = [
   { path: "/instructor",          label: "Dashboard",      icon: LayoutDashboard },
   { path: "/instructor/trainees", label: "เทรนเนอร์",      icon: Users           },
   { path: "/instructor/programs", label: "โปรแกรมฝึก",     icon: FileText        },
+  { path: "/instructor/logs",     label: "ผลการฝึก",       icon: BarChart2       },
   { path: "/instructor/profile",  label: "โปรไฟล์อาจารย์", icon: User            },
 ];
 
@@ -16,6 +18,7 @@ const pageTitles = {
   "/instructor":          "Dashboard",
   "/instructor/trainees": "เทรนเนอร์",
   "/instructor/programs": "โปรแกรมฝึก",
+  "/instructor/logs":     "ผลการฝึก",
   "/instructor/profile":  "โปรไฟล์อาจารย์",
 };
 
@@ -28,6 +31,7 @@ export default function InstructorLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [collapsed,   setCollapsed]   = useState(false);
   const [user,        setUser]        = useState(null);
+  const { activeYear, notifCount } = useTopbarData("instructor");
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
@@ -160,14 +164,20 @@ export default function InstructorLayout() {
 
             <div className="flex items-center gap-3">
               <div className="hidden md:flex flex-col items-end">
-                <span className="text-xs font-semibold text-slate-700">ปีการศึกษา 2568</span>
-                <span className="text-xs text-slate-400">ภาคเรียนที่ 1</span>
+                <span className="text-xs font-semibold text-slate-700">
+                  {activeYear ? `ปีการศึกษา ${activeYear.academic_year}` : "ไม่มีปีการศึกษา"}
+                </span>
+                <span className="text-xs text-slate-400">
+                  {activeYear ? `ภาคเรียนที่ ${activeYear.semester}` : "ที่เปิดใช้งาน"}
+                </span>
               </div>
               <button className="relative p-2 rounded-xl hover:bg-slate-100 transition-colors">
                 <Bell className="w-5 h-5 text-slate-600" />
-                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
-                  2
-                </span>
+                {notifCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                    {notifCount > 99 ? "99+" : notifCount}
+                  </span>
+                )}
               </button>
               <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-500 to-blue-500 flex items-center justify-center text-white text-xs font-bold shadow">

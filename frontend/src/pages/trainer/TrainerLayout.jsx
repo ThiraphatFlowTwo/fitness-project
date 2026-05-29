@@ -5,6 +5,7 @@ import {
   Edit, TrendingUp, User, LogOut,
   Bell, Menu, X, ChevronRight, Scale
 } from 'lucide-react';
+import { useTopbarData } from '../../hooks/useTopbarData';
 
 const menuItems = [
   { id: 'dashboard', label: 'หน้าหลัก',           icon: Home,          path: '/trainer' }, 
@@ -38,6 +39,8 @@ export default function TrainerLayout() {
 
   // ✅ ดึง user จาก localStorage
   const [user, setUser] = useState(null);
+  const { activeYear, notifCount } = useTopbarData("trainer");
+
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (stored) {
@@ -169,14 +172,22 @@ export default function TrainerLayout() {
             {/* Right */}
             <div className="flex items-center gap-3">
               <div className="hidden md:flex flex-col items-end">
-                <span className="text-xs font-semibold text-slate-700">ปีการศึกษา 2568</span>
-                <span className="text-xs text-slate-400">ภาคเรียนที่ 1</span>
+                <span className="text-xs font-semibold text-slate-700">
+                  {activeYear ? `ปีการศึกษา ${activeYear.academic_year}` : "ไม่มีปีการศึกษา"}
+                </span>
+                <span className="text-xs text-slate-400">
+                  {activeYear ? `ภาคเรียนที่ ${activeYear.semester}` : "ที่เปิดใช้งาน"}
+                </span>
               </div>
 
               <button className="relative p-2 rounded-xl hover:bg-slate-100 transition-colors">
                 <Bell className="w-5 h-5 text-slate-600" />
-                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold
-                                  rounded-full flex items-center justify-center leading-none">3</span>
+                {notifCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold
+                                    rounded-full flex items-center justify-center leading-none">
+                    {notifCount > 99 ? "99+" : notifCount}
+                  </span>
+                )}
               </button>
 
               {/* ✅ Header — ชื่อจาก localStorage */}
