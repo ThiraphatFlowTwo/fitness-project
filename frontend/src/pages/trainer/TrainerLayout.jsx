@@ -5,6 +5,7 @@ import {
   Edit, TrendingUp, User, LogOut,
   Bell, Menu, X, ChevronRight, Scale // เพิ่ม Scale ตรงนี้แล้ว
 } from 'lucide-react';
+import { useTopbarData } from '../../hooks/useTopbarData';
 
   const menuItems = [
     { id: 'dashboard', label: 'หน้าหลัก', icon: Home, path: '/trainer/dashboard' },
@@ -16,9 +17,45 @@ import {
     { id: 'profile', label: 'โปรไฟล์ส่วนตัว', icon: User, path: '/trainer/profile' }
   ];
 
+<<<<<<< Updated upstream
   const isActiveRoute = (path) => {
     return location.pathname === path;
   };
+=======
+const pageTitles = {
+  '/trainer':           { th: 'หน้าหลัก',             en: 'Dashboard'      },
+  '/trainer/trainees':  { th: 'จัดการผู้รับการฝึก',   en: 'Trainees'       },
+  '/trainer/programs':  { th: 'โปรแกรมการฝึก',         en: 'Programs'       },
+  '/trainer/exercises': { th: 'ท่าในการฝึก',            en: 'Exercises'      },
+  '/trainer/results':   { th: 'บันทึกการฝึกรายวัน',    en: 'Daily Results'  },
+  '/trainer/progress':  { th: 'พัฒนาการผู้รับการฝึก',  en: 'Progress'       },
+  '/trainer/profile':   { th: 'โปรไฟล์ส่วนตัว',       en: 'Profile'        },
+};
+
+// ✅ อักษรย่อจากชื่อเต็ม เช่น "สมชาย ใจดี" → "สใ"
+const getInitials = (name = "") =>
+  name.trim().split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "?";
+
+export default function TrainerLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [collapsed, setCollapsed]     = useState(false);
+  const navigate  = useNavigate();
+  const location  = useLocation();
+
+  // ✅ ดึง user จาก localStorage
+  const [user, setUser] = useState(null);
+  const { activeYear, notifCount } = useTopbarData("trainer");
+
+  useEffect(() => {
+    const stored = localStorage.getItem("user");
+    if (stored) {
+      try { setUser(JSON.parse(stored)); } catch { /* ignore */ }
+    }
+  }, []);
+
+  const isActive = (path) => location.pathname === path;
+  const page = pageTitles[location.pathname] || { th: 'ระบบเทรนเนอร์', en: 'Trainer' };
+>>>>>>> Stashed changes
 
   const handleLogout = () => {
     console.log('Logout');
@@ -137,14 +174,22 @@ import {
             {/* Right */}
             <div className="flex items-center gap-3">
               <div className="hidden md:flex flex-col items-end">
-                <span className="text-xs font-semibold text-slate-700">ปีการศึกษา 2568</span>
-                <span className="text-xs text-slate-400">ภาคเรียนที่ 1</span>
+                <span className="text-xs font-semibold text-slate-700">
+                  {activeYear ? `ปีการศึกษา ${activeYear.academic_year}` : "ไม่มีปีการศึกษา"}
+                </span>
+                <span className="text-xs text-slate-400">
+                  {activeYear ? `ภาคเรียนที่ ${activeYear.semester}` : "ที่เปิดใช้งาน"}
+                </span>
               </div>
 
               <button className="relative p-2 rounded-xl hover:bg-slate-100 transition-colors">
                 <Bell className="w-5 h-5 text-slate-600" />
-                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold
-                                  rounded-full flex items-center justify-center leading-none">3</span>
+                {notifCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold
+                                    rounded-full flex items-center justify-center leading-none">
+                    {notifCount > 99 ? "99+" : notifCount}
+                  </span>
+                )}
               </button>
 
               <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">

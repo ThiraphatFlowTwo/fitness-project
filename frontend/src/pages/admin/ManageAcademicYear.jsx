@@ -39,6 +39,8 @@ export default function ManageAcademicYear() {
   const fetchData = async () => {
     const res = await api.get("/academic-years");
     setList(res.data);
+    // ✅ แจ้ง Layout ทุก role ให้ refresh ปีการศึกษาใน topbar
+    window.dispatchEvent(new Event("academicYearChanged"));
   };
 
   useEffect(() => {
