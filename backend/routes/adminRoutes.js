@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const { protect, adminOnly } = require("../middleware/authMiddleware");
+const { createNotification } = require("../utils/notificationHelper");
 
 /* =========================
    GET ALL USERS
@@ -61,9 +62,31 @@ router.put("/users/:id", protect, adminOnly, async (req, res) => {
    TOGGLE STATUS
 ========================= */
 router.put("/users/:id/status", protect, adminOnly, async (req, res) => {
-  await User.findByIdAndUpdate(req.params.id, {
-    status: req.body.status,
-  });
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { status: req.body.status },
+    { new: true }
+  );
+
+  // ✅ แจ้งเตือนเมื่อแอดมินเปิดสิทธิ์การใช้งาน
+  if (req.body.status === "active" && user) {
+    const roleLabel = { trainer: "เทรนเนอร์", instructor: "อาจารย์" };
+
+    // ลบ notification user_pending ออกจากแอดมินทุกคน
+    const Notification = require("../models/Notification");
+    await Notification.deleteMany({ ref_id: user._id, type: "user_pending" });
+
+    // แจ้งเทรนเนอร์/อาจารย์ว่าบัญชีได้รับการอนุมัติแล้ว
+    await createNotification({
+      recipient_id:   user._id,
+      recipient_role: user.role,
+      type:           "account_activated",
+      title:          "บัญชีของคุณได้รับการอนุมัติแล้ว 🎉",
+      message:        `บัญชีของคุณได้รับการอนุมัติสิทธิ์เป็น "${roleLabel[user.role] ?? user.role}" เรียบร้อยแล้ว ยินดีต้อนรับเข้าสู่ระบบ`,
+      ref_id:         user._id,
+      ref_model:      "User",
+    });
+  }
 
   res.json({ message: "เปลี่ยนสถานะสำเร็จ" });
 });
@@ -73,6 +96,11 @@ router.put("/users/:id/status", protect, adminOnly, async (req, res) => {
 ========================= */
 router.delete("/users/:id", protect, adminOnly, async (req, res) => {
   await User.findByIdAndDelete(req.params.id);
+
+  // ✅ ลบ notification user_pending ของ user นี้ออกด้วย
+  const Notification = require("../models/Notification");
+  await Notification.deleteMany({ ref_id: req.params.id, type: "user_pending" });
+
   res.json({ message: "ลบผู้ใช้สำเร็จ" });
 });
 

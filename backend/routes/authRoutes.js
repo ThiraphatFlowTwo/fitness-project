@@ -1,9 +1,10 @@
 const express = require("express");
-const router = express.Router();   // ⭐⭐ สำคัญมาก (ที่หายไป)
+const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const { protect } = require("../middleware/authMiddleware");
+const { createNotification } = require("../utils/notificationHelper");
 
 /* =========================
    REGISTER
@@ -46,6 +47,21 @@ router.post("/register", async (req, res) => {
     });
 
     await user.save();
+
+    // ✅ แจ้งเตือนแอดมินทุกคนว่ามี user ใหม่รออนุมัติ
+    const roleLabel = { trainer: "เทรนเนอร์", instructor: "อาจารย์" };
+    const admins = await User.find({ role: "admin", status: "active" }).select("_id");
+    await Promise.all(admins.map(admin =>
+      createNotification({
+        recipient_id:   admin._id,
+        recipient_role: "admin",
+        type:           "user_pending",
+        title:          "มีคำขอสมัครสมาชิกใหม่",
+        message:        `คุณ ${name} ขอสมัครเป็น "${roleLabel[role] ?? role}" รอการตรวจสอบและอนุมัติสิทธิ์`,
+        ref_id:         user._id,
+        ref_model:      "User",
+      })
+    ));
 
     res.status(201).json({
       message: "สมัครสมาชิกสำเร็จ รอแอดมินอนุมัติ",

@@ -2,8 +2,10 @@ const express         = require("express");
 const router          = express.Router();
 const TrainingProgram = require("../models/TrainingProgram");
 const ProgramExercise = require("../models/ProgramExercise");
-const AcademicYear = require("../models/academicYear.model");
+const AcademicYear    = require("../models/academicYear.model");
+const User            = require("../models/User");
 const jwt             = require("jsonwebtoken");
+const { createNotification } = require("../utils/notificationHelper");
 
 // ── Middleware ────────────────────────────────────────────────
 const auth = (req, res, next) => {
@@ -165,6 +167,22 @@ router.patch("/:id/submit", auth, async (req, res) => {
     program.status = "pending";
     program.instructor_comment = "";
     await program.save();
+
+    // ✅ แจ้งเตือนอาจารย์ทุกคน
+    const instructors = await User.find({ role: "instructor", status: "active" }).select("_id");
+    const trainerUser = await User.findById(req.userId).select("name");
+    await Promise.all(instructors.map(inst =>
+      createNotification({
+        recipient_id:   inst._id,
+        recipient_role: "instructor",
+        type:           "program_submitted",
+        title:          "โปรแกรมใหม่รออนุมัติ",
+        message:        `เทรนเนอร์ ${trainerUser?.name ?? ""} ได้ส่งโปรแกรม "${program.program_name}" ให้ตรวจสอบแล้ว`,
+        ref_id:         program._id,
+        ref_model:      "TrainingProgram",
+      })
+    ));
+
     res.json(program);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -181,6 +199,15 @@ router.patch("/:id/cancel", auth, async (req, res) => {
 
     program.status = "draft";
     await program.save();
+
+    // ✅ ลบ notification "program_submitted" ของโปรแกรมนี้ออกจากอาจารย์ทุกคน
+    const Notification = require("../models/Notification");
+    await Notification.deleteMany({
+      type:      "program_submitted",
+      ref_id:    program._id,
+      ref_model: "TrainingProgram",
+    });
+
     res.json(program);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -199,6 +226,19 @@ router.patch("/:id/approve", auth, async (req, res) => {
       { new: true }
     );
     if (!updated) return res.status(404).json({ message: "ไม่พบโปรแกรม" });
+
+    // ✅ แจ้งเทรนเนอร์ว่าได้รับการอนุมัติ
+    const instructorUser = await User.findById(req.userId).select("name");
+    await createNotification({
+      recipient_id:   updated.trainer_id,
+      recipient_role: "trainer",
+      type:           "program_approved",
+      title:          "โปรแกรมได้รับการอนุมัติ ✅",
+      message:        `อาจารย์ ${instructorUser?.name ?? ""} ได้อนุมัติโปรแกรม "${updated.program_name}" ของคุณแล้ว`,
+      ref_id:         updated._id,
+      ref_model:      "TrainingProgram",
+    });
+
     res.json(updated);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -217,6 +257,19 @@ router.patch("/:id/reject", auth, async (req, res) => {
       { new: true }
     );
     if (!updated) return res.status(404).json({ message: "ไม่พบโปรแกรม" });
+
+    // ✅ แจ้งเทรนเนอร์ว่าถูกปฏิเสธ
+    const instructorUser = await User.findById(req.userId).select("name");
+    await createNotification({
+      recipient_id:   updated.trainer_id,
+      recipient_role: "trainer",
+      type:           "program_rejected",
+      title:          "โปรแกรมถูกส่งกลับให้แก้ไข",
+      message:        `อาจารย์ ${instructorUser?.name ?? ""} ได้ส่งโปรแกรม "${updated.program_name}" กลับให้แก้ไข${req.body.comment ? `: ${req.body.comment}` : ""}`,
+      ref_id:         updated._id,
+      ref_model:      "TrainingProgram",
+    });
+
     res.json(updated);
   } catch (err) {
     res.status(400).json({ message: err.message });

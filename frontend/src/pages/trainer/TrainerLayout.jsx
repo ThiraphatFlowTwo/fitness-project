@@ -6,6 +6,7 @@ import {
   Bell, Menu, X, ChevronRight, Scale
 } from 'lucide-react';
 import { useTopbarData } from '../../hooks/useTopbarData';
+import NotificationDropdown from '../../components/ui/NotificationDropdown';
 
 const menuItems = [
   { id: 'dashboard', label: 'หน้าหลัก',           icon: Home,          path: '/trainer' }, 
@@ -39,7 +40,7 @@ export default function TrainerLayout() {
 
   // ✅ ดึง user จาก localStorage
   const [user, setUser] = useState(null);
-  const { activeYear, notifCount } = useTopbarData("trainer");
+  const { activeYear, notifCount, notifList, markAllRead, markRead } = useTopbarData("trainer");
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
@@ -180,15 +181,12 @@ export default function TrainerLayout() {
                 </span>
               </div>
 
-              <button className="relative p-2 rounded-xl hover:bg-slate-100 transition-colors">
-                <Bell className="w-5 h-5 text-slate-600" />
-                {notifCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold
-                                    rounded-full flex items-center justify-center leading-none">
-                    {notifCount > 99 ? "99+" : notifCount}
-                  </span>
-                )}
-              </button>
+              <NotificationDropdown
+                notifCount={notifCount}
+                notifList={notifList}
+                markAllRead={markAllRead}
+                markRead={markRead}
+              />
 
               {/* ✅ Header — ชื่อจาก localStorage */}
               <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">

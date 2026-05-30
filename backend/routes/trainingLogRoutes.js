@@ -4,7 +4,9 @@ const TrainingLog = require("../models/TrainingLog");
 const TrainingLogSet = require("../models/TrainingLogSet");
 const TrainingProgram = require("../models/TrainingProgram");
 const ProgramExercise = require("../models/ProgramExercise");
+const User = require("../models/User");
 const jwt = require("jsonwebtoken");
+const { createNotification } = require("../utils/notificationHelper");
 
 const auth = (req, res, next) => {
   try {
@@ -163,6 +165,21 @@ router.post("/", auth, async (req, res) => {
       }));
       await TrainingLogSet.insertMany(setDocs);
     }
+
+    // ✅ แจ้งเตือนอาจารย์ทุกคนว่ามี log ใหม่
+    const trainerUser = await User.findById(req.userId).select("name");
+    const instructors = await User.find({ role: "instructor", status: "active" }).select("_id");
+    await Promise.all(instructors.map(inst =>
+      createNotification({
+        recipient_id:   inst._id,
+        recipient_role: "instructor",
+        type:           "training_log_new",
+        title:          "มีการบันทึกผลการฝึกใหม่",
+        message:        `เทรนเนอร์ ${trainerUser?.name ?? ""} ได้บันทึกผลการฝึกประจำวันแล้ว`,
+        ref_id:         savedLog._id,
+        ref_model:      "TrainingLog",
+      })
+    ));
 
     res.status(201).json({ message: "บันทึกสำเร็จ", log_id: savedLog._id });
   } catch (err) {
