@@ -7,7 +7,8 @@ const trainingLogSchema = new mongoose.Schema(
     trainer_id:    { type: mongoose.Schema.Types.ObjectId, ref: "User",            required: true },
     training_date: { type: Date, required: true },
     duration:      { type: Number, default: 0 }, // วินาที
-    note:          { type: String, default: "" }  // หมายเหตุรวมทั้ง log
+    note:          { type: String, default: "" }, // หมายเหตุรวมทั้ง log
+    photo:         { type: String, default: "" }  // ✅ รูปยืนยันการฝึก
   },
   { timestamps: true }
 );

@@ -8,14 +8,10 @@ const API = "http://localhost:5000/api/logs";
 const getToken    = () => localStorage.getItem("token");
 const authHeaders = () => {
   const token = localStorage.getItem("token");
-  if (!token) {
-    window.location.href = "/login"; // ✅ redirect ถ้าไม่มี token
-    return {};
-  }
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
+  // ✅ ไม่ redirect ออกเองตรงนี้ — แค่ส่ง header เปล่าไป backend จะตอบ 401 เอง
+  return token
+    ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
+    : { "Content-Type": "application/json" };
 };
 
 const getFieldConfig = (category) => {
@@ -42,21 +38,34 @@ const getFieldConfig = (category) => {
   }
 };
 
+const DRAFT_KEY = "trainer_results_draft"; // ✅ key สำหรับเก็บ draft กันข้อมูลหายตอนหน้า reload
+
 const TrainerResults = () => {
+  // ✅ โหลด draft เดิมกลับมา (ถ้ามี) ตอนเปิดหน้าครั้งแรก
+  const loadDraft = () => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  };
+  const draft = loadDraft();
+
   const [approvedPrograms, setApprovedPrograms] = useState([]);
   const [loading,          setLoading]          = useState(true);
   const [saving,           setSaving]           = useState(false);
   const [error,            setError]            = useState("");
-  const [selectedProgram,  setSelectedProgram]  = useState(null);
-  const [trainingDate,     setTrainingDate]      = useState(new Date().toISOString().split("T")[0]);
-  const [logNote,          setLogNote]          = useState("");
-  const [workoutSessions,  setWorkoutSessions]  = useState([]);
+  const [selectedProgram,  setSelectedProgram]  = useState(draft?.selectedProgram ?? null);
+  const [trainingDate,     setTrainingDate]      = useState(draft?.trainingDate ?? new Date().toISOString().split("T")[0]);
+  const [logNote,          setLogNote]          = useState(draft?.logNote ?? "");
+  const [workoutSessions,  setWorkoutSessions]  = useState(draft?.workoutSessions ?? []);
   const [isExerciseModal,  setIsExerciseModal]  = useState(false);
   const [exSearch,         setExSearch]         = useState("");
   const [exMuscleFilter,   setExMuscleFilter]   = useState("");
   const [exEquipFilter,    setExEquipFilter]    = useState("");
-  const [timerSeconds,     setTimerSeconds]     = useState(0);
-  const [isTimerRunning,   setIsTimerRunning]   = useState(false);
+  const [timerSeconds,     setTimerSeconds]     = useState(draft?.timerSeconds ?? 0);
+  const [isTimerRunning,   setIsTimerRunning]   = useState(false); // ไม่ resume timer อัตโนมัติ ป้องกันนับเวลาผิด
+  const [photoFile,        setPhotoFile]        = useState(null);   // ✅ ไฟล์รูปยืนยัน (กู้คืนไม่ได้ ต้องถ่ายใหม่)
+  const [photoPreview,     setPhotoPreview]     = useState(null);   // ✅ preview รูป
 
   // ── โหลดโปรแกรมที่อนุมัติแล้ว ─────────────────────────────────
   useEffect(() => {
@@ -80,6 +89,33 @@ const TrainerResults = () => {
     if (isTimerRunning) interval = setInterval(() => setTimerSeconds(s => s + 1), 1000);
     return () => clearInterval(interval);
   }, [isTimerRunning]);
+
+  // ✅ เตือนก่อนออกจากหน้า/ปิด tab/refresh ถ้ายังกรอกข้อมูลไม่ได้บันทึก
+  useEffect(() => {
+    const hasUnsavedData = workoutSessions.length > 0;
+
+    const handleBeforeUnload = (e) => {
+      if (!hasUnsavedData) return;
+      e.preventDefault();
+      e.returnValue = ""; // ต้องตั้งค่านี้เพื่อให้ browser แสดง confirm dialog
+      return "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [workoutSessions]);
+
+  // ✅ Auto-save draft ลง localStorage ทุกครั้งที่ข้อมูลเปลี่ยน — กันข้อมูลหายถ้าหน้า reload จริงๆ
+  useEffect(() => {
+    if (workoutSessions.length === 0) {
+      localStorage.removeItem(DRAFT_KEY);
+      return;
+    }
+    const draftData = { selectedProgram, trainingDate, logNote, workoutSessions, timerSeconds };
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
+    } catch { /* localStorage เต็มหรือ error อื่นๆ ไม่ critical */ }
+  }, [selectedProgram, trainingDate, logNote, workoutSessions, timerSeconds]);
 
   const formatTime = (s) => {
     const h   = Math.floor(s / 3600);
@@ -186,6 +222,22 @@ const TrainerResults = () => {
     }
   };
 
+  // ── เลือกรูปยืนยัน ────────────────────────────────────────────
+  const handlePhotoSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { alert("กรุณาเลือกไฟล์รูปภาพเท่านั้น"); return; }
+    if (file.size > 5 * 1024 * 1024) { alert("ขนาดรูปต้องไม่เกิน 5MB"); return; }
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const removePhoto = () => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+    setPhotoFile(null);
+    setPhotoPreview(null);
+  };
+
   // ── บันทึก ────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!selectedProgram)        { alert("กรุณาเลือกโปรแกรม"); return; }
@@ -193,6 +245,9 @@ const TrainerResults = () => {
 
     const completedSets = workoutSessions.flatMap(s => s.sets).filter(st => st.completed).length;
     if (completedSets === 0 && !window.confirm("ยังไม่มีเซตที่ทำเสร็จ ต้องการบันทึกหรือไม่?")) return;
+
+    // ✅ ขอให้แนบรูปยืนยันก่อนบันทึก (เตือนแต่ไม่บังคับ)
+    if (!photoFile && !window.confirm("ยังไม่ได้แนบรูปยืนยันการฝึก ต้องการบันทึกโดยไม่มีรูปหรือไม่?")) return;
 
     setSaving(true);
     try {
@@ -209,17 +264,21 @@ const TrainerResults = () => {
         }))
       );
 
-      const res  = await fetch(API, {
+      // ✅ ใช้ FormData เพื่อแนบไฟล์รูปยืนยันไปด้วย
+      const formData = new FormData();
+      formData.append("program_id",    selectedProgram._id);
+      formData.append("trainee_id",    selectedProgram.trainee_id?._id || selectedProgram.trainee_id);
+      formData.append("training_date", trainingDate);
+      formData.append("duration",      timerSeconds);
+      formData.append("note",          logNote);
+      formData.append("sets",          JSON.stringify(sets));
+      if (photoFile) formData.append("photo", photoFile);
+
+      const token = getToken();
+      const res = await fetch(API, {
         method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({
-          program_id:    selectedProgram._id,
-          trainee_id:    selectedProgram.trainee_id?._id || selectedProgram.trainee_id,
-          training_date: trainingDate,
-          duration:      timerSeconds,
-          note:          logNote,
-          sets,
-        }),
+        headers: { Authorization: `Bearer ${token}` }, // ❗ ห้ามใส่ Content-Type เอง ให้ browser ตั้ง boundary เอง
+        body: formData,
       });
       const data = await res.json();
       if (!res.ok) { alert(`บันทึกไม่สำเร็จ: ${data.message}`); return; }
@@ -230,6 +289,7 @@ const TrainerResults = () => {
       setTimerSeconds(0);
       setIsTimerRunning(false);
       setLogNote("");
+      removePhoto();
     } catch { alert("เกิดข้อผิดพลาด"); }
     finally  { setSaving(false); }
   };
@@ -442,6 +502,42 @@ const TrainerResults = () => {
               </div>
             )}
 
+            {/* ✅ แนบรูปยืนยันการฝึก */}
+            {workoutSessions.length > 0 && (
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  📷 รูปยืนยันการฝึก
+                </label>
+
+                {photoPreview ? (
+                  <div className="relative inline-block">
+                    <img src={photoPreview} alt="รูปยืนยันการฝึก"
+                      className="w-48 h-48 object-cover rounded-xl border border-gray-200 shadow-sm" />
+                    <button
+                      type="button"
+                      onClick={removePhoto}
+                      className="absolute -top-2 -right-2 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-48 h-48 border-2 border-dashed
+                                     border-gray-300 rounded-xl cursor-pointer hover:border-purple-400 hover:bg-purple-50
+                                     transition-colors text-gray-400">
+                    <Plus className="w-8 h-8 mb-1" />
+                    <span className="text-xs font-medium">ถ่าย / เลือกรูป</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handlePhotoSelect}
+                      className="hidden" />
+                  </label>
+                )}
+                <p className="text-xs text-gray-400 mt-1.5">แนบรูปขณะฝึกซ้อมเพื่อยืนยันว่ามีการเทรนจริง (ไม่เกิน 5MB)</p>
+              </div>
+            )}
+
             {/* ปุ่มบันทึก */}
             {workoutSessions.length > 0 && (
               <div className="flex justify-end space-x-3 pt-4 border-t">
@@ -453,6 +549,7 @@ const TrainerResults = () => {
                     setTimerSeconds(0);
                     setIsTimerRunning(false);
                     setLogNote("");
+                    removePhoto();
                   }}
                   className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-semibold">
                   ยกเลิก

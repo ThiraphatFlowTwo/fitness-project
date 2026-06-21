@@ -96,6 +96,20 @@ function LogDetailModal({ logId, onClose }) {
                 </div>
               )}
 
+              {/* ✅ รูปยืนยันการฝึก */}
+              {detail.photo && (
+                <div className="mb-4">
+                  <p className="text-xs font-semibold text-slate-500 mb-1.5">📷 รูปยืนยันการฝึก</p>
+                  <a href={`http://localhost:5000${detail.photo}`} target="_blank" rel="noreferrer">
+                    <img
+                      src={`http://localhost:5000${detail.photo}`}
+                      alt="รูปยืนยันการฝึก"
+                      className="w-full max-h-72 object-cover rounded-xl border border-slate-100 shadow-sm hover:opacity-90 transition-opacity"
+                    />
+                  </a>
+                </div>
+              )}
+
               {/* Exercises */}
               <div className="space-y-4">
                 {Object.values(grouped).map((group, idx) => {

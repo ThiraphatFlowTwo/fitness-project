@@ -1,5 +1,7 @@
 const express = require("express");
 const router = express.Router();
+const multer = require("multer");
+const path = require("path");
 const TrainingLog = require("../models/TrainingLog");
 const TrainingLogSet = require("../models/TrainingLogSet");
 const TrainingProgram = require("../models/TrainingProgram");
@@ -7,6 +9,20 @@ const ProgramExercise = require("../models/ProgramExercise");
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const { createNotification } = require("../utils/notificationHelper");
+
+// ── Multer สำหรับรูปยืนยันการฝึก ───────────────────────────
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "uploads/"),
+  filename: (req, file, cb) => cb(null, "log_" + Date.now() + path.extname(file.originalname)),
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("กรุณาอัปโหลดเฉพาะไฟล์รูปภาพ"));
+  },
+});
 
 const auth = (req, res, next) => {
   try {
@@ -133,11 +149,13 @@ router.get("/by-trainee/:traineeId", auth, async (req, res) => {
   }
 });
 
-// POST /api/logs — บันทึกผลการฝึก
-router.post("/", auth, async (req, res) => {
+// POST /api/logs — บันทึกผลการฝึก (รองรับแนบรูปยืนยัน)
+router.post("/", auth, upload.single("photo"), async (req, res) => {
   try {
-    const { program_id, trainee_id, training_date, duration, note, sets } =
-      req.body;
+    const { program_id, trainee_id, training_date, duration, note } = req.body;
+    // sets ถูกส่งมาเป็น JSON string เพราะใช้ multipart/form-data
+    const sets = req.body.sets ? JSON.parse(req.body.sets) : [];
+    const photoPath = req.file ? `/uploads/${req.file.filename}` : "";
 
     // สร้าง log หลัก
     const log = new TrainingLog({
@@ -147,6 +165,7 @@ router.post("/", auth, async (req, res) => {
       training_date,
       duration,
       note,
+      photo: photoPath,
     });
     const savedLog = await log.save();
 

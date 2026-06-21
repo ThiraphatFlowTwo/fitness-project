@@ -5,14 +5,10 @@ const API      = "http://localhost:5000/api/auth";
 const getToken    = () => localStorage.getItem("token");
 const authHeaders = () => {
   const token = localStorage.getItem("token");
-  if (!token) {
-    window.location.href = "/login"; // ✅ redirect ถ้าไม่มี token
-    return {};
-  }
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
+  // ✅ ไม่ redirect ออกเองตรงนี้ — แค่ส่ง header เปล่าไป backend จะตอบ 401 เอง
+  return token
+    ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
+    : { "Content-Type": "application/json" };
 };
 
 const TrainerProfile = () => {
