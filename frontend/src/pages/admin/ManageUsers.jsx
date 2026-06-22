@@ -39,6 +39,7 @@ export default function ManageUsers() {
   const [editForm, setEditForm] = useState({
     name: "",
     email: "",
+    username: "",
   });
 
   const fetchUsers = async () => {
@@ -49,8 +50,9 @@ export default function ManageUsers() {
   const openEditModal = (user) => {
     setEditingUser(user);
     setEditForm({
-      name: user.name || "",
-      email: user.email || "",
+      name:     user.name     || "",
+      email:    user.email    || "",
+      username: user.username || "",
     });
     setShowEdit(true);
   };
@@ -58,12 +60,13 @@ export default function ManageUsers() {
   const handleUpdateUser = async () => {
     try {
       await api.put(`/admin/users/${editingUser._id}`, {
-        name: editForm.name,
-        email: editForm.email,
+        name:     editForm.name,
+        email:    editForm.email,
+        username: editForm.username,
       });
 
       setShowEdit(false);
-      fetchUsers(); // โหลดข้อมูลใหม่
+      fetchUsers();
     } catch (err) {
       alert("แก้ไขไม่สำเร็จ");
     }
@@ -578,12 +581,20 @@ export default function ManageUsers() {
             {/* Body */}
             <div className="p-6 space-y-4">
               <div>
+                <label className="block font-semibold mb-1">Username</label>
+                <input
+                  value={editForm.username}
+                  onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                  className="w-full border p-3 rounded-xl"
+                  placeholder="Username"
+                />
+              </div>
+
+              <div>
                 <label className="block font-semibold mb-1">ชื่อ–นามสกุล</label>
                 <input
                   value={editForm.name}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, name: e.target.value })
-                  }
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                   className="w-full border p-3 rounded-xl"
                 />
               </div>
@@ -593,9 +604,7 @@ export default function ManageUsers() {
                 <input
                   type="email"
                   value={editForm.email}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, email: e.target.value })
-                  }
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                   className="w-full border p-3 rounded-xl"
                 />
               </div>

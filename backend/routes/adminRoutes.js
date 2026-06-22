@@ -47,12 +47,19 @@ router.post("/users", protect, adminOnly, async (req, res) => {
    UPDATE USER
 ========================= */
 router.put("/users/:id", protect, adminOnly, async (req, res) => {
-  const { name, email, role } = req.body;
+  const { name, email, role, username } = req.body;
+
+  // ตรวจสอบ username ซ้ำ (ถ้ามีการเปลี่ยน)
+  if (username) {
+    const exist = await User.findOne({ username, _id: { $ne: req.params.id } });
+    if (exist) return res.status(400).json({ message: "Username นี้มีคนใช้แล้ว" });
+  }
 
   await User.findByIdAndUpdate(req.params.id, {
-    name,
-    email,
-    role,
+    ...(name     && { name }),
+    ...(email    && { email }),
+    ...(role     && { role }),
+    ...(username && { username }),
   });
 
   res.json({ message: "แก้ไขผู้ใช้สำเร็จ" });
