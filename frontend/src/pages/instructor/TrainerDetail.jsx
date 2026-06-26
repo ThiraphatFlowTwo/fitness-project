@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Users, Dumbbell, Clock, Loader2,
-  AlertCircle, Calendar, Eye, X, Activity,
+  ArrowLeft, Users, Dumbbell, Loader2,
+  AlertCircle, Calendar, Eye, X, Activity
 } from "lucide-react";
-import api from "../../services/api"; // ✅ ใช้ axios แทน fetch
+import api from "../../services/api"; 
 
 const formatTime = (s) => {
   if (!s) return '-';
@@ -38,7 +38,7 @@ const PROGRAM_STATUS = {
   draft:    { label: "ร่าง",        bg: "bg-slate-100",  text: "text-slate-500"   },
   pending:  { label: "รออนุมัติ",   bg: "bg-amber-50",   text: "text-amber-600"   },
   approved: { label: "อนุมัติแล้ว", bg: "bg-emerald-50", text: "text-emerald-600" },
-  rejected: { label: "ไม่อนุมัติ",  bg: "bg-red-50",     text: "text-red-600"     },
+  rejected: { label: "ไม่นุมัติ",  bg: "bg-red-50",     text: "text-red-600"     },
 };
 
 export default function TrainerDetail() {
@@ -51,9 +51,10 @@ export default function TrainerDetail() {
   const [fitness,     setFitness]     = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState('');
-  const [activeTab,   setActiveTab]   = useState('trainees');
 
   const [viewTrainee, setViewTrainee] = useState(null);
+  const [modalTab,    setModalTab]    = useState('info'); 
+  
   const [viewLog,     setViewLog]     = useState(null);
   const [logDetail,   setLogDetail]   = useState(null);
   const [loadingLog,  setLoadingLog]  = useState(false);
@@ -63,7 +64,6 @@ export default function TrainerDetail() {
       setLoading(true);
       setError('');
       try {
-        // ✅ ใช้ api (axios) แทน fetch ทั้งหมด
         const [trainerRes, traineesRes, logsRes, fitnessRes] = await Promise.all([
           api.get("/instructor/trainers"),
           api.get(`/instructor/trainer/${trainerId}/trainees`),
@@ -93,7 +93,6 @@ export default function TrainerDetail() {
     setLogDetail(null);
     setLoadingLog(true);
     try {
-      // ✅ ใช้ api (axios)
       const res = await api.get(`/instructor/log/${log._id}`);
       setLogDetail(res.data);
     } catch (err) {
@@ -101,6 +100,11 @@ export default function TrainerDetail() {
     } finally {
       setLoadingLog(false);
     }
+  };
+
+  const handleOpenTraineeModal = (trainee) => {
+    setViewTrainee(trainee);
+    setModalTab('info'); 
   };
 
   if (loading) return (
@@ -117,6 +121,9 @@ export default function TrainerDetail() {
   );
 
   const st = STATUS_CONFIG[trainer?.status] || STATUS_CONFIG.pending;
+
+  const traineeLogs = logs.filter(log => log.trainee_id?._id === viewTrainee?._id);
+  const traineeFitness = fitness.filter(f => f.trainee_id?._id === viewTrainee?._id);
 
   return (
     <div className="p-6 bg-slate-50 min-h-screen">
@@ -155,307 +162,310 @@ export default function TrainerDetail() {
             <div className="flex gap-4 shrink-0">
               <div className="p-4 bg-blue-50 rounded-2xl text-center min-w-[80px]">
                 <p className="text-3xl font-black text-blue-700">{trainees.length}</p>
-                <p className="text-xs text-blue-500 mt-1 font-medium">ลูกเทรน</p>
-              </div>
-              <div className="p-4 bg-purple-50 rounded-2xl text-center min-w-[80px]">
-                <p className="text-3xl font-black text-purple-700">{logs.length}</p>
-                <p className="text-xs text-purple-500 mt-1 font-medium">ครั้งที่ฝึก</p>
-              </div>
-              <div className="p-4 bg-emerald-50 rounded-2xl text-center min-w-[80px]">
-                <p className="text-3xl font-black text-emerald-700">{fitness.length}</p>
-                <p className="text-xs text-emerald-500 mt-1 font-medium">ผลสมรรถภาพ</p>
+                <p className="text-xs text-blue-500 mt-1 font-medium">ลูกเทรนทั้งหมด</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-4 flex-wrap">
-          {[
-            { key: 'trainees', label: `ลูกเทรน (${trainees.length})`,    icon: Users    },
-            { key: 'logs',     label: `ประวัติการฝึก (${logs.length})`,   icon: Calendar },
-            { key: 'fitness',  label: `ผลสมรรถภาพ (${fitness.length})`,   icon: Activity },
-          ].map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                activeTab === tab.key
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200'
-              }`}>
-              <tab.icon className="w-4 h-4" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab: ลูกเทรน */}
-        {activeTab === 'trainees' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100">
-              <h2 className="font-bold text-slate-800">รายชื่อลูกเทรน</h2>
+        {/* ส่วนแสดงรายชื่อลูกเทรนหลัก */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white">
+            <h2 className="font-bold text-slate-800 flex items-center gap-2">
+              <Users className="w-5 h-5 text-blue-500" /> รายชื่อลูกเทรนในการดูแล
+            </h2>
+          </div>
+          {trainees.length === 0 ? (
+            <div className="py-16 text-center text-slate-400">
+              <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p>ยังไม่มีลูกเทรน</p>
             </div>
-            {trainees.length === 0 ? (
-              <div className="py-16 text-center text-slate-400">
-                <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>ยังไม่มีลูกเทรน</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-50">
-                {trainees.map((t, i) => (
-                  <div key={t._id} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
-                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${GRADIENTS[i % GRADIENTS.length]} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
-                      {t.name?.charAt(0) || '?'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-800 text-sm">{t.name}</p>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        <span className="text-xs text-slate-400">{t.gender} • {t.age} ปี</span>
-                        {t.goal && (
-                          <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">{t.goal}</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="hidden md:flex gap-4 text-xs text-slate-500 shrink-0">
-                      {t.height && <span>ส่วนสูง {t.height} ซม.</span>}
-                      {t.weight && <span>น้ำหนัก {t.weight} กก.</span>}
-                    </div>
-                    <button onClick={() => setViewTrainee(t)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-slate-100 rounded-xl text-xs text-slate-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all shrink-0">
-                      <Eye className="w-3.5 h-3.5" />ดูข้อมูล
-                    </button>
+          ) : (
+            <div className="divide-y divide-slate-50">
+              {trainees.map((t, i) => (
+                <div key={t._id} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${GRADIENTS[i % GRADIENTS.length]} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
+                    {t.name?.charAt(0) || '?'}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Tab: ประวัติการฝึก */}
-        {activeTab === 'logs' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100">
-              <h2 className="font-bold text-slate-800">ประวัติการฝึกทั้งหมด</h2>
-            </div>
-            {logs.length === 0 ? (
-              <div className="py-16 text-center text-slate-400">
-                <Dumbbell className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>ยังไม่มีประวัติการฝึก</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50 text-slate-400 text-xs font-bold uppercase">
-                    <tr>
-                      <th className="px-6 py-4 text-left">วันที่</th>
-                      <th className="px-6 py-4 text-left">ลูกเทรน</th>
-                      <th className="px-6 py-4 text-left">โปรแกรม</th>
-                      <th className="px-6 py-4 text-center">สถานะโปรแกรม</th>
-                      <th className="px-6 py-4 text-center">จำนวนท่า</th>
-                      <th className="px-6 py-4 text-center">เซตสำเร็จ</th>
-                      <th className="px-6 py-4 text-center">เวลา</th>
-                      <th className="px-6 py-4 text-center">รายละเอียด</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50 text-sm">
-                    {logs.map(log => {
-                      const ps = PROGRAM_STATUS[log.program_id?.status] || PROGRAM_STATUS.draft;
-                      return (
-                        <tr key={log._id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-4 font-bold text-slate-700 whitespace-nowrap">
-                            {new Date(log.training_date).toLocaleDateString('th-TH', {
-                              day: 'numeric', month: 'short', year: 'numeric'
-                            })}
-                          </td>
-                          <td className="px-6 py-4 text-slate-600">{log.trainee_id?.name || '-'}</td>
-                          <td className="px-6 py-4 text-slate-600">{log.program_id?.program_name || '-'}</td>
-                          <td className="px-6 py-4 text-center">
-                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${ps.bg} ${ps.text}`}>
-                              {ps.label}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-semibold">
-                              {log.exercise_count || 0} ท่า
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <span className="px-2 py-1 bg-green-50 text-green-600 rounded-full text-xs font-semibold">
-                              {log.completed_sets || 0}/{log.set_count || 0}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-center text-slate-500 whitespace-nowrap">
-                            <span className="flex items-center justify-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {formatTime(log.duration)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <button onClick={() => handleViewLog(log)}
-                              className="p-2 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-lg transition-colors">
-                              <Eye className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Tab: ผลสมรรถภาพ */}
-        {activeTab === 'fitness' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100">
-              <h2 className="font-bold text-slate-800">ผลทดสอบสมรรถภาพร่างกาย</h2>
-            </div>
-            {fitness.length === 0 ? (
-              <div className="py-16 text-center text-slate-400">
-                <Activity className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>ยังไม่มีข้อมูลสมรรถภาพ</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50 text-slate-400 text-xs font-bold uppercase">
-                    <tr>
-                      <th className="px-6 py-4 text-left">ลูกเทรน</th>
-                      <th className="px-6 py-4 text-left">วันที่ทดสอบ</th>
-                      <th className="px-6 py-4 text-center">BMI</th>
-                      <th className="px-6 py-4 text-center">ไขมัน %</th>
-                      <th className="px-6 py-4 text-center">VO₂ Max</th>
-                      <th className="px-6 py-4 text-center">ชีพจร (bpm)</th>
-                      <th className="px-6 py-4 text-center">ความแข็งแรง</th>
-                      <th className="px-6 py-4 text-center">ความยืดหยุ่น</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50 text-sm">
-                    {fitness.map(f => {
-                      const bmi = bmiBadge(f.bmi);
-                      return (
-                        <tr key={f._id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-4 font-semibold text-slate-800">{f.trainee_id?.name || '-'}</td>
-                          <td className="px-6 py-4 text-slate-600 whitespace-nowrap">
-                            {new Date(f.test_date).toLocaleDateString('th-TH', {
-                              day: 'numeric', month: 'short', year: 'numeric'
-                            })}
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${bmi.cls}`}>
-                              {bmi.label}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-center text-slate-600">
-                            {f.body_fat_percent != null ? `${f.body_fat_percent}%` : '-'}
-                          </td>
-                          <td className="px-6 py-4 text-center text-slate-600">
-                            {f.vo2_max?.toFixed(1) || '-'}
-                          </td>
-                          <td className="px-6 py-4 text-center text-slate-600">
-                            {f.resting_heart_rate || '-'}
-                          </td>
-                          <td className="px-6 py-4 text-center text-slate-600">
-                            {f.muscle_strength || '-'}
-                          </td>
-                          <td className="px-6 py-4 text-center text-slate-600">
-                            {f.flexibility || '-'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            <div className="px-6 py-3 border-t border-slate-50 flex flex-wrap gap-3 text-xs text-slate-500">
-              <span className="font-semibold">BMI:</span>
-              {[
-                { cls: 'bg-blue-50 text-blue-600',   label: 'ต่ำกว่าเกณฑ์ (<18.5)' },
-                { cls: 'bg-green-50 text-green-600', label: 'ปกติ (18.5–24.9)'      },
-                { cls: 'bg-amber-50 text-amber-600', label: 'น้ำหนักเกิน (25–29.9)' },
-                { cls: 'bg-red-50 text-red-600',     label: 'อ้วน (≥30)'            },
-              ].map(b => (
-                <span key={b.label} className={`px-2 py-0.5 rounded-full font-medium ${b.cls}`}>
-                  {b.label}
-                </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-slate-800 text-sm">{t.name}</p>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      <span className="text-xs text-slate-400">{t.gender} • {t.age} ปี</span>
+                      {t.goal && (
+                        <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">{t.goal}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="hidden md:flex gap-4 text-xs text-slate-500 shrink-0">
+                    {t.height && <span>ส่วนสูง {t.height} ซม.</span>}
+                    {t.weight && <span>น้ำหนัก {t.weight} กก.</span>}
+                  </div>
+                  <button onClick={() => handleOpenTraineeModal(t)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-slate-100 rounded-xl text-xs text-slate-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all shrink-0">
+                    <Eye className="w-3.5 h-3.5" />ดูข้อมูลและประวัติฝึก
+                  </button>
+                </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
       </div>
 
       {/* Modal ข้อมูลลูกเทรน */}
       {viewTrainee && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white">
-              <h3 className="font-bold text-slate-800">ข้อมูลลูกเทรน</h3>
-              <button onClick={() => setViewTrainee(null)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            
+            {/* Modal Header */}
+            <div className="p-6 border-b flex justify-between items-start bg-white rounded-t-2xl shrink-0">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center text-white text-2xl font-bold shadow">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center text-white text-xl font-bold shadow">
                   {viewTrainee.name?.charAt(0) || '?'}
                 </div>
                 <div>
-                  <p className="text-xl font-bold text-slate-800">{viewTrainee.name}</p>
-                  <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full font-medium">
-                    {viewTrainee.goal || 'ไม่ระบุเป้าหมาย'}
-                  </span>
+                  <h3 className="text-lg font-bold text-slate-800">{viewTrainee.name}</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">เป้าหมาย: {viewTrainee.goal || 'ไม่ระบุ'}</p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: 'เพศ',     value: viewTrainee.gender || '-' },
-                  { label: 'อายุ',    value: viewTrainee.age    ? `${viewTrainee.age} ปี`     : '-' },
-                  { label: 'ส่วนสูง', value: viewTrainee.height ? `${viewTrainee.height} ซม.` : '-' },
-                  { label: 'น้ำหนัก', value: viewTrainee.weight ? `${viewTrainee.weight} กก.` : '-' },
-                ].map(item => (
-                  <div key={item.label} className="p-3 bg-slate-50 rounded-xl">
-                    <p className="text-xs text-slate-400 mb-1">{item.label}</p>
-                    <p className="text-sm font-semibold text-slate-700">{item.value}</p>
-                  </div>
-                ))}
-              </div>
-              {viewTrainee.healthCondition && (
-                <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
-                  <p className="text-xs text-blue-400 font-semibold mb-1">🏥 ข้อมูลสุขภาพพื้นฐาน</p>
-                  <p className="text-sm text-blue-700">{viewTrainee.healthCondition}</p>
-                </div>
-              )}
-              {viewTrainee.createdAt && (
-                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
-                  <span className="text-xs text-slate-400 font-semibold">วันที่เพิ่มเข้าระบบ</span>
-                  <span className="text-sm text-slate-700 font-medium">
-                    {new Date(viewTrainee.createdAt).toLocaleDateString('th-TH', {
-                      day: 'numeric', month: 'long', year: 'numeric'
-                    })}
-                  </span>
-                </div>
-              )}
+              <button onClick={() => setViewTrainee(null)} className="text-slate-400 hover:text-slate-600 p-1">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div className="p-6 border-t">
+
+            {/* Modal Sub-Tabs */}
+            <div className="flex border-b border-slate-100 px-6 gap-4 bg-slate-50/50 shrink-0">
+              <button
+                onClick={() => setModalTab('info')}
+                className={`flex items-center gap-2 py-3 px-1 text-sm font-semibold border-b-2 transition-all ${
+                  modalTab === 'info' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                ข้อมูลทั่วไป
+              </button>
+              <button
+                onClick={() => setModalTab('logs')}
+                className={`flex items-center gap-2 py-3 px-1 text-sm font-semibold border-b-2 transition-all ${
+                  modalTab === 'logs' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                <Calendar className="w-4 h-4" />
+                ประวัติการฝึก ({traineeLogs.length})
+              </button>
+              <button
+                onClick={() => setModalTab('fitness')}
+                className={`flex items-center gap-2 py-3 px-1 text-sm font-semibold border-b-2 transition-all ${
+                  modalTab === 'fitness' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                <Activity className="w-4 h-4" />
+                ผลสมรรถภาพ ({traineeFitness.length})
+              </button>
+            </div>
+
+            {/* Modal Body Content */}
+            <div className="p-6 overflow-y-auto flex-1 bg-white">
+              
+              {/* Tab: ข้อมูลทั่วไป */}
+              {modalTab === 'info' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                      { label: 'เพศ',     value: viewTrainee.gender || '-' },
+                      { label: 'อายุ',    value: viewTrainee.age    ? `${viewTrainee.age} ปี`     : '-' },
+                      { label: 'ส่วนสูง', value: viewTrainee.height ? `${viewTrainee.height} ซม.` : '-' },
+                      { label: 'น้ำหนัก', value: viewTrainee.weight ? `${viewTrainee.weight} กก.` : '-' },
+                    ].map(item => (
+                      <div key={item.label} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <p className="text-xs text-slate-400 mb-1">{item.label}</p>
+                        <p className="text-sm font-semibold text-slate-700">{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {viewTrainee.healthCondition && (
+                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                      <p className="text-xs text-blue-400 font-semibold mb-1">🏥 ข้อมูลสุขภาพพื้นฐาน / โรคประจำตัว</p>
+                      <p className="text-sm text-blue-700">{viewTrainee.healthCondition}</p>
+                    </div>
+                  )}
+                  {viewTrainee.createdAt && (
+                    <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-xs text-slate-400 font-semibold">วันที่เพิ่มเข้าระบบ</span>
+                      <span className="text-sm text-slate-700 font-medium">
+                        {new Date(viewTrainee.createdAt).toLocaleDateString('th-TH', {
+                          day: 'numeric', month: 'long', year: 'numeric'
+                        })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tab: ประวัติการฝึก */}
+              {modalTab === 'logs' && (
+                <div>
+                  {traineeLogs.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400">
+                      <Dumbbell className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                      <p>ไม่มีประวัติการฝึกของลูกเทรนคนนี้</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto border border-slate-100 rounded-xl">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-50 text-slate-400 text-xs font-bold uppercase border-b border-slate-100">
+                          <tr>
+                            <th className="px-4 py-3">วันที่</th>
+                            <th className="px-4 py-3">โปรแกรม</th>
+                            <th className="px-4 py-3 text-center">สถานะ</th>
+                            <th className="px-4 py-3 text-center">จำนวนท่า</th>
+                            <th className="px-4 py-3 text-center">เซตสำเร็จ</th>
+                            <th className="px-4 py-3 text-center">เวลา</th>
+                            <th className="px-4 py-3 text-center">ดูเซต</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-xs md:text-sm">
+                          {traineeLogs.map(log => {
+                            const ps = PROGRAM_STATUS[log.program_id?.status] || PROGRAM_STATUS.draft;
+                            return (
+                              <tr key={log._id} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-4 py-3 font-bold text-slate-700 whitespace-nowrap">
+                                  {new Date(log.training_date).toLocaleDateString('th-TH', {
+                                    day: 'numeric', month: 'short', year: 'numeric'
+                                  })}
+                                </td>
+                                <td className="px-4 py-3 text-slate-600 truncate max-w-[150px]">{log.program_id?.program_name || '-'}</td>
+                                <td className="px-4 py-3 text-center">
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${ps.bg} ${ps.text}`}>
+                                    {ps.label}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs font-semibold">
+                                    {log.exercise_count || 0} ท่า
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-center text-slate-600">
+                                  {log.completed_sets || 0}/{log.set_count || 0}
+                                </td>
+                                <td className="px-4 py-3 text-center text-slate-500 whitespace-nowrap">
+                                  {formatTime(log.duration)}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <button onClick={() => handleViewLog(log)}
+                                    className="p-1.5 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-lg transition-colors">
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tab: ผลสมรรถภาพ */}
+              {modalTab === 'fitness' && (
+                <div>
+                  {traineeFitness.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400">
+                      <Activity className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                      <p>ไม่มีข้อมูลสมรรถภาพของลูกเทรนคนนี้</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="overflow-x-auto border border-slate-100 rounded-xl">
+                        <table className="w-full text-left border-collapse">
+                          <thead className="bg-slate-50 text-slate-400 text-xs font-bold uppercase border-b border-slate-100">
+                            <tr>
+                              <th className="px-4 py-3">วันที่ทดสอบ</th>
+                              <th className="px-4 py-3 text-center">BMI</th>
+                              <th className="px-4 py-3 text-center">ไขมัน %</th>
+                              <th className="px-4 py-3 text-center">VO₂ Max</th>
+                              <th className="px-4 py-3 text-center">ชีพจร (bpm)</th>
+                              <th className="px-4 py-3 text-center">ความแข็งแรง</th>
+                              <th className="px-4 py-3 text-center">ความยืดหยุ่น</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-sm">
+                            {traineeFitness.map(f => {
+                              const bmi = bmiBadge(f.bmi);
+                              return (
+                                <tr key={f._id} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                                    {new Date(f.test_date).toLocaleDateString('th-TH', {
+                                      day: 'numeric', month: 'short', year: 'numeric'
+                                    })}
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${bmi.cls}`}>
+                                      {bmi.label}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-center text-slate-600">
+                                    {f.body_fat_percent != null ? `${f.body_fat_percent}%` : '-'}
+                                  </td>
+                                  <td className="px-4 py-3 text-center text-slate-600">
+                                    {f.vo2_max?.toFixed(1) || '-'}
+                                  </td>
+                                  <td className="px-4 py-3 text-center text-slate-600">
+                                    {f.resting_heart_rate || '-'}
+                                  </td>
+                                  <td className="px-4 py-3 text-center text-slate-600">
+                                    {f.muscle_strength || '-'}
+                                  </td>
+                                  <td className="px-4 py-3 text-center text-slate-600">
+                                    {f.flexibility || '-'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      
+                      {/* แถบอธิบาย BMI */}
+                      <div className="p-4 bg-slate-50 rounded-xl flex flex-wrap gap-3 text-xs text-slate-500 border border-slate-100">
+                        <span className="font-semibold">เกณฑ์ BMI:</span>
+                        {[
+                          { cls: 'bg-blue-50 text-blue-600',   label: 'ต่ำกว่าเกณฑ์ (<18.5)' },
+                          { cls: 'bg-green-50 text-green-600', label: 'ปกติ (18.5–24.9)'      },
+                          { cls: 'bg-amber-50 text-amber-600', label: 'น้ำหนักเกิน (25–29.9)' },
+                          { cls: 'bg-red-50 text-red-600',     label: 'อ้วน (≥30)'            },
+                        ].map(b => (
+                          <span key={b.label} className={`px-2 py-0.5 rounded-full font-medium ${b.cls}`}>
+                            {b.label}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t bg-slate-50 rounded-b-2xl flex justify-end shrink-0">
               <button onClick={() => setViewTrainee(null)}
-                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-semibold">
-                ปิด
+                className="px-6 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl font-semibold text-sm transition-all shadow-sm">
+                ปิดหน้าต่าง
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal รายละเอียด Log */}
+      {/* Modal รายละเอียด Log การฝึก (z-index ชั้นบนสุด z-50) */}
       {viewLog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white">
               <div>
-                <h3 className="font-bold text-slate-800">รายละเอียดการฝึก</h3>
+                <h3 className="font-bold text-slate-800">รายละเอียดเซตการฝึก</h3>
                 <p className="text-sm text-slate-400 mt-0.5">
                   {new Date(viewLog.training_date).toLocaleDateString('th-TH', {
                     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
@@ -557,7 +567,7 @@ export default function TrainerDetail() {
             <div className="p-6 border-t">
               <button onClick={() => { setViewLog(null); setLogDetail(null); }}
                 className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-semibold">
-                ปิด
+                ปิดรายละเอียดเซต
               </button>
             </div>
           </div>

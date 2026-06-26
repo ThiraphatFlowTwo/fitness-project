@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const { protect, adminOnly } = require("../middleware/authMiddleware");
 const { createNotification } = require("../utils/notificationHelper");
+const Notification = require("../models/Notification"); // ย้ายมาประกาศด้านบนสุดให้เรียกใช้ง่ายๆ ครับ
 
 /* =========================
    GET ALL USERS
@@ -69,56 +70,51 @@ router.put("/users/:id", protect, adminOnly, async (req, res) => {
    TOGGLE STATUS (เปลี่ยนสถานะ บล็อก / เปิดใช้งาน บัญชี)
 ========================= */
 router.put("/users/:id/status", protect, adminOnly, async (req, res) => {
-  const user = await User.findByIdAndUpdate(
-    req.params.id,
-    { status: req.body.status },
-    { new: true }
-  );
+  try {
+    const { status } = req.body; // ดึงค่า status ออกมาจาก req.body ให้ถูกต้อง
 
-  // ✅ แจ้งเตือนเมื่อแอดมินเปิดสิทธิ์การใช้งาน
-  if (req.body.status === "active" && user) {
-    const roleLabel = { trainer: "เทรนเนอร์", instructor: "อาจารย์" };
-
-    // ลบ notification user_pending ออกจากแอดมินทุกคน
-    const Notification = require("../models/Notification");
-    await Notification.deleteMany({ ref_id: user._id, type: "user_pending" });
-
-    // แจ้งเทรนเนอร์/อาจารย์ว่าบัญชีได้รับการอนุมัติแล้ว
-    await createNotification({
-      recipient_id:   user._id,
-      recipient_role: user.role,
-      type:           "account_activated",
-      title:          "บัญชีของคุณได้รับการอนุมัติแล้ว 🎉",
-      message:        `บัญชีของคุณได้รับการอนุมัติสิทธิ์เป็น "${roleLabel[user.role] ?? user.role}" เรียบร้อยแล้ว ยินดีต้อนรับเข้าสู่ระบบ`,
-      ref_id:         user._id,
-      ref_model:      "User",
-    });
-  }
-
-    // ค้นหาและอัปเดตเพื่อให้ได้ข้อมูลผู้ใช้คนนั้นกลับมาดูบทบาท (Role)
-    const updatedUser = await User.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
       req.params.id,
       { status },
-      { new: true },
+      { new: true }
     );
 
-    // 🔔 2. ฝังแจ้งเตือนเมื่อแอดมิน เปลี่ยนสถานะผู้ใช้งาน
-    if (updatedUser) {
-      try {
-        const isActionActive = status === "active";
-        await Notification.create({
-          userId: updatedUser._id, // ส่งหาผู้ใช้คนนั้น
-          title: isActionActive
-            ? "บัญชีของคุณเปิดใช้งานแล้ว"
-            : "บัญชีของคุณถูกระงับสิทธิ์",
-          message: isActionActive
-            ? `ผู้ดูแลระบบได้เปิดใช้งานบัญชีของคุณเรียบร้อยแล้ว`
-            : `บัญชีของคุณได้รับการปรับเปลี่ยนสถานะเป็นระงับการใช้งานชั่วคราว`,
-          type: isActionActive ? "success" : "warning",
-        });
-      } catch (notiError) {
-        console.error("Notification Error (Toggle Status):", notiError);
-      }
+    if (!user) {
+      return res.status(404).json({ message: "ไม่พบผู้ใช้งาน" });
+    }
+
+    // ✅ กรณีที่ 1: แจ้งเตือนเมื่อแอดมินอนุมัติ/เปิดสิทธิ์การใช้งาน (โค้ดของเพื่อน)
+    if (status === "active") {
+      const roleLabel = { trainer: "เทรนเนอร์", instructor: "อาจารย์" };
+
+      // ลบ notification user_pending ออกจากแอดมินทุกคน
+      await Notification.deleteMany({ ref_id: user._id, type: "user_pending" });
+
+      // แจ้งเทรนเนอร์/อาจารย์ว่าบัญชีได้รับการอนุมัติแล้ว
+      await createNotification({
+        recipient_id:   user._id,
+        recipient_role: user.role,
+        type:           "account_activated",
+        title:          "บัญชีของคุณได้รับการอนุมัติแล้ว 🎉",
+        message:        `บัญชีของคุณได้รับการอนุมัติสิทธิ์เป็น "${roleLabel[user.role] ?? user.role}" เรียบร้อยแล้ว ยินดีต้อนรับเข้าสู่ระบบ`,
+        ref_id:         user._id,
+        ref_model:      "User",
+      });
+    }
+
+    // 🔔 กรณีที่ 2: ฝังแจ้งเตือนเมื่อแอดมินเปลี่ยนสถานะผู้ใช้งานทั่วไป (โค้ดของคุณ)
+    try {
+      const isActionActive = status === "active";
+      await Notification.create({
+        userId: user._id, // ส่งหาผู้ใช้คนนั้น
+        title: isActionActive ? "บัญชีของคุณเปิดใช้งานแล้ว" : "บัญชีของคุณถูกระงับสิทธิ์",
+        message: isActionActive
+          ? `ผู้ดูแลระบบได้เปิดใช้งานบัญชีของคุณเรียบร้อยแล้ว`
+          : `บัญชีของคุณได้รับการปรับเปลี่ยนสถานะเป็นระงับการใช้งานชั่วคราว`,
+        type: isActionActive ? "success" : "warning",
+      });
+    } catch (notiError) {
+      console.error("Notification Error (Toggle Status):", notiError);
     }
 
     res.json({ message: "เปลี่ยนสถานะสำเร็จ" });
@@ -135,7 +131,6 @@ router.delete("/users/:id", protect, adminOnly, async (req, res) => {
   await User.findByIdAndDelete(req.params.id);
 
   // ✅ ลบ notification user_pending ของ user นี้ออกด้วย
-  const Notification = require("../models/Notification");
   await Notification.deleteMany({ ref_id: req.params.id, type: "user_pending" });
 
   res.json({ message: "ลบผู้ใช้สำเร็จ" });

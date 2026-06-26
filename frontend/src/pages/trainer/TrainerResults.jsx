@@ -18,21 +18,10 @@ const API = "http://localhost:5000/api/logs";
 
 const authHeaders = () => {
   const token = localStorage.getItem("token");
-<<<<<<< HEAD
-  if (!token) {
-    window.location.href = "/login";
-    return {};
-  }
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
-=======
   // ✅ ไม่ redirect ออกเองตรงนี้ — แค่ส่ง header เปล่าไป backend จะตอบ 401 เอง
   return token
     ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
     : { "Content-Type": "application/json" };
->>>>>>> 4df110b1cf6b54998519fb5a0c4e4f330717be2f
 };
 
 const getFieldConfig = (category) => {
@@ -114,23 +103,6 @@ const TrainerResults = () => {
   const draft = loadDraft();
 
   const [approvedPrograms, setApprovedPrograms] = useState([]);
-<<<<<<< HEAD
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [selectedProgram, setSelectedProgram] = useState(null);
-  const [trainingDate, setTrainingDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
-  const [logNote, setLogNote] = useState("");
-  const [workoutSessions, setWorkoutSessions] = useState([]);
-  const [isExerciseModal, setIsExerciseModal] = useState(false);
-  const [exSearch, setExSearch] = useState("");
-  const [exMuscleFilter, setExMuscleFilter] = useState("");
-  const [exEquipFilter, setExEquipFilter] = useState("");
-  const [timerSeconds, setTimerSeconds] = useState(0);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-=======
   const [loading,          setLoading]          = useState(true);
   const [saving,           setSaving]           = useState(false);
   const [error,            setError]            = useState("");
@@ -146,7 +118,6 @@ const TrainerResults = () => {
   const [isTimerRunning,   setIsTimerRunning]   = useState(false); // ไม่ resume timer อัตโนมัติ ป้องกันนับเวลาผิด
   const [photoFile,        setPhotoFile]        = useState(null);   // ✅ ไฟล์รูปยืนยัน (กู้คืนไม่ได้ ต้องถ่ายใหม่)
   const [photoPreview,     setPhotoPreview]     = useState(null);   // ✅ preview รูป
->>>>>>> 4df110b1cf6b54998519fb5a0c4e4f330717be2f
 
   useEffect(() => {
     const fetchPrograms = async () => {

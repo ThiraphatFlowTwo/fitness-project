@@ -23,7 +23,6 @@ import ManageTrainees from "./pages/instructor/ManageTrainees";
 import ManagePrograms from "./pages/instructor/ManagePrograms";
 import InstructorProfile from "./pages/instructor/InstructorProfile";
 import TrainerDetail from "./pages/instructor/TrainerDetail";
-import InstructorTrainingLogs from "./pages/instructor/InstructorTrainingLogs";
 
 // Admin
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -89,7 +88,6 @@ function App() {
           <Route path="trainees" element={<ManageTrainees />} />
           <Route path="trainees/:trainerId" element={<TrainerDetail />} />
           <Route path="programs" element={<ManagePrograms />} />
-          <Route path="logs" element={<InstructorTrainingLogs />} />
           <Route path="profile" element={<InstructorProfile />} />
         </Route>
 

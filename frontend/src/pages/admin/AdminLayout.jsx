@@ -12,10 +12,11 @@ import {
   Shield,
   Check,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import api from "../../services/api";
 import { useTopbarData } from "../../hooks/useTopbarData";
 import NotificationDropdown from "../../components/ui/NotificationDropdown";
+import axios from "axios";
 
 const menuItems = [
   { path: "/admin", label: "Dashboard", icon: LayoutDashboard },

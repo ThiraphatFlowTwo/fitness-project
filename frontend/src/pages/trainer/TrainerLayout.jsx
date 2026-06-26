@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import axios from "axios"; // ➕ เพิ่ม axios สำหรับดึงข้อมูลแจ้งเตือน
+import axios from "axios"; 
 import {
-<<<<<<< HEAD
   Home,
   Users,
   ClipboardList,
@@ -16,15 +15,10 @@ import {
   X,
   ChevronRight,
   Check,
+  Scale
 } from "lucide-react";
-=======
-  Home, Users, ClipboardList, Dumbbell,
-  Edit, TrendingUp, User, LogOut,
-  Bell, Menu, X, ChevronRight, Scale
-} from 'lucide-react';
 import { useTopbarData } from '../../hooks/useTopbarData';
 import NotificationDropdown from '../../components/ui/NotificationDropdown';
->>>>>>> 4df110b1cf6b54998519fb5a0c4e4f330717be2f
 
 const menuItems = [
   { id: "dashboard", label: "หน้าหลัก", icon: Home, path: "/trainer" },
@@ -96,7 +90,7 @@ export default function TrainerLayout() {
   const [notiOpen, setNotiOpen] = useState(false);
   const notiRef = useRef(null);
 
-  // ✅ ดึง user จาก localStorage
+  // ✅ ดึงข้อมูลระดับบนผ่าน Hook ของเพื่อน
   const [user, setUser] = useState(null);
   const { activeYear, notifCount, notifList, markAllRead, markRead } = useTopbarData("trainer");
 
@@ -128,7 +122,7 @@ export default function TrainerLayout() {
 
   useEffect(() => {
     fetchNotifications();
-    // ดึงซ้ำอัตโนมัติทุกๆ 30 วินาที (Polling) เผื่อมีอาจารย์กดตรวจงานเข้ามา
+    // ดึงซ้ำอัตโนมัติทุกๆ 30 วินาที (Polling)
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -144,7 +138,6 @@ export default function TrainerLayout() {
           headers: { Authorization: `Bearer ${token}` },
         },
       );
-      // อัปเดต UI ฝั่งหน้าบ้านทันทีโดยไม่ต้องยิงดึงใหม่
       setNotifications((prev) =>
         prev.map((n) => (n._id === id ? { ...n, isRead: true } : n)),
       );
@@ -153,18 +146,18 @@ export default function TrainerLayout() {
     }
   };
 
-  // ➕ ฟังก์ชันเมื่อกดคลิกที่ตัวกล่อง Notification ให้มาร์กว่าอ่านแล้ว และเด้งไปยังหน้านั้นๆ ทันที
+  // ➕ ฟังก์ชันเมื่อกดคลิกที่ตัวกล่อง Notification
   const handleNotificationClick = async (noti) => {
     if (!noti.isRead) {
       await handleMarkAsRead(noti._id);
     }
-    setNotiOpen(false); // ปิด dropdown
+    setNotiOpen(false);
     if (noti.url) {
-      navigate(noti.url); // เปลี่ยนหน้าไปยังเส้นทางที่ระบุมาจากหลังบ้าน
+      navigate(noti.url);
     }
   };
 
-  // ดักจับเมื่อกดนอกกล่อง Dropdown กระดิ่ง ให้ทำการปิดหน้าต่างลง
+  // ดักจับเมื่อกดนอกกล่อง Dropdown
   useEffect(() => {
     function handleClickOutside(event) {
       if (notiRef.current && !notiRef.current.contains(event.target)) {
@@ -176,8 +169,8 @@ export default function TrainerLayout() {
   }, []);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
-
   const isActive = (path) => location.pathname === path;
+  
   const page = pageTitles[location.pathname] || {
     th: "ระบบเทรนเนอร์",
     en: "Trainer",
@@ -318,7 +311,7 @@ export default function TrainerLayout() {
             </div>
 
             {/* Right */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3" ref={notiRef}>
               <div className="hidden md:flex flex-col items-end">
                 <span className="text-xs font-semibold text-slate-700">
                   {activeYear ? `ปีการศึกษา ${activeYear.academic_year}` : "ไม่มีปีการศึกษา"}
@@ -328,12 +321,19 @@ export default function TrainerLayout() {
                 </span>
               </div>
 
-              <NotificationDropdown
-                notifCount={notifCount}
-                notifList={notifList}
-                markAllRead={markAllRead}
-                markRead={markRead}
-              />
+              {/* ใช้ NotificationDropdown ร่วมกับระบบปุ่มกดแจ้งเตือนเดิม */}
+              <div className="relative">
+                <button 
+                  onClick={() => setNotiOpen(!notiOpen)}
+                  className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full transition-colors relative"
+                >
+                  <Bell className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-bounce">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
 
                 {/* กล่องรายการ Notification Dropdown */}
                 {notiOpen && (
@@ -358,20 +358,17 @@ export default function TrainerLayout() {
                         notifications.map((noti) => (
                           <div
                             key={noti._id}
-                            onClick={() => handleNotificationClick(noti)} // ➕ เพิ่ม onClick ให้ตัวกล่องเพื่อกดแล้วเด้งหน้าได้ทันที
+                            onClick={() => handleNotificationClick(noti)}
                             className={`p-3.5 transition-colors relative group flex gap-2.5 items-start cursor-pointer
                               ${!noti.isRead ? "bg-sky-50/40 hover:bg-sky-50/80" : "hover:bg-slate-50"}`}
                           >
-                            {/* สีแถบตามประเภท */}
                             <span
                               className={`w-2 h-2 rounded-full shrink-0 mt-1.5
                               ${noti.type === "success" ? "bg-green-500" : noti.type === "warning" ? "bg-amber-500" : "bg-sky-500"}`}
                             />
 
                             <div className="flex-1 min-w-0">
-                              <p
-                                className={`text-xs font-semibold text-slate-800 truncate ${!noti.isRead ? "text-sky-900" : ""}`}
-                              >
+                              <p className={`text-xs font-semibold text-slate-800 truncate ${!noti.isRead ? "text-sky-900" : ""}`}>
                                 {noti.title}
                               </p>
                               <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 leading-relaxed">
@@ -388,11 +385,10 @@ export default function TrainerLayout() {
                               </span>
                             </div>
 
-                            {/* ปุ่มกดอ่านแบบเงียบๆ */}
                             {!noti.isRead && (
                               <button
                                 onClick={(e) => {
-                                  e.stopPropagation(); // ➕ ป้องกัน Event Bubble ไม่ให้คลิกโดนกล่องใหญ่
+                                  e.stopPropagation();
                                   handleMarkAsRead(noti._id);
                                 }}
                                 title="ทำเป็นอ่านแล้ว"
@@ -409,11 +405,19 @@ export default function TrainerLayout() {
                 )}
               </div>
 
+              {/* เพื่อนเสริมคอมโพเนนต์อันนี้มาด้วย นำมาวางต่อกันให้ครับ */}
+              <NotificationDropdown
+                notifCount={notifCount}
+                notifList={notifList}
+                markAllRead={markAllRead}
+                markRead={markRead}
+              />
+
               {/* Header Profile */}
               <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
                 <div
                   className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-500 to-blue-500
-                                     flex items-center justify-center text-white text-xs font-bold shadow"
+                             flex items-center justify-center text-white text-xs font-bold shadow"
                 >
                   {getInitials(user?.name)}
                 </div>

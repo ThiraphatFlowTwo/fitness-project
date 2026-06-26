@@ -6,12 +6,12 @@ import {
 import { useState, useEffect } from "react";
 import { useTopbarData } from "../hooks/useTopbarData";
 import NotificationDropdown from "../components/ui/NotificationDropdown";
+import axios from "axios";
 
 const menuItems = [
   { path: "/instructor",          label: "Dashboard",      icon: LayoutDashboard },
   { path: "/instructor/trainees", label: "เทรนเนอร์",      icon: Users           },
   { path: "/instructor/programs", label: "โปรแกรมฝึก",     icon: FileText        },
-  { path: "/instructor/logs",     label: "ผลการฝึก",       icon: BarChart2       },
   { path: "/instructor/profile",  label: "โปรไฟล์อาจารย์", icon: User            },
 ];
 
@@ -19,7 +19,6 @@ const pageTitles = {
   "/instructor": "Dashboard",
   "/instructor/trainees": "เทรนเนอร์",
   "/instructor/programs": "โปรแกรมฝึก",
-  "/instructor/logs":     "ผลการฝึก",
   "/instructor/profile":  "โปรไฟล์อาจารย์",
 };
 
@@ -38,6 +37,7 @@ export default function InstructorLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [collapsed,   setCollapsed]   = useState(false);
   const [user,        setUser]        = useState(null);
+  const [notifications, setNotifications] = useState([]);
   const { activeYear, notifCount, notifList, markAllRead, markRead } = useTopbarData("instructor");
 
   // กำหนด Base URL ไว้ที่เดียวเพื่อความง่ายในการดูแลจัดการ
