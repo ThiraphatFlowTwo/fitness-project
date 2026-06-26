@@ -12,8 +12,10 @@ import {
   Shield,
   Check,
 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
-import axios from "axios";
+import { useState, useEffect } from "react";
+import api from "../../services/api";
+import { useTopbarData } from "../../hooks/useTopbarData";
+import NotificationDropdown from "../../components/ui/NotificationDropdown";
 
 const menuItems = [
   { path: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -52,6 +54,7 @@ export default function AdminLayout() {
 
   // ✅ ดึงข้อมูล user จาก localStorage
   const [user, setUser] = useState(null);
+  const { activeYear, notifCount, notifList, markAllRead, markRead } = useTopbarData("admin");
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
@@ -282,10 +285,18 @@ export default function AdminLayout() {
             <div className="flex items-center gap-3">
               <div className="hidden md:flex flex-col items-end">
                 <span className="text-xs font-semibold text-slate-700">
-                  ปีการศึกษา 2568
+                  {activeYear ? `ปีการศึกษา ${activeYear.academic_year}` : "ไม่มีปีการศึกษา"}
                 </span>
-                <span className="text-xs text-slate-400">ภาคเรียนที่ 1</span>
+                <span className="text-xs text-slate-400">
+                  {activeYear ? `ภาคเรียนที่ ${activeYear.semester}` : "ที่เปิดใช้งาน"}
+                </span>
               </div>
+              <NotificationDropdown
+                notifCount={notifCount}
+                notifList={notifList}
+                markAllRead={markAllRead}
+                markRead={markRead}
+              />
 
               {/* 🔔 ส่วนกระดิ่งแจ้งเตือน Dropdown List ของ Admin */}
               <div className="relative" ref={notiRef}>

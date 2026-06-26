@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios"; // ➕ เพิ่ม axios สำหรับดึงข้อมูลแจ้งเตือน
 import {
+<<<<<<< HEAD
   Home,
   Users,
   ClipboardList,
@@ -16,6 +17,14 @@ import {
   ChevronRight,
   Check,
 } from "lucide-react";
+=======
+  Home, Users, ClipboardList, Dumbbell,
+  Edit, TrendingUp, User, LogOut,
+  Bell, Menu, X, ChevronRight, Scale
+} from 'lucide-react';
+import { useTopbarData } from '../../hooks/useTopbarData';
+import NotificationDropdown from '../../components/ui/NotificationDropdown';
+>>>>>>> 4df110b1cf6b54998519fb5a0c4e4f330717be2f
 
 const menuItems = [
   { id: "dashboard", label: "หน้าหลัก", icon: Home, path: "/trainer" },
@@ -89,6 +98,8 @@ export default function TrainerLayout() {
 
   // ✅ ดึง user จาก localStorage
   const [user, setUser] = useState(null);
+  const { activeYear, notifCount, notifList, markAllRead, markRead } = useTopbarData("trainer");
+
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (stored) {
@@ -310,27 +321,19 @@ export default function TrainerLayout() {
             <div className="flex items-center gap-3">
               <div className="hidden md:flex flex-col items-end">
                 <span className="text-xs font-semibold text-slate-700">
-                  ปีการศึกษา 2568
+                  {activeYear ? `ปีการศึกษา ${activeYear.academic_year}` : "ไม่มีปีการศึกษา"}
                 </span>
-                <span className="text-xs text-slate-400">ภาคเรียนที่ 1</span>
+                <span className="text-xs text-slate-400">
+                  {activeYear ? `ภาคเรียนที่ ${activeYear.semester}` : "ที่เปิดใช้งาน"}
+                </span>
               </div>
 
-              {/* 🔔 กระดิ่งแจ้งเตือนพร้อมระบบ Dropdown */}
-              <div className="relative" ref={notiRef}>
-                <button
-                  onClick={() => setNotiOpen(!notiOpen)}
-                  className={`relative p-2 rounded-xl transition-colors ${notiOpen ? "bg-slate-100" : "hover:bg-slate-100"}`}
-                >
-                  <Bell className="w-5 h-5 text-slate-600" />
-                  {unreadCount > 0 && (
-                    <span
-                      className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold
-                                    rounded-full flex items-center justify-center leading-none animate-pulse"
-                    >
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
+              <NotificationDropdown
+                notifCount={notifCount}
+                notifList={notifList}
+                markAllRead={markAllRead}
+                markRead={markRead}
+              />
 
                 {/* กล่องรายการ Notification Dropdown */}
                 {notiOpen && (

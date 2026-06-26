@@ -19,8 +19,21 @@ exports.createExercise = async (req, res) => {
 // ── GET ALL ───────────────────────────────────────────────────
 exports.getExercises = async (req, res) => {
   try {
-    const list = await Exercise.find()
-      .populate("created_by", "name role"); // ← populate ชื่อคนสร้าง
+    let query = {};
+
+    if (req.user.role === "trainer") {
+      // trainer เห็นเฉพาะ: ท่าของ admin + ท่าที่ตัวเองสร้าง
+      query = {
+        $or: [
+          { ownerRole: "admin" },
+          { created_by: req.user.id },
+        ],
+      };
+    }
+    // admin และ instructor เห็นทั้งหมด (query = {} คือไม่กรอง)
+
+    const list = await Exercise.find(query)
+      .populate("created_by", "name role");
     res.json(list);
   } catch (err) {
     res.status(500).json({ message: err.message });

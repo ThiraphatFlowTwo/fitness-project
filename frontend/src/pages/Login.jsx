@@ -35,7 +35,12 @@ export default function Login() {
         window.location.href = "/";
       }
     } catch (err) {
-      alert(err.response?.data?.message || "เข้าสู่ระบบไม่สำเร็จ");
+      const msg = err.response?.data?.message || "เข้าสู่ระบบไม่สำเร็จ";
+      if (err.response?.status === 403) {
+        alert("⏳ " + msg + "\n\nเมื่อแอดมินอนุมัติแล้ว กรุณากลับมา Login ใหม่อีกครั้ง");
+      } else {
+        alert(msg);
+      }
     } finally {
       setLoading(false);
     }

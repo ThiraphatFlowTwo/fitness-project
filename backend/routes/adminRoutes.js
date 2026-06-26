@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const { protect, adminOnly } = require("../middleware/authMiddleware");
-const Notification = require("../models/Notification"); // ➕ 1. นำเข้า Model Notification เพิ่มตรงนี้ครับ
+const { createNotification } = require("../utils/notificationHelper");
 
 /* =========================
    GET ALL USERS
@@ -47,12 +47,19 @@ router.post("/users", protect, adminOnly, async (req, res) => {
    UPDATE USER
 ========================= */
 router.put("/users/:id", protect, adminOnly, async (req, res) => {
-  const { name, email, role } = req.body;
+  const { name, email, role, username } = req.body;
+
+  // ตรวจสอบ username ซ้ำ (ถ้ามีการเปลี่ยน)
+  if (username) {
+    const exist = await User.findOne({ username, _id: { $ne: req.params.id } });
+    if (exist) return res.status(400).json({ message: "Username นี้มีคนใช้แล้ว" });
+  }
 
   await User.findByIdAndUpdate(req.params.id, {
-    name,
-    email,
-    role,
+    ...(name     && { name }),
+    ...(email    && { email }),
+    ...(role     && { role }),
+    ...(username && { username }),
   });
 
   res.json({ message: "แก้ไขผู้ใช้สำเร็จ" });
@@ -62,8 +69,31 @@ router.put("/users/:id", protect, adminOnly, async (req, res) => {
    TOGGLE STATUS (เปลี่ยนสถานะ บล็อก / เปิดใช้งาน บัญชี)
 ========================= */
 router.put("/users/:id/status", protect, adminOnly, async (req, res) => {
-  try {
-    const { status } = req.body;
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { status: req.body.status },
+    { new: true }
+  );
+
+  // ✅ แจ้งเตือนเมื่อแอดมินเปิดสิทธิ์การใช้งาน
+  if (req.body.status === "active" && user) {
+    const roleLabel = { trainer: "เทรนเนอร์", instructor: "อาจารย์" };
+
+    // ลบ notification user_pending ออกจากแอดมินทุกคน
+    const Notification = require("../models/Notification");
+    await Notification.deleteMany({ ref_id: user._id, type: "user_pending" });
+
+    // แจ้งเทรนเนอร์/อาจารย์ว่าบัญชีได้รับการอนุมัติแล้ว
+    await createNotification({
+      recipient_id:   user._id,
+      recipient_role: user.role,
+      type:           "account_activated",
+      title:          "บัญชีของคุณได้รับการอนุมัติแล้ว 🎉",
+      message:        `บัญชีของคุณได้รับการอนุมัติสิทธิ์เป็น "${roleLabel[user.role] ?? user.role}" เรียบร้อยแล้ว ยินดีต้อนรับเข้าสู่ระบบ`,
+      ref_id:         user._id,
+      ref_model:      "User",
+    });
+  }
 
     // ค้นหาและอัปเดตเพื่อให้ได้ข้อมูลผู้ใช้คนนั้นกลับมาดูบทบาท (Role)
     const updatedUser = await User.findByIdAndUpdate(
@@ -103,6 +133,11 @@ router.put("/users/:id/status", protect, adminOnly, async (req, res) => {
 ========================= */
 router.delete("/users/:id", protect, adminOnly, async (req, res) => {
   await User.findByIdAndDelete(req.params.id);
+
+  // ✅ ลบ notification user_pending ของ user นี้ออกด้วย
+  const Notification = require("../models/Notification");
+  await Notification.deleteMany({ ref_id: req.params.id, type: "user_pending" });
+
   res.json({ message: "ลบผู้ใช้สำเร็จ" });
 });
 

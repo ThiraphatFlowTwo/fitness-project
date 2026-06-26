@@ -35,8 +35,8 @@ const upload = multer({
 // ROUTES
 // ==========================================
 
-// ✅ ดูได้ทุกคน
-router.get("/", getExercises);
+// ✅ ต้อง login — trainer เห็นเฉพาะของ admin + ของตัวเอง
+router.get("/", protect, getExercises);
 
 // ✅ ต้อง login ก่อน
 router.post("/", protect, upload.single("image"), createExercise);

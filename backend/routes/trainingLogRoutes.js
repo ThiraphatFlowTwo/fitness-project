@@ -1,12 +1,28 @@
 const express = require("express");
 const router = express.Router();
+const multer = require("multer");
+const path = require("path");
 const TrainingLog = require("../models/TrainingLog");
 const TrainingLogSet = require("../models/TrainingLogSet");
 const TrainingProgram = require("../models/TrainingProgram");
 const ProgramExercise = require("../models/ProgramExercise");
+const User = require("../models/User");
 const jwt = require("jsonwebtoken");
-const Notification = require("../models/Notification"); // ➕ นำเข้าโมเดลแจ้งเตือน
-const User = require("../models/User"); // ➕ นำเข้าโมเดล User เพื่อใช้ดึงรายชื่ออาจารย์
+const { createNotification } = require("../utils/notificationHelper");
+
+// ── Multer สำหรับรูปยืนยันการฝึก ───────────────────────────
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "uploads/"),
+  filename: (req, file, cb) => cb(null, "log_" + Date.now() + path.extname(file.originalname)),
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("กรุณาอัปโหลดเฉพาะไฟล์รูปภาพ"));
+  },
+});
 
 const auth = (req, res, next) => {
   try {
@@ -133,11 +149,13 @@ router.get("/by-trainee/:traineeId", auth, async (req, res) => {
   }
 });
 
-// POST /api/logs — บันทึกผลการฝึก
-router.post("/", auth, async (req, res) => {
+// POST /api/logs — บันทึกผลการฝึก (รองรับแนบรูปยืนยัน)
+router.post("/", auth, upload.single("photo"), async (req, res) => {
   try {
-    const { program_id, trainee_id, training_date, duration, note, sets } =
-      req.body;
+    const { program_id, trainee_id, training_date, duration, note } = req.body;
+    // sets ถูกส่งมาเป็น JSON string เพราะใช้ multipart/form-data
+    const sets = req.body.sets ? JSON.parse(req.body.sets) : [];
+    const photoPath = req.file ? `/uploads/${req.file.filename}` : "";
 
     // สร้าง log หลัก
     const log = new TrainingLog({
@@ -147,6 +165,7 @@ router.post("/", auth, async (req, res) => {
       training_date,
       duration,
       note,
+      photo: photoPath,
     });
     const savedLog = await log.save();
 
@@ -166,33 +185,20 @@ router.post("/", auth, async (req, res) => {
       await TrainingLogSet.insertMany(setDocs);
     }
 
-    // 🔔 แจ้งเตือนเด้งหา "อาจารย์ทุกคน" ในระบบเพื่อติดตามกิจกรรมประจำวัน
-    try {
-      // ค้นหาข้อมูลโปรแกรมฝึกซ้อมแบบละเอียดเพื่อนำชื่อโปรแกรมมาประกอบข้อความ
-      const populatedProgram = await TrainingProgram.findById(program_id);
-      const programName = populatedProgram
-        ? populatedProgram.program_name
-        : "โปรแกรมฝึกซ้อม";
-
-      // ดึงรายชื่ออาจารย์ทั้งหมดในระบบ
-      const instructors = await User.find({ role: "instructor" });
-
-      for (let instructor of instructors) {
-        await Notification.create({
-          userId: instructor._id, // ส่งหาอาจารย์แต่ละท่าน
-          senderId: req.userId,   // ➕ แนบไอดีเทรนเนอร์ผู้บันทึกกิจกรรมเข้ามา (รู้ว่าเป็น User คนไหน)
-          title: "บันทึกกิจกรรมการฝึกใหม่",
-          message: `เทรนเนอร์ได้ส่งบันทึกกิจกรรมการฝึกซ้อมประจำวันในโปรแกรม [${programName}] เข้าสู่ระบบ`,
-          url: "/admin",          // ➕ ระบุ URL ที่ต้องการให้อาจารย์คลิกแล้วเด้งเปลี่ยนหน้าไปในระบบของคุณทันที
-          type: "info",
-        });
-      }
-    } catch (notiErr) {
-      console.error(
-        "สร้างการแจ้งเตือนข้อผิดพลาด (Create Training Log):",
-        notiErr,
-      );
-    }
+    // ✅ แจ้งเตือนอาจารย์ทุกคนว่ามี log ใหม่
+    const trainerUser = await User.findById(req.userId).select("name");
+    const instructors = await User.find({ role: "instructor", status: "active" }).select("_id");
+    await Promise.all(instructors.map(inst =>
+      createNotification({
+        recipient_id:   inst._id,
+        recipient_role: "instructor",
+        type:           "training_log_new",
+        title:          "มีการบันทึกผลการฝึกใหม่",
+        message:        `เทรนเนอร์ ${trainerUser?.name ?? ""} ได้บันทึกผลการฝึกประจำวันแล้ว`,
+        ref_id:         savedLog._id,
+        ref_model:      "TrainingLog",
+      })
+    ));
 
     res.status(201).json({ message: "บันทึกสำเร็จ", log_id: savedLog._id });
   } catch (err) {

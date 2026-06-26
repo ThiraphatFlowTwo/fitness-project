@@ -53,6 +53,7 @@ export default function Register() {
     if (!form.name) e.name = "กรุณากรอกชื่อ-นามสกุล";
     if (!form.email) e.email = "กรุณากรอก Email";
     else if (!/^\S+@\S+\.\S+$/.test(form.email)) e.email = "รูปแบบ Email ไม่ถูกต้อง";
+    if (!form.role || form.role === "pending") e.role = "กรุณาเลือกประเภทบัญชี";
     if (!form.password) e.password = "กรุณากรอกรหัสผ่าน";
     else if (form.password.length < 8) e.password = "รหัสผ่านต้องอย่างน้อย 8 ตัวอักษร";
     if (!form.confirmPassword) e.confirmPassword = "กรุณายืนยันรหัสผ่าน";
@@ -67,7 +68,7 @@ export default function Register() {
       setLoading(true);
       await api.post("/auth/register", {
         username: form.student_id, password: form.password,
-        role: "pending", name: form.name,
+        role: form.role, name: form.name,
         email: form.email, student_id: form.student_id,
       });
       alert("สมัครสมาชิกสำเร็จ! กรุณารอ Admin อนุมัติสิทธิ์การใช้งาน");
@@ -168,9 +169,37 @@ export default function Register() {
             onChange={handleChange} placeholder="ชื่อ-นามสกุล"
             error={errors.name} icon={<User className="w-4 h-4" />} />
 
-          <Field label="อีเมล" name="email" type="email" value={form.email}
+          {/* Role selector */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-semibold text-slate-700">ประเภทบัญชี</label>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { value: "trainer",    label: "เทรนเนอร์",  desc: "ผู้ฝึกสอน" },
+                { value: "instructor", label: "อาจารย์",    desc: "ผู้ดูแลหลักสูตร" },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, role: opt.value }))}
+                  className={`p-3 rounded-xl border-2 text-left transition-all ${
+                    form.role === opt.value
+                      ? "border-violet-500 bg-violet-50"
+                      : "border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <p className={`font-semibold text-sm ${form.role === opt.value ? "text-violet-700" : "text-slate-700"}`}>
+                    {opt.label}
+                  </p>
+                  <p className="text-xs text-slate-400">{opt.desc}</p>
+                </button>
+              ))}
+            </div>
+            {errors.role && <p className="text-xs text-red-500">{errors.role}</p>}
+          </div>
+
+          <Field label="อีเมล" type="email" value={form.email}
             onChange={handleChange} placeholder="example@xxx.com"
-            error={errors.email} icon={<Mail className="w-4 h-4" />} />
+            error={errors.email} icon={<Mail className="w-4 h-4" />} name="email" />
 
           <Field label="รหัสผ่าน (อย่างน้อย 8 ตัว)" name="password"
             type={showPassword ? "text" : "password"} value={form.password}
