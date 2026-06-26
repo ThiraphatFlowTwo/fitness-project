@@ -24,7 +24,6 @@ const TrainerDashboard = () => {
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState('');
 
-  // ── โหลดข้อมูล ────────────────────────────────────────────────
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
@@ -43,10 +42,12 @@ const TrainerDashboard = () => {
   }, []);
 
   const QuickActionButton = ({ icon: Icon, label, onClick, gradient }) => (
-    <button onClick={onClick}
-      className={`bg-gradient-to-r ${gradient} text-white p-4 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 flex flex-col items-center space-y-2`}>
-      <Icon className="w-6 h-6" />
-      <span className="text-sm font-semibold">{label}</span>
+    <button
+      onClick={onClick}
+      className={`bg-gradient-to-r ${gradient} text-white p-3 md:p-4 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 flex flex-col items-center space-y-1.5`}
+    >
+      <Icon className="w-5 h-5 md:w-6 md:h-6" />
+      <span className="text-xs md:text-sm font-semibold leading-tight text-center">{label}</span>
     </button>
   );
 
@@ -61,71 +62,71 @@ const TrainerDashboard = () => {
 
   return (
     <PageContainer>
-      <div className="space-y-8">
+      <div className="space-y-4 md:space-y-8">
 
         {/* Header */}
         <div>
-          <h2 className="text-2xl font-bold text-navy-900">แดชบอร์ดเทรนเนอร์</h2>
+          <h2 className="text-lg md:text-2xl font-bold text-navy-900">แดชบอร์ดเทรนเนอร์</h2>
         </div>
 
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-600 text-sm">
-            <AlertCircle className="w-4 h-4 mr-2" />{error}
+            <AlertCircle className="w-4 h-4 mr-2 shrink-0" />{error}
           </div>
         )}
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Stats — 2 คอลัมน์บนมือถือ, 4 บน desktop */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
           <StatCard
             title="ผู้รับการฝึกทั้งหมด"
             value={stats.totalTrainees}
-            icon={<Users className="w-6 h-6" />}
+            icon={<Users className="w-5 h-5 md:w-6 md:h-6" />}
             gradient="from-navy-900 to-navy-700"
           />
           <StatCard
             title="โปรแกรมการฝึก"
             value={stats.totalPrograms}
-            icon={<ClipboardList className="w-6 h-6" />}
+            icon={<ClipboardList className="w-5 h-5 md:w-6 md:h-6" />}
             gradient="from-navy-800 to-navy-600"
           />
           <StatCard
             title="รออนุมัติ"
             value={stats.pendingApproval}
-            icon={<Clock className="w-6 h-6" />}
+            icon={<Clock className="w-5 h-5 md:w-6 md:h-6" />}
             gradient="from-sky-500 to-sky-600"
           />
           <StatCard
             title="บันทึกผลวันนี้"
             value={stats.todayLogs}
-            icon={<CheckCircle className="w-6 h-6" />}
+            icon={<CheckCircle className="w-5 h-5 md:w-6 md:h-6" />}
             gradient="from-emerald-500 to-emerald-600"
           />
         </div>
 
         {/* Activities + Quick Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
 
           {/* กิจกรรมล่าสุด */}
           <SectionCard
-            icon={<History className="w-5 h-5 text-white" />}
+            icon={<History className="w-4 h-4 md:w-5 md:h-5 text-white" />}
             title="กิจกรรมล่าสุด"
             borderColor="navy"
           >
             {logs.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-6">ยังไม่มีกิจกรรม</p>
+              <p className="text-sm text-gray-400 text-center py-4">ยังไม่มีกิจกรรม</p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {logs.map(log => (
-                  <div key={log._id} className="flex items-start gap-3 pb-4 border-b last:border-b-0 border-gray-200">
-                    <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center shrink-0">
-                      <Edit className="text-purple-600 w-5 h-5" />
+                  <div key={log._id} className="flex items-start gap-2.5 pb-3 border-b last:border-b-0 border-gray-200">
+                    <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-100 rounded-full flex items-center justify-center shrink-0">
+                      <Edit className="text-purple-600 w-4 h-4 md:w-5 md:h-5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-800">บันทึกผลการฝึก</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs md:text-sm font-semibold text-gray-800">บันทึกผลการฝึก</p>
+                      <p className="text-xs text-gray-500 truncate">
                         {log.trainee_id?.name || '-'} — {log.program_id?.program_name || '-'}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs text-gray-400 mt-0.5">
                         {new Date(log.training_date).toLocaleDateString('th-TH', {
                           day: 'numeric', month: 'short', year: 'numeric'
                         })}
@@ -139,11 +140,11 @@ const TrainerDashboard = () => {
 
           {/* การดำเนินการด่วน */}
           <SectionCard
-            icon={<Bolt className="w-5 h-5 text-white" />}
+            icon={<Bolt className="w-4 h-4 md:w-5 md:h-5 text-white" />}
             title="การดำเนินการด่วน"
             borderColor="navy"
           >
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 md:gap-4">
               <QuickActionButton
                 icon={UserPlus}   label="เพิ่มผู้รับการฝึก"
                 gradient="from-navy-900 to-navy-700"

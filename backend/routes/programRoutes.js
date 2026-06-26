@@ -2,8 +2,10 @@ const express         = require("express");
 const router          = express.Router();
 const TrainingProgram = require("../models/TrainingProgram");
 const ProgramExercise = require("../models/ProgramExercise");
-const AcademicYear = require("../models/academicYear.model");
+const AcademicYear    = require("../models/academicYear.model");
 const jwt             = require("jsonwebtoken");
+const Notification    = require("../models/Notification"); 
+const User            = require("../models/User");         
 
 // ── Middleware ────────────────────────────────────────────────
 const auth = (req, res, next) => {
@@ -30,6 +32,37 @@ router.get("/active-year", auth, async (req, res) => {
   }
 });
 
+// ── [ปรับปรุง] GET /api/programs/instructor/all — อาจารย์ดูและนับจำนวนแยกแท็บ ──
+router.get("/instructor/all", auth, async (req, res) => {
+  try {
+    if (req.role !== "instructor" && req.role !== "admin")
+      return res.status(403).json({ message: "ไม่มีสิทธิ์" });
+
+    // รับค่ากรองสถานะจาก Frontend (เช่น ?status=pending)
+    const { status } = req.query;
+    
+    // ตั้งค่าเงื่อนไขการค้นหา: ถ้ามี status ส่งมาให้กรองตามนั้น ถ้าไม่มีให้ดึงทั้งหมดมาเลย
+    const filter = status ? { status } : {};
+
+    const programs = await TrainingProgram.find(filter)
+      .populate("trainer_id",       "name email")
+      .populate("trainee_id",       "name goal")
+      .populate("academic_year_id", "academic_year semester")
+      .sort({ createdAt: -1 });
+
+    const result = await Promise.all(programs.map(async (p) => {
+      const exercises = await ProgramExercise.find({ program_id: p._id })
+        .populate("exercise_id", "exercise_name exercise_type equipment_type exercise_category")
+        .sort({ order: 1 });
+      return { ...p.toObject(), exercises };
+    }));
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // ── GET /api/programs — ดึงโปรแกรมของเทรนเนอร์ตัวเอง ──────────
 router.get("/", auth, async (req, res) => {
   try {
@@ -38,7 +71,6 @@ router.get("/", auth, async (req, res) => {
       .populate("academic_year_id", "academic_year semester")
       .sort({ createdAt: -1 });
 
-    // ดึง exercises ของแต่ละโปรแกรมมาด้วย
     const result = await Promise.all(programs.map(async (p) => {
       const exercises = await ProgramExercise.find({ program_id: p._id })
         .populate("exercise_id", "exercise_name exercise_type equipment_type exercise_category")
@@ -57,11 +89,9 @@ router.post("/", auth, async (req, res) => {
   try {
     const { program_name, trainee_id, exercises } = req.body;
 
-    // ดึง academic_year_id จาก active year อัตโนมัติ
     const activeYear = await AcademicYear.findOne({ status: "active" });
     if (!activeYear) return res.status(400).json({ message: "ไม่พบปีการศึกษาที่ใช้งานอยู่ กรุณาตั้งค่าปีการศึกษาก่อน" });
 
-    // สร้างโปรแกรม
     const program = new TrainingProgram({
       trainer_id:       req.userId,
       trainee_id,
@@ -71,7 +101,6 @@ router.post("/", auth, async (req, res) => {
     });
     const saved = await program.save();
 
-    // บันทึก exercises พร้อม order, sets, reps, rpe
     if (exercises && exercises.length > 0) {
       const exerciseDocs = exercises.map((ex, index) => ({
         program_id:  saved._id,
@@ -84,7 +113,6 @@ router.post("/", auth, async (req, res) => {
       await ProgramExercise.insertMany(exerciseDocs);
     }
 
-    // ส่งกลับพร้อม populate
     const populated = await TrainingProgram.findById(saved._id)
       .populate("trainee_id",       "name goal")
       .populate("academic_year_id", "academic_year semester");
@@ -102,16 +130,14 @@ router.post("/", auth, async (req, res) => {
 router.put("/:id", auth, async (req, res) => {
   try {
     const program = await TrainingProgram.findOne({ _id: req.params.id, trainer_id: req.userId });
-    if (!program)                    return res.status(404).json({ message: "ไม่พบโปรแกรม" });
+    if (!program)                      return res.status(404).json({ message: "ไม่พบโปรแกรม" });
     if (program.status === "approved") return res.status(400).json({ message: "ไม่สามารถแก้ไขโปรแกรมที่อนุมัติแล้วได้" });
     if (program.status === "pending")  return res.status(400).json({ message: "ไม่สามารถแก้ไขโปรแกรมที่รออนุมัติอยู่ได้" });
 
     const { program_name, trainee_id, exercises } = req.body;
 
-    // อัปเดตโปรแกรม
     await TrainingProgram.findByIdAndUpdate(req.params.id, { program_name, trainee_id });
 
-    // อัปเดต exercises — ลบเก่าแล้วสร้างใหม่
     if (exercises && exercises.length > 0) {
       await ProgramExercise.deleteMany({ program_id: req.params.id });
       const exerciseDocs = exercises.map((ex, index) => ({
@@ -142,12 +168,12 @@ router.put("/:id", auth, async (req, res) => {
 router.delete("/:id", auth, async (req, res) => {
   try {
     const program = await TrainingProgram.findOne({ _id: req.params.id, trainer_id: req.userId });
-    if (!program)                    return res.status(404).json({ message: "ไม่พบโปรแกรม" });
+    if (!program)                      return res.status(404).json({ message: "ไม่พบโปรแกรม" });
     if (program.status === "approved") return res.status(400).json({ message: "ไม่สามารถลบโปรแกรมที่อนุมัติแล้วได้" });
     if (program.status === "pending")  return res.status(400).json({ message: "ไม่สามารถลบโปรแกรมที่รออนุมัติอยู่ได้" });
 
     await TrainingProgram.findByIdAndDelete(req.params.id);
-    await ProgramExercise.deleteMany({ program_id: req.params.id }); // ลบท่าทั้งหมดด้วย
+    await ProgramExercise.deleteMany({ program_id: req.params.id }); 
     res.json({ message: "ลบสำเร็จ" });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -165,13 +191,30 @@ router.patch("/:id/submit", auth, async (req, res) => {
     program.status = "pending";
     program.instructor_comment = "";
     await program.save();
+
+    try {
+      const instructors = await User.find({ role: "instructor" });
+      for (let instructor of instructors) {
+        await Notification.create({
+          userId: instructor._id,
+          senderId: req.userId, 
+          title: "มีโปรแกรมฝึกซ้อมใหม่",
+          message: `เทรนเนอร์ได้ส่งโปรแกรมฝึกซ้อม [${program.program_name}] เข้ามาเพื่อให้คุณตรวจสอบและอนุมัติ`,
+          url: "/instructor/programs", 
+          type: "info"
+        });
+      }
+    } catch (notiErr) {
+      console.error("สร้างการแจ้งเตือนข้อผิดพลาด (Submit Program):", notiErr);
+    }
+
     res.json(program);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
 });
 
-// PATCH /api/programs/:id/cancel — ยกเลิกการส่ง (pending → draft)
+// PATCH /api/programs/:id/cancel — ยกเลิกการส่ง
 router.patch("/:id/cancel", auth, async (req, res) => {
   try {
     const program = await TrainingProgram.findOne({ _id: req.params.id, trainer_id: req.userId });
@@ -181,6 +224,16 @@ router.patch("/:id/cancel", auth, async (req, res) => {
 
     program.status = "draft";
     await program.save();
+
+    try {
+      await Notification.deleteMany({
+        title: "มีโปรแกรมฝึกซ้อมใหม่",
+        message: { $regex: program.program_name }
+      });
+    } catch (notiErr) {
+      console.error(notiErr);
+    }
+
     res.json(program);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -199,6 +252,20 @@ router.patch("/:id/approve", auth, async (req, res) => {
       { new: true }
     );
     if (!updated) return res.status(404).json({ message: "ไม่พบโปรแกรม" });
+
+    try {
+      await Notification.create({
+        userId: updated.trainer_id, 
+        senderId: req.userId,      
+        title: "โปรแกรมการฝึกผ่านการอนุมัติ",
+        message: `อาจารย์ได้ทำการอนุมัติโปรแกรมการฝึก [${updated.program_name}] เรียบร้อยแล้ว`,
+        url: "/trainer/programs",  
+        type: "success"
+      });
+    } catch (notiErr) {
+      console.error("สร้างการแจ้งเตือนข้อผิดพลาด (Approve Program):", notiErr);
+    }
+
     res.json(updated);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -217,13 +284,27 @@ router.patch("/:id/reject", auth, async (req, res) => {
       { new: true }
     );
     if (!updated) return res.status(404).json({ message: "ไม่พบโปรแกรม" });
+
+    try {
+      await Notification.create({
+        userId: updated.trainer_id,
+        senderId: req.userId,      
+        title: "กรุณาแก้ไขโปรแกรมการฝึก",
+        message: `อาจารย์ได้ส่งคืนโปรแกรม [${updated.program_name}] พร้อมคำแนะนำ กรุณาตรวจสอบเพื่อทำการปรับปรุงแก้ไข`,
+        url: "/trainer/programs",  
+        type: "warning"
+      });
+    } catch (notiErr) {
+      console.error("สร้างการแจ้งเตือนข้อผิดพลาด (Reject Program):", notiErr);
+    }
+
     res.json(updated);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
 });
 
-// ── GET /api/programs/pending — อาจารย์ดูรออนุมัติ ───────────
+// [คงไว้กันพัง] ── GET /api/programs/pending — อาจารย์ดูรออนุมัติแบบเดิม ──
 router.get("/pending", auth, async (req, res) => {
   try {
     if (req.role !== "instructor" && req.role !== "admin")

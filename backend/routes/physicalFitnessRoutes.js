@@ -3,12 +3,14 @@ const router          = express.Router();
 const PhysicalFitness = require("../models/PhysicalFitness");
 const Trainee         = require("../models/Trainee");
 const jwt             = require("jsonwebtoken");
+const Notification    = require("../models/Notification"); // ➕ นำเข้าโมเดลแจ้งเตือน
+const User            = require("../models/User");         // ➕ นำเข้าโมเดล User เพื่อใช้ดึงข้อมูลอาจารย์
 
 const authMiddleware = (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
     if (!token) return res.status(401).json({ message: "ไม่มี token" });
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret123"); // 💡 เพิ่ม fallback secret ป้องกัน error หากไม่ได้ตั้งค่า env
     req.userId = decoded.id;
     next();
   } catch {
@@ -44,6 +46,30 @@ router.post("/", authMiddleware, async (req, res) => {
 
     const record = new PhysicalFitness(req.body);
     const saved  = await record.save();
+
+    // 🔔 แจ้งเตือนเด้งหา "อาจารย์ทุกคน" เพื่อรายงานผลการทดสอบสมรรถภาพทางกายของลูกเทรน
+    try {
+      // ค้นหาข้อมูลลูกเทรนเพื่อดึงชื่อเล่น/ชื่อจริงมาแสดงผลในข้อความแจ้งเตือน
+      const traineeInfo = await Trainee.findById(req.body.trainee_id);
+      const traineeName = traineeInfo ? traineeInfo.name : "ลูกเทรน";
+
+      // ดึงรายชื่ออาจารย์ทั้งหมดในระบบ
+      const instructors = await User.find({ role: "instructor" });
+      
+      for (let instructor of instructors) {
+        await Notification.create({
+          userId: instructor._id, // ส่งหาอาจารย์แต่ละท่าน
+          senderId: req.userId,   // ➕ แนบไอดีเทรนเนอร์ผู้บันทึกผลเข้าไป (ระบุตัวบุคคลว่า user ไหนทำรายการ)
+          title: "อัปเดตผลสมรรถภาพทางกาย",
+          message: `เทรนเนอร์ได้เพิ่มบันทึกผลการทดสอบสมรรถภาพทางกายรอบใหม่ของ [${traineeName}] เรียบร้อยแล้ว`,
+          url: "/admin",          // ➕ แนบ URL ปลายทาง เพื่อให้อาจารย์คลิกแล้วระบบพาไปยังหน้าเว็บที่กำหนดทันที
+          type: "info"
+        });
+      }
+    } catch (notiErr) {
+      console.error("สร้างการแจ้งเตือนข้อผิดพลาด (Create Physical Fitness Log):", notiErr);
+    }
+
     res.status(201).json(saved);
   } catch (err) {
     res.status(400).json({ message: err.message });

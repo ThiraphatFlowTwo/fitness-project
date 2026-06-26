@@ -5,6 +5,8 @@ const TrainingLogSet = require("../models/TrainingLogSet");
 const TrainingProgram = require("../models/TrainingProgram");
 const ProgramExercise = require("../models/ProgramExercise");
 const jwt = require("jsonwebtoken");
+const Notification = require("../models/Notification"); // ➕ นำเข้าโมเดลแจ้งเตือน
+const User = require("../models/User"); // ➕ นำเข้าโมเดล User เพื่อใช้ดึงรายชื่ออาจารย์
 
 const auth = (req, res, next) => {
   try {
@@ -162,6 +164,34 @@ router.post("/", auth, async (req, res) => {
         note: s.note || "",
       }));
       await TrainingLogSet.insertMany(setDocs);
+    }
+
+    // 🔔 แจ้งเตือนเด้งหา "อาจารย์ทุกคน" ในระบบเพื่อติดตามกิจกรรมประจำวัน
+    try {
+      // ค้นหาข้อมูลโปรแกรมฝึกซ้อมแบบละเอียดเพื่อนำชื่อโปรแกรมมาประกอบข้อความ
+      const populatedProgram = await TrainingProgram.findById(program_id);
+      const programName = populatedProgram
+        ? populatedProgram.program_name
+        : "โปรแกรมฝึกซ้อม";
+
+      // ดึงรายชื่ออาจารย์ทั้งหมดในระบบ
+      const instructors = await User.find({ role: "instructor" });
+
+      for (let instructor of instructors) {
+        await Notification.create({
+          userId: instructor._id, // ส่งหาอาจารย์แต่ละท่าน
+          senderId: req.userId,   // ➕ แนบไอดีเทรนเนอร์ผู้บันทึกกิจกรรมเข้ามา (รู้ว่าเป็น User คนไหน)
+          title: "บันทึกกิจกรรมการฝึกใหม่",
+          message: `เทรนเนอร์ได้ส่งบันทึกกิจกรรมการฝึกซ้อมประจำวันในโปรแกรม [${programName}] เข้าสู่ระบบ`,
+          url: "/admin",          // ➕ ระบุ URL ที่ต้องการให้อาจารย์คลิกแล้วเด้งเปลี่ยนหน้าไปในระบบของคุณทันที
+          type: "info",
+        });
+      }
+    } catch (notiErr) {
+      console.error(
+        "สร้างการแจ้งเตือนข้อผิดพลาด (Create Training Log):",
+        notiErr,
+      );
     }
 
     res.status(201).json({ message: "บันทึกสำเร็จ", log_id: savedLog._id });
