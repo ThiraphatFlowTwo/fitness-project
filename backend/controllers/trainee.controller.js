@@ -1,4 +1,6 @@
 const Trainee = require("../models/Trainee");
+const AcademicYear = require("../models/academicYear.model"); // 🔥 นำเข้า Model ปีการศึกษา
+const TrainingProgram = require("../models/TrainingProgram"); // 🔥 นำเข้า Model โปรแกรมการฝึก
 
 // เพิ่มลูกเทรน
 exports.addTrainee = async (req, res) => {
@@ -19,13 +21,31 @@ exports.addTrainee = async (req, res) => {
   }
 };
 
-// ดูลูกเทรนทั้งหมดของเทรนเนอร์ตัวเอง
+// ── ดูลูกเทรนทั้งหมดของเทรนเนอร์ตัวเอง (เฉพาะที่มีการเคลื่อนไหวในภาคเรียนปัจจุบัน) ──
 exports.getMyTrainees = async (req, res) => {
   try {
     const trainerId = req.user.id || req.user._id;
 
-    const trainees = await Trainee.find({ trainer: trainerId })
-      .sort({ createdAt: -1 });
+    // 1. หาภาคเรียนปัจจุบันที่แอดมินกำหนดสถานะเปิดใช้งาน (status: "active")
+    const activeYear = await AcademicYear.findOne({ status: "active" });
+    if (!activeYear) {
+      return res.status(404).json({ success: false, message: "ไม่พบปีการศึกษาที่เปิดใช้งานในระบบ" });
+    }
+
+    // 2. ค้นหาโปรแกรมทั้งหมดของเทรนเนอร์คนนี้ที่เกิดขึ้นในเทอมปัจจุบัน เพื่อเอา id ของลูกเทรน
+    const activePrograms = await TrainingProgram.find({
+      trainer_id: trainerId,
+      academic_year_id: activeYear._id
+    }).select("trainee_id");
+
+    // แปลงผลลัพธ์เป็น Array ของ ID
+    const activeTraineeIds = activePrograms.map(p => p.trainee_id);
+
+    // 3. ดึงข้อมูลลูกเทรนเฉพาะคนที่มีโปรแกรมผูกอยู่ในภาคเรียนนี้เท่านั้นมาแสดงบนหน้าเว็บ
+    const trainees = await Trainee.find({ 
+      _id: { $in: activeTraineeIds }, // 🔥 กรองเอาเฉพาะลูกเทรนที่แอคทีฟในเทอมปัจจุบัน
+      trainer: trainerId 
+    }).sort({ createdAt: -1 });
 
     res.json({ success: true, data: trainees });
   } catch (err) {

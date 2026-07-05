@@ -32,20 +32,39 @@ router.get("/active-year", auth, async (req, res) => {
   }
 });
 
-// ── [ปรับปรุง] GET /api/programs/instructor/all — อาจารย์ดูและนับจำนวนแยกแท็บ ──
+// ── [แก้ไขแล้ว] GET /api/programs/instructor/all — อาจารย์ดูและสามารถส่งไอดีปีการศึกษามากรองข้อมูลได้ ──
 router.get("/instructor/all", auth, async (req, res) => {
   try {
     if (req.role !== "instructor" && req.role !== "admin")
       return res.status(403).json({ message: "ไม่มีสิทธิ์" });
 
-    // รับค่ากรองสถานะจาก Frontend (เช่น ?status=pending)
-    const { status } = req.query;
+    // 🔥 รับค่ากรองสถานะงาน และ ไอดีปีการศึกษาจาก Frontend (เช่น ?status=pending&academicYearId=660c...)
+    const { status, academicYearId } = req.query;
     
-    // ตั้งค่าเงื่อนไขการค้นหา: ถ้ามี status ส่งมาให้กรองตามนั้น ถ้าไม่มีให้ดึงทั้งหมดมาเลย
-    const filter = status ? { status } : {};
+    let filter = {};
+
+    if (academicYearId) {
+      // 1. ถ้าอาจารย์กดเลือกปีเก่าๆ จาก Dropdown หน้าระบบ ให้กรองเอาเฉพาะปีการศึกษานั้นมาโชว์
+      filter.academic_year_id = academicYearId;
+    } else {
+      // 2. ถ้าอาจารย์เปิดหน้าเว็บมาครั้งแรก (ไม่ได้เลือกอะไรมา) บังคับแสดงเฉพาะเทอมปัจจุบัน (active) ก่อน
+      const activeYear = await AcademicYear.findOne({ status: "active" });
+      if (activeYear) {
+        filter.academic_year_id = activeYear._id;
+      }
+    }
+
+    if (status) {
+      filter.status = status;
+    }
 
     const programs = await TrainingProgram.find(filter)
-      .populate("trainer_id",       "name email")
+      // populate ข้อมูลเทรนเนอร์เพิ่มเพื่อให้รู้ว่าเด็กคนนี้ผูกกับปีไหน
+      .populate({
+        path: "trainer_id",
+        select: "name email academic_year_id",
+        populate: { path: "academic_year_id", select: "academic_year semester" }
+      })
       .populate("trainee_id",       "name goal")
       .populate("academic_year_id", "academic_year semester")
       .sort({ createdAt: -1 });
@@ -63,10 +82,16 @@ router.get("/instructor/all", auth, async (req, res) => {
   }
 });
 
-// ── GET /api/programs — ดึงโปรแกรมของเทรนเนอร์ตัวเอง ──────────
+// ── GET /api/programs — ดึงโปรแกรมของเทรนเนอร์ตัวเอง (เฉพาะภาคเรียนปัจจุบัน) ──
 router.get("/", auth, async (req, res) => {
   try {
-    const programs = await TrainingProgram.find({ trainer_id: req.userId })
+    const activeYear = await AcademicYear.findOne({ status: "active" });
+    if (!activeYear) return res.status(404).json({ message: "ไม่พบปีการศึกษาที่เปิดใช้งานในระบบ" });
+
+    const programs = await TrainingProgram.find({ 
+      trainer_id: req.userId,
+      academic_year_id: activeYear._id 
+    })
       .populate("trainee_id",       "name goal")
       .populate("academic_year_id", "academic_year semester")
       .sort({ createdAt: -1 });
@@ -192,7 +217,6 @@ router.patch("/:id/submit", auth, async (req, res) => {
     program.instructor_comment = "";
     await program.save();
 
-    // ✅ แจ้งเตือนอาจารย์ทุกคน
     const instructors = await User.find({ role: "instructor", status: "active" }).select("_id");
     const trainerUser = await User.findById(req.userId).select("name");
     await Promise.all(instructors.map(inst =>
@@ -224,7 +248,6 @@ router.patch("/:id/cancel", auth, async (req, res) => {
     program.status = "draft";
     await program.save();
 
-    // ✅ ลบ notification "program_submitted" ของโปรแกรมนี้ออกจากอาจารย์ทุกคน
     const Notification = require("../models/Notification");
     await Notification.deleteMany({
       type:      "program_submitted",
@@ -251,7 +274,6 @@ router.patch("/:id/approve", auth, async (req, res) => {
     );
     if (!updated) return res.status(404).json({ message: "ไม่พบโปรแกรม" });
 
-    // ✅ แจ้งเทรนเนอร์ว่าได้รับการอนุมัติ
     const instructorUser = await User.findById(req.userId).select("name");
     await createNotification({
       recipient_id:   updated.trainer_id,
@@ -282,7 +304,6 @@ router.patch("/:id/reject", auth, async (req, res) => {
     );
     if (!updated) return res.status(404).json({ message: "ไม่พบโปรแกรม" });
 
-    // ✅ แจ้งเทรนเนอร์ว่าถูกปฏิเสธ
     const instructorUser = await User.findById(req.userId).select("name");
     await createNotification({
       recipient_id:   updated.trainer_id,
@@ -300,13 +321,23 @@ router.patch("/:id/reject", auth, async (req, res) => {
   }
 });
 
-// [คงไว้กันพัง] ── GET /api/programs/pending — อาจารย์ดูรออนุมัติแบบเดิม ──
+// [คงไว้กันพัง] ── GET /api/programs/pending — อาจารย์ดูรออนุมัติ สามารถส่งปีการศึกษามากรองได้แบบเดียวกับด้านบน ──
 router.get("/pending", auth, async (req, res) => {
   try {
     if (req.role !== "instructor" && req.role !== "admin")
       return res.status(403).json({ message: "ไม่มีสิทธิ์" });
 
-    const programs = await TrainingProgram.find({ status: "pending" })
+    const { academicYearId } = req.query;
+    let filter = { status: "pending" };
+
+    if (academicYearId) {
+      filter.academic_year_id = academicYearId;
+    } else {
+      const activeYear = await AcademicYear.findOne({ status: "active" });
+      if (activeYear) filter.academic_year_id = activeYear._id;
+    }
+
+    const programs = await TrainingProgram.find(filter)
       .populate("trainer_id",       "name email")
       .populate("trainee_id",       "name goal")
       .populate("academic_year_id", "academic_year semester")

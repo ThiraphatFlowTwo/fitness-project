@@ -19,7 +19,7 @@ const bmiBadge = (bmi) => {
   if (bmi < 18.5) return { label: bmi.toFixed(1), cls: 'bg-blue-50 text-blue-600' };
   if (bmi < 25)   return { label: bmi.toFixed(1), cls: 'bg-green-50 text-green-600' };
   if (bmi < 30)   return { label: bmi.toFixed(1), cls: 'bg-amber-50 text-amber-600' };
-  return             { label: bmi.toFixed(1), cls: 'bg-red-50 text-red-600' };
+  return              { label: bmi.toFixed(1), cls: 'bg-red-50 text-red-600' };
 };
 
 const GRADIENTS = [
@@ -514,7 +514,7 @@ export default function TrainerDetail() {
                       const key  = s.exercise_id?._id || s.exercise_id;
                       const name = s.exercise_id?.exercise_name || '-';
                       const type = s.exercise_id?.exercise_type || '';
-                      if (!acc[key]) acc[key] = { name, type, note: s.note, sets: [] };
+                      if (!acc[key]) acc[key] = { name, type, sets: [] };
                       acc[key].sets.push(s);
                       return acc;
                     }, {});
@@ -540,21 +540,22 @@ export default function TrainerDetail() {
                                 <span className="text-center">RPE</span>
                                 <span className="text-center">✓</span>
                               </div>
-                              {ex.sets.sort((a, b) => a.set_number - b.set_number).map(set => (
-                                <div key={set.set_number}
-                                  className={`grid grid-cols-5 gap-2 text-sm py-1.5 px-1 rounded-lg mb-1 ${
+                              {[...ex.sets].sort((a, b) => a.set_number - b.set_number).map(set => (
+                                <div key={set.set_number} className="mb-2">
+                                  <div className={`grid grid-cols-5 gap-2 text-sm py-1.5 px-1 rounded-lg ${
                                     set.completed ? 'bg-green-50' : 'bg-white'
                                   }`}>
-                                  <span className="font-bold text-slate-600">{set.set_number}</span>
-                                  <span className="text-center text-slate-600">{set.weight ?? '-'}</span>
-                                  <span className="text-center text-slate-600">{set.reps ?? '-'}</span>
-                                  <span className="text-center text-slate-600">{set.rpe ?? '-'}</span>
-                                  <span className="text-center">{set.completed ? '✅' : '—'}</span>
+                                    <span className="font-bold text-slate-600">{set.set_number}</span>
+                                    <span className="text-center text-slate-600">{set.weight ?? '-'}</span>
+                                    <span className="text-center text-slate-600">{set.reps ?? '-'}</span>
+                                    <span className="text-center text-slate-600">{set.rpe ?? '-'}</span>
+                                    <span className="text-center">{set.completed ? '✅' : '—'}</span>
+                                  </div>
+                                  {set.note && (
+                                    <p className="text-xs text-slate-400 ml-6 mt-0.5 italic">💬 เซตที่ {set.set_number}: {set.note}</p>
+                                  )}
                                 </div>
                               ))}
-                              {ex.note && (
-                                <p className="text-xs text-slate-400 mt-2 italic">💬 {ex.note}</p>
-                              )}
                             </div>
                           </div>
                         ))}

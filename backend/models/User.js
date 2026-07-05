@@ -2,7 +2,6 @@ const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
   username: {
-    // = student_id / personnel_id
     type: String,
     required: true,
     unique: true,
@@ -12,14 +11,14 @@ const userSchema = new mongoose.Schema({
 
   email: {
     type: String,
-    required: true,      // ✅ บังคับ
-    unique: true,        // ✅ กันซ้ำระดับ DB
+    required: true,
+    unique: true,
     lowercase: true,
     trim: true,
     match: [
       /^\S+@\S+\.\S+$/,
       "รูปแบบ Email ไม่ถูกต้อง",
-    ],                    // ✅ validate format
+    ],
   },
 
   name: {
@@ -37,16 +36,22 @@ const userSchema = new mongoose.Schema({
 
   role: {
     type: String,
-    // เพิ่ม "pending" เข้าไปเพื่อให้สมัครสมาชิกแบบยังไม่มีสิทธิ์ได้
     enum: ["admin", "trainer", "instructor", "trainee", "pending"], 
     required: true,
-    default: "pending" // ตั้งให้เป็น pending อัตโนมัติ
+    default: "pending"
   },
 
   status: {
     type: String,
     enum: ["pending", "active", "inactive"],
     default: "pending",
+  },
+
+  // 🔥 สิ่งที่เพิ่มเข้ามา: ผูกกลุ่มเทรนเนอร์ (นักศึกษา) เข้ากับปีการศึกษาที่เปิดใช้งานตอนสมัครเรียน
+  academic_year_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "AcademicYear",
+    required: function() { return this.role === "trainer"; } // บังคับเฉพาะเมื่อมี Role เป็นเทรนเนอร์ (นักศึกษา)
   },
 
   created_at: {

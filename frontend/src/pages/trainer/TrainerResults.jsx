@@ -18,7 +18,6 @@ const API = "http://localhost:5000/api/logs";
 
 const authHeaders = () => {
   const token = localStorage.getItem("token");
-  // ✅ ไม่ redirect ออกเองตรงนี้ — แค่ส่ง header เปล่าไป backend จะตอบ 401 เอง
   return token
     ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
     : { "Content-Type": "application/json" };
@@ -90,10 +89,9 @@ const getFieldConfig = (category) => {
   }
 };
 
-const DRAFT_KEY = "trainer_results_draft"; // ✅ key สำหรับเก็บ draft กันข้อมูลหายตอนหน้า reload
+const DRAFT_KEY = "trainer_results_draft";
 
 const TrainerResults = () => {
-  // ✅ โหลด draft เดิมกลับมา (ถ้ามี) ตอนเปิดหน้าครั้งแรก
   const loadDraft = () => {
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
@@ -107,7 +105,7 @@ const TrainerResults = () => {
   const [saving,           setSaving]           = useState(false);
   const [error,            setError]            = useState("");
   const [selectedProgram,  setSelectedProgram]  = useState(draft?.selectedProgram ?? null);
-  const [trainingDate,     setTrainingDate]      = useState(draft?.trainingDate ?? new Date().toISOString().split("T")[0]);
+  const [trainingDate,     setTrainingDate]     = useState(draft?.trainingDate ?? new Date().toISOString().split("T")[0]);
   const [logNote,          setLogNote]          = useState(draft?.logNote ?? "");
   const [workoutSessions,  setWorkoutSessions]  = useState(draft?.workoutSessions ?? []);
   const [isExerciseModal,  setIsExerciseModal]  = useState(false);
@@ -115,9 +113,9 @@ const TrainerResults = () => {
   const [exMuscleFilter,   setExMuscleFilter]   = useState("");
   const [exEquipFilter,    setExEquipFilter]    = useState("");
   const [timerSeconds,     setTimerSeconds]     = useState(draft?.timerSeconds ?? 0);
-  const [isTimerRunning,   setIsTimerRunning]   = useState(false); // ไม่ resume timer อัตโนมัติ ป้องกันนับเวลาผิด
-  const [photoFile,        setPhotoFile]        = useState(null);   // ✅ ไฟล์รูปยืนยัน (กู้คืนไม่ได้ ต้องถ่ายใหม่)
-  const [photoPreview,     setPhotoPreview]     = useState(null);   // ✅ preview รูป
+  const [isTimerRunning,   setIsTimerRunning]   = useState(false);
+  const [photoFile,        setPhotoFile]        = useState(null);
+  const [photoPreview,     setPhotoPreview]     = useState(null);
 
   useEffect(() => {
     const fetchPrograms = async () => {
@@ -143,22 +141,18 @@ const TrainerResults = () => {
     return () => clearInterval(interval);
   }, [isTimerRunning]);
 
-  // ✅ เตือนก่อนออกจากหน้า/ปิด tab/refresh ถ้ายังกรอกข้อมูลไม่ได้บันทึก
   useEffect(() => {
     const hasUnsavedData = workoutSessions.length > 0;
-
     const handleBeforeUnload = (e) => {
       if (!hasUnsavedData) return;
       e.preventDefault();
-      e.returnValue = ""; // ต้องตั้งค่านี้เพื่อให้ browser แสดง confirm dialog
+      e.returnValue = "";
       return "";
     };
-
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [workoutSessions]);
 
-  // ✅ Auto-save draft ลง localStorage ทุกครั้งที่ข้อมูลเปลี่ยน — กันข้อมูลหายถ้าหน้า reload จริงๆ
   useEffect(() => {
     if (workoutSessions.length === 0) {
       localStorage.removeItem(DRAFT_KEY);
@@ -167,7 +161,7 @@ const TrainerResults = () => {
     const draftData = { selectedProgram, trainingDate, logNote, workoutSessions, timerSeconds };
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
-    } catch { /* localStorage เต็มหรือ error อื่นๆ ไม่ critical */ }
+    } catch {}
   }, [selectedProgram, trainingDate, logNote, workoutSessions, timerSeconds]);
 
   const formatTime = (s) => {
@@ -317,7 +311,6 @@ const TrainerResults = () => {
     ]);
   };
 
-  // ── เลือกรูปยืนยัน ────────────────────────────────────────────
   const handlePhotoSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -333,15 +326,12 @@ const TrainerResults = () => {
     setPhotoPreview(null);
   };
 
-  // ── บันทึก ────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!selectedProgram)        { alert("กรุณาเลือกโปรแกรม"); return; }
     if (workoutSessions.length === 0) { alert("กรุณาเลือกท่าอย่างน้อย 1 ท่า"); return; }
 
     const completedSets = workoutSessions.flatMap(s => s.sets).filter(st => st.completed).length;
     if (completedSets === 0 && !window.confirm("ยังไม่มีเซตที่ทำเสร็จ ต้องการบันทึกหรือไม่?")) return;
-
-    // ✅ ขอให้แนบรูปยืนยันก่อนบันทึก (เตือนแต่ไม่บังคับ)
     if (!photoFile && !window.confirm("ยังไม่ได้แนบรูปยืนยันการฝึก ต้องการบันทึกโดยไม่มีรูปหรือไม่?")) return;
 
     setSaving(true);
@@ -359,7 +349,6 @@ const TrainerResults = () => {
         })),
       );
 
-      // ✅ ใช้ FormData เพื่อแนบไฟล์รูปยืนยันไปด้วย
       const formData = new FormData();
       formData.append("program_id",    selectedProgram._id);
       formData.append("trainee_id",    selectedProgram.trainee_id?._id || selectedProgram.trainee_id);
@@ -369,10 +358,11 @@ const TrainerResults = () => {
       formData.append("sets",          JSON.stringify(sets));
       if (photoFile) formData.append("photo", photoFile);
 
-      const token = getToken();
+      // ✅ แก้ไขตรงนี้: ดึง token จาก localStorage ตรงๆ
+      const token = localStorage.getItem("token");
       const res = await fetch(API, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` }, // ❗ ห้ามใส่ Content-Type เอง ให้ browser ตั้ง boundary เอง
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
       const data = await res.json();
@@ -380,9 +370,10 @@ const TrainerResults = () => {
         alert(`บันทึกไม่สำเร็จ: ${data.message}`);
         return;
       }
-      alert(
-        `✅ บันทึกผลการฝึกสำเร็จ!\nโปรแกรม: ${selectedProgram.program_name}\nเวลา: ${formatTime(timerSeconds)}`,
-      );
+      alert(`✅ บันทึกผลการฝึกสำเร็จ!\nโปรแกรม: ${selectedProgram.program_name}\nเวลา: ${formatTime(timerSeconds)}`);
+      
+      // ล้างค่าหลังจากบันทึกเสร็จ
+      localStorage.removeItem(DRAFT_KEY);
       setSelectedProgram(null);
       setWorkoutSessions([]);
       setTimerSeconds(0);
@@ -419,14 +410,11 @@ const TrainerResults = () => {
         <div className="mb-4 md:mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             เลือกโปรแกรมการฝึก <span className="text-red-500">*</span>
-            <span className="text-xs text-gray-400 ml-2">
-              (แสดงเฉพาะที่อนุมัติแล้ว)
-            </span>
+            <span className="text-xs text-gray-400 ml-2">(แสดงเฉพาะที่อนุมัติแล้ว)</span>
           </label>
           {approvedPrograms.length === 0 ? (
             <div className="p-3 md:p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 text-sm">
-              ⚠️ ยังไม่มีโปรแกรมที่อนุมัติแล้ว
-              กรุณาสร้างและส่งอาจารย์อนุมัติก่อน
+              ⚠️ ยังไม่มีโปรแกรมที่อนุมัติแล้ว กรุณาสร้างและส่งอาจารย์อนุมัติก่อน
             </div>
           ) : (
             <select
@@ -453,10 +441,7 @@ const TrainerResults = () => {
                   {[
                     { icon: User, text: selectedProgram.trainee_id?.name },
                     { icon: Target, text: selectedProgram.trainee_id?.goal },
-                    {
-                      icon: Dumbbell,
-                      text: `${selectedProgram.exercises?.length || 0} ท่า`,
-                    },
+                    { icon: Dumbbell, text: `${selectedProgram.exercises?.length || 0} ท่า` },
                   ].map(({ icon: Icon, text }) => (
                     <div key={text} className="flex items-center space-x-1.5">
                       <Icon className="w-4 h-4 text-purple-600 shrink-0" />
@@ -510,9 +495,7 @@ const TrainerResults = () => {
             {workoutSessions.length === 0 ? (
               <div className="text-center py-10 md:py-12 border-2 border-dashed border-gray-300 rounded-lg mb-4 md:mb-6">
                 <Dumbbell className="w-12 h-12 md:w-16 md:h-16 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500 text-sm md:text-base">
-                  กดปุ่ม "จัดการท่า" เพื่อเริ่มบันทึก
-                </p>
+                <p className="text-gray-500 text-sm md:text-base">กดปุ่ม "จัดการท่า" เพื่อเริ่มบันทึก</p>
               </div>
             ) : (
               <div className="space-y-3 md:space-y-4 mb-4 md:mb-6">
@@ -520,71 +503,41 @@ const TrainerResults = () => {
                   .sort((a, b) => a.order - b.order)
                   .map((session) => {
                     const fields = getFieldConfig(session.exercise_category);
-                    const gridCols = `40px repeat(${fields.length}, 1fr) 60px 40px`;
+                    const gridCols = `40px repeat(${fields.length}, 1fr) 60px 50px`;
 
                     return (
-                      <div
-                        key={session.exercise_id}
-                        className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden"
-                      >
+                      <div key={session.exercise_id} className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
                         <div className="flex justify-between items-center p-3 md:p-4 bg-white border-b border-gray-100">
                           <div>
-                            <h4 className="font-bold text-gray-800 text-sm md:text-base">
-                              {session.exercise_name}
-                            </h4>
+                            <h4 className="font-bold text-gray-800 text-sm md:text-base">{session.exercise_name}</h4>
                             <div className="flex gap-1.5 mt-1 flex-wrap">
-                              <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
-                                {session.exercise_type}
-                              </span>
-                              <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">
-                                {session.equipment}
-                              </span>
+                              <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded">{session.exercise_type}</span>
+                              <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">{session.equipment}</span>
                             </div>
                           </div>
-                          <button
-                            onClick={() => removeExercise(session.exercise_id)}
-                            className="text-red-400 hover:text-red-600 ml-2"
-                          >
+                          <button onClick={() => removeExercise(session.exercise_id)} className="text-red-400 hover:text-red-600 ml-2">
                             <X className="w-4 h-4 md:w-5 md:h-5" />
                           </button>
                         </div>
 
                         <div className="p-3 md:p-4 overflow-x-auto">
-                          {/* Header row */}
-                          <div
-                            className="grid gap-1.5 text-xs font-semibold text-gray-500 mb-2 px-1 min-w-[280px]"
-                            style={{ gridTemplateColumns: gridCols }}
-                          >
+                          <div className="grid gap-1.5 text-xs font-semibold text-gray-500 mb-2 px-1 min-w-[320px]" style={{ gridTemplateColumns: gridCols }}>
                             <span>เซต</span>
                             {fields.map((f) => (
-                              <span key={f.field} className="text-center">
-                                {f.label}({f.unit})
-                              </span>
+                              <span key={f.field} className="text-center">{f.label}({f.unit})</span>
                             ))}
                             <span className="text-center">RPE</span>
                             <span className="text-center">✓</span>
                           </div>
 
                           {session.sets.map((set, idx) => (
-                            <div
-                              key={idx}
-                              className="grid gap-1.5 items-center mb-2 min-w-[280px]"
-                              style={{ gridTemplateColumns: gridCols }}
-                            >
+                            <div key={idx} className="grid gap-1.5 items-center mb-2 min-w-[320px]" style={{ gridTemplateColumns: gridCols }}>
                               <div className="flex items-center space-x-0.5">
                                 <span className="w-5 h-5 md:w-6 md:h-6 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
                                   {set.set_number}
                                 </span>
                                 {session.sets.length > 1 && (
-                                  <button
-                                    onClick={() =>
-                                      removeSet(
-                                        session.exercise_id,
-                                        set.set_number,
-                                      )
-                                    }
-                                    className="text-gray-300 hover:text-red-400"
-                                  >
+                                  <button onClick={() => removeSet(session.exercise_id, set.set_number)} className="text-gray-300 hover:text-red-400">
                                     <X className="w-2.5 h-2.5" />
                                   </button>
                                 )}
@@ -594,14 +547,7 @@ const TrainerResults = () => {
                                   key={f.field}
                                   type="number"
                                   value={set[f.field]}
-                                  onChange={(e) =>
-                                    updateSet(
-                                      session.exercise_id,
-                                      set.set_number,
-                                      f.field,
-                                      e.target.value,
-                                    )
-                                  }
+                                  onChange={(e) => updateSet(session.exercise_id, set.set_number, f.field, e.target.value)}
                                   className={`border rounded-lg px-1 py-1.5 text-center text-xs md:text-sm focus:ring-1 focus:ring-purple-400 ${set.completed ? "bg-green-50 border-green-200" : "border-gray-200"}`}
                                   placeholder={f.placeholder}
                                   step={f.step}
@@ -611,14 +557,7 @@ const TrainerResults = () => {
                               <input
                                 type="number"
                                 value={set.rpe}
-                                onChange={(e) =>
-                                  updateSet(
-                                    session.exercise_id,
-                                    set.set_number,
-                                    "rpe",
-                                    e.target.value,
-                                  )
-                                }
+                                onChange={(e) => updateSet(session.exercise_id, set.set_number, "rpe", e.target.value)}
                                 className={`border rounded-lg px-1 py-1.5 text-center text-xs md:text-sm focus:ring-1 focus:ring-purple-400 ${set.completed ? "bg-green-50 border-green-200" : "border-gray-200"}`}
                                 placeholder="1-10"
                                 min="1"
@@ -626,41 +565,23 @@ const TrainerResults = () => {
                               />
                               <div className="flex justify-center">
                                 <button
-                                  onClick={() =>
-                                    updateSet(
-                                      session.exercise_id,
-                                      set.set_number,
-                                      "completed",
-                                      !set.completed,
-                                    )
-                                  }
-                                  className={`w-7 h-7 md:w-9 md:h-9 rounded-lg flex items-center justify-center transition-colors ${set.completed ? "bg-green-500 text-white" : "bg-gray-200 hover:bg-gray-300"}`}
+                                  onClick={() => updateSet(session.exercise_id, set.set_number, "completed", !set.completed)}
+                                  className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center transition-colors ${set.completed ? "bg-green-500 text-white" : "bg-gray-200 hover:bg-gray-300"}`}
                                 >
-                                  {set.completed && (
-                                    <Check className="w-3 h-3 md:w-4 md:h-4" />
-                                  )}
+                                  {set.completed && <Check className="w-3 h-3 md:w-4 md:h-4" />}
                                 </button>
                               </div>
                             </div>
                           ))}
 
-                          <button
-                            onClick={() => addSet(session.exercise_id)}
-                            className="w-full mt-2 bg-white border-2 border-dashed border-gray-300 hover:border-purple-400 text-gray-500 hover:text-purple-600 py-1.5 md:py-2 rounded-lg flex items-center justify-center text-xs md:text-sm transition-colors"
-                          >
-                            <Plus className="w-3.5 h-3.5 mr-1" />
-                            เพิ่มเซต
+                          <button onClick={() => addSet(session.exercise_id)} className="w-full mt-2 bg-white border-2 border-dashed border-gray-300 hover:border-purple-400 text-gray-500 hover:text-purple-600 py-1.5 md:py-2 rounded-lg flex items-center justify-center text-xs md:text-sm transition-colors">
+                            <Plus className="w-3.5 h-3.5 mr-1" /> เพิ่มเซต
                           </button>
 
                           <input
                             type="text"
                             value={session.note}
-                            onChange={(e) =>
-                              updateSessionNote(
-                                session.exercise_id,
-                                e.target.value,
-                              )
-                            }
+                            onChange={(e) => updateSessionNote(session.exercise_id, e.target.value)}
                             className="w-full mt-2 border border-gray-200 rounded-lg px-3 py-1.5 text-xs md:text-sm text-gray-600 placeholder-gray-400 focus:ring-1 focus:ring-purple-400"
                             placeholder="หมายเหตุสำหรับท่านี้..."
                           />
@@ -674,9 +595,7 @@ const TrainerResults = () => {
             {/* หมายเหตุรวม */}
             {workoutSessions.length > 0 && (
               <div className="mb-4 md:mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-1 md:mb-2">
-                  📝 หมายเหตุรวม
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 md:mb-2">📝 หมายเหตุรวม</label>
                 <textarea
                   value={logNote}
                   onChange={(e) => setLogNote(e.target.value)}
@@ -687,36 +606,22 @@ const TrainerResults = () => {
               </div>
             )}
 
-            {/* ✅ แนบรูปยืนยันการฝึก */}
+            {/* แนบรูปยืนยันการฝึก */}
             {workoutSessions.length > 0 && (
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  📷 รูปยืนยันการฝึก
-                </label>
-
+                <label className="block text-sm font-medium text-gray-700 mb-2">📷 รูปยืนยันการฝึก</label>
                 {photoPreview ? (
                   <div className="relative inline-block">
-                    <img src={photoPreview} alt="รูปยืนยันการฝึก"
-                      className="w-48 h-48 object-cover rounded-xl border border-gray-200 shadow-sm" />
-                    <button
-                      type="button"
-                      onClick={removePhoto}
-                      className="absolute -top-2 -right-2 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md">
+                    <img src={photoPreview} alt="รูปยืนยันการฝึก" className="w-48 h-48 object-cover rounded-xl border border-gray-200 shadow-sm" />
+                    <button type="button" onClick={removePhoto} className="absolute -top-2 -right-2 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
                 ) : (
-                  <label className="flex flex-col items-center justify-center w-48 h-48 border-2 border-dashed
-                                     border-gray-300 rounded-xl cursor-pointer hover:border-purple-400 hover:bg-purple-50
-                                     transition-colors text-gray-400">
+                  <label className="flex flex-col items-center justify-center w-48 h-48 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors text-gray-400">
                     <Plus className="w-8 h-8 mb-1" />
                     <span className="text-xs font-medium">ถ่าย / เลือกรูป</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={handlePhotoSelect}
-                      className="hidden" />
+                    <input type="file" accept="image/*" capture="environment" onChange={handlePhotoSelect} className="hidden" />
                   </label>
                 )}
                 <p className="text-xs text-gray-400 mt-1.5">แนบรูปขณะฝึกซ้อมเพื่อยืนยันว่ามีการเทรนจริง (ไม่เกิน 5MB)</p>
@@ -729,6 +634,7 @@ const TrainerResults = () => {
                 <button
                   onClick={() => {
                     if (!window.confirm("ยกเลิกการบันทึกใช่หรือไม่?")) return;
+                    localStorage.removeItem(DRAFT_KEY);
                     setSelectedProgram(null);
                     setWorkoutSessions([]);
                     setTimerSeconds(0);
@@ -736,7 +642,7 @@ const TrainerResults = () => {
                     setLogNote("");
                     removePhoto();
                   }}
-                  className="px-4 md:px-6 py-2 md:py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-semibold text-sm md:text-base"
+                  className="px-4 md:px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-semibold text-sm md:text-base"
                 >
                   ยกเลิก
                 </button>
@@ -769,17 +675,10 @@ const TrainerResults = () => {
           <div className="bg-gray-900 text-white rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
             <div className="p-4 md:p-5 border-b border-gray-700 flex justify-between items-center">
               <div>
-                <h3 className="text-base md:text-lg font-bold">
-                  จัดการท่าออกกำลังกาย
-                </h3>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  เลือกแล้ว {workoutSessions.length} ท่า
-                </p>
+                <h3 className="text-base md:text-lg font-bold">จัดการท่าออกกำลังกาย</h3>
+                <p className="text-xs text-gray-400 mt-0.5">เลือกแล้ว {workoutSessions.length} ท่า</p>
               </div>
-              <button
-                onClick={() => setIsExerciseModal(false)}
-                className="text-gray-400 hover:text-white"
-              >
+              <button onClick={() => setIsExerciseModal(false)} className="text-gray-400 hover:text-white">
                 <X className="w-5 h-5 md:w-6 md:h-6" />
               </button>
             </div>
@@ -799,75 +698,52 @@ const TrainerResults = () => {
                 <select
                   value={exMuscleFilter}
                   onChange={(e) => setExMuscleFilter(e.target.value)}
-                  className="bg-gray-800 text-white border border-gray-700 rounded-lg px-2 py-1.5 text-sm"
+                  className="bg-gray-800 text-white border border-gray-700 rounded-lg px-2 py-1.5 text-xs outline-none"
                 >
-                  <option value="">ทุกประเภท</option>
-                  {muscleTypes.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
+                  <option value="">กลุ่มกล้ามเนื้อทั้งหมด</option>
+                  {muscleTypes.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
                 <select
                   value={exEquipFilter}
                   onChange={(e) => setExEquipFilter(e.target.value)}
-                  className="bg-gray-800 text-white border border-gray-700 rounded-lg px-2 py-1.5 text-sm"
+                  className="bg-gray-800 text-white border border-gray-700 rounded-lg px-2 py-1.5 text-xs outline-none"
                 >
-                  <option value="">ทุกอุปกรณ์</option>
-                  {equipTypes.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
+                  <option value="">อุปกรณ์ทั้งหมด</option>
+                  {equipTypes.map(eq => <option key={eq} value={eq}>{eq}</option>)}
                 </select>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-2">
+            <div className="p-2 overflow-y-auto flex-1 space-y-1">
               {filteredModal.length === 0 ? (
-                <p className="text-center text-gray-400 py-8 text-sm">
-                  ไม่พบท่าที่ค้นหา
-                </p>
+                <p className="text-center py-6 text-gray-500 text-sm">ไม่พบท่าที่ตรงกับเงื่อนไข</p>
               ) : (
                 filteredModal.map((ex) => {
                   const exId = ex.exercise_id?._id || ex.exercise_id;
                   const added = isExerciseAdded(exId);
                   return (
-                    <button
-                      key={exId}
-                      onClick={() => toggleExerciseInModal(ex)}
-                      className={`w-full flex items-center justify-between p-3 rounded-xl transition-colors ${added ? "bg-purple-600" : "bg-gray-800 hover:bg-gray-700"}`}
-                    >
-                      <div className="text-left">
-                        <p className="font-semibold text-xs md:text-sm">
-                          {ex.exercise_id?.exercise_name}
-                        </p>
-                        <div className="flex gap-2 mt-1">
-                          <span className="text-xs text-purple-300">
-                            {ex.exercise_id?.exercise_type}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            • {ex.exercise_id?.equipment_type}
-                          </span>
-                        </div>
+                    <div key={exId} className="flex justify-between items-center p-2.5 hover:bg-gray-800 rounded-lg transition-colors">
+                      <div>
+                        <p className="font-medium text-sm">{ex.exercise_id?.exercise_name}</p>
+                        <p className="text-xs text-gray-400">{ex.exercise_id?.exercise_type} · {ex.exercise_id?.equipment_type}</p>
                       </div>
-                      {added && (
-                        <div className="w-5 h-5 md:w-6 md:h-6 bg-white rounded-full flex items-center justify-center shrink-0">
-                          <Check className="w-3 h-3 md:w-4 md:h-4 text-purple-600" />
-                        </div>
-                      )}
-                    </button>
+                      <button
+                        onClick={() => toggleExerciseInModal(ex)}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                          added ? "bg-red-600 text-white hover:bg-red-700" : "bg-purple-600 text-white hover:bg-purple-700"
+                        }`}
+                      >
+                        {added ? "นำออก" : "เลือก"}
+                      </button>
+                    </div>
                   );
                 })
               )}
             </div>
 
-            <div className="p-3 md:p-4 border-t border-gray-700">
-              <button
-                onClick={() => setIsExerciseModal(false)}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 md:py-3 rounded-xl font-semibold text-sm md:text-base"
-              >
-                ยืนยัน ({workoutSessions.length} ท่า)
+            <div className="p-4 border-t border-gray-700 flex justify-end">
+              <button onClick={() => setIsExerciseModal(false)} className="bg-gray-800 hover:bg-gray-700 px-5 py-2 rounded-lg text-sm font-semibold">
+                ปิดหน้าต่าง
               </button>
             </div>
           </div>

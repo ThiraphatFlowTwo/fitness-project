@@ -3,27 +3,30 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const Trainer = require("../models/Trainer"); // ➕ นำเข้า Model Trainer เพิ่ม
+const AcademicYear = require("../models/academicYear.model"); // ➕ นำเข้า Model ปีการศึกษาเพิ่ม
 const { protect } = require("../middleware/authMiddleware");
 const { createNotification } = require("../utils/notificationHelper");
 
 /* =========================
-   REGISTER
+    REGISTER (ล็อกสิทธิ์ Trainer + ผูกเทอม Active อัตโนมัติ)
 ========================= */
 router.post("/register", async (req, res) => {
   try {
-    const { username, email, password, role, name } = req.body;
+    // 🔒 ถอดการรับค่า role ออกจาก req.body เพื่อบังคับให้เป็นเทรนเนอร์ (นักศึกษา) เสมอจากหลังบ้าน
+    const { username, email, password, name, student_id } = req.body;
 
-    // 🔴 Validate ครบทุกช่อง
-    if (!username || !email || !password || !role || !name) {
+    // 🔴 Validate ข้อมูลที่จำเป็น
+    if (!username || !email || !password || !name || !student_id) {
       return res.status(400).json({
-        message: "กรุณากรอกข้อมูลให้ครบทุกช่อง",
+        message: "กรุณากรอกข้อมูลให้ครบทุกช่องรวมถึงรหัสนักศึกษา",
       });
     }
 
     // 🔴 เช็คซ้ำ username
     const existUser = await User.findOne({ username });
     if (existUser) {
-      return res.status(400).json({ message: "มีผู้ใช้นี้แล้ว" });
+      return res.status(400).json({ message: "Username นี้ถูกใช้งานแล้ว" });
     }
 
     // 🔴 เช็คซ้ำ email
@@ -32,32 +35,51 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ message: "Email นี้ถูกใช้งานแล้ว" });
     }
 
+    // 🔍 2. ค้นหาปีการศึกษาปัจจุบันที่เปิดใช้งานอยู่ (status: "active") เพื่อให้ข้อมูลตรงสเปกความต้องการ
+    const activeYear = await AcademicYear.findOne({ status: "active" });
+    if (!activeYear) {
+      return res.status(400).json({
+        message: "ไม่สามารถลงทะเบียนได้ในขณะนี้ เนื่องจากระบบยังไม่ได้เปิดใช้งานปีการศึกษาปัจจุบัน (แอดมินต้องเปิดสถานะ active ก่อน)",
+      });
+    }
+
     // hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // ⭐ สร้าง user
+    // ⭐ 3. สร้าง User บัญชีเข้าสู่ระบบ (ผูกไอดีปีการศึกษาจริงที่เจอ)
     const user = new User({
       username,
       email,
       password: hashedPassword,
-      role,
+      role: "trainer",                 // 🔒 ล็อกบทบาทเทรนเนอร์โดยตรง
       name,
-      status: "pending",
+      status: "pending",               // รอการอนุมัติใช้งาน
+      academic_year_id: activeYear._id // 🔗 ผูกปีการศึกษาตามลอจิกที่ถูกต้อง
     });
 
     await user.save();
 
-    // ✅ แจ้งเตือนแอดมินทุกคนว่ามี user ใหม่รออนุมัติ
-    const roleLabel = { trainer: "เทรนเนอร์", instructor: "อาจารย์" };
+    // ⚡ 4. สร้าง Profile ลงในตาราง Trainer พ่วงคู่กันไปทันที
+    await Trainer.create({
+      user_id: user._id,
+      student_id,
+      name,
+      email,
+      academic_year_id: activeYear._id // 🔗 ผูกปีการศึกษาเข้าหน้าประวัตินักศึกษาด้วย
+    });
+
+    // ✅ 5. ส่งการแจ้งเตือนหาแอดมินโดยใช้ helper เดิมของไฟล์นี้
     const admins = await User.find({ role: "admin", status: "active" }).select("_id");
+    const yearText = `ประจำปีการศึกษา ${activeYear.academic_year}/${activeYear.semester}`;
+    
     await Promise.all(admins.map(admin =>
       createNotification({
         recipient_id:   admin._id,
         recipient_role: "admin",
         type:           "user_pending",
         title:          "มีคำขอสมัครสมาชิกใหม่",
-        message:        `คุณ ${name} ขอสมัครเป็น "${roleLabel[role] ?? role}" รอการตรวจสอบและอนุมัติสิทธิ์`,
+        message:        `คุณ ${name} ขอสมัครเป็น "เทรนเนอร์" ${yearText} รอการตรวจสอบและอนุมัติสิทธิ์`,
         ref_id:         user._id,
         ref_model:      "User",
       })
@@ -79,38 +101,52 @@ router.post("/register", async (req, res) => {
 
     if (err.name === "ValidationError") {
       return res.status(400).json({
-        message: "ข้อมูลไม่ครบหรือรูปแบบไม่ถูกต้อง",
+        message: "ข้อมูลไม่ครบหรือรูปแบบไม่ถูกต้องตาม Schema",
         error: err.message,
       });
     }
 
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error: " + err.message });
   }
 });
 
 /* =========================
-   LOGIN
+    LOGIN (เพิ่มการเช็คปีการศึกษาเก่า)
 ========================= */
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    // 1. ค้นหาผู้ใช้ และทำการดึงข้อมูล (populate) ปีการศึกษามาตรวจสอบพร้อมกัน
+    const user = await User.findOne({ email }).populate("academic_year_id");
     if (!user) {
       return res.status(400).json({ message: "ไม่พบบัญชีผู้ใช้" });
     }
 
+    // 2. เช็คว่าแอดมินอนุมัติสิทธิ์หรือยัง
     if (user.status !== "active") {
       return res.status(403).json({
         message: "บัญชีนี้ยังไม่ได้รับการอนุมัติจากผู้ดูแลระบบ",
       });
     }
 
+    // 🔒 3. เช็คเงื่อนไขปีการศึกษาเก่า (เฉพาะบทบาทที่เป็น "trainer")
+    // ถ้าผู้ใช้เป็นเทรนเนอร์ และไม่มีข้อมูลปีการศึกษา หรือปีการศึกษานั้นไม่ได้เปิดใช้งานอยู่ (ไม่ใช่ active)
+    if (user.role === "trainer") {
+      if (!user.academic_year_id || user.academic_year_id.status !== "active") {
+        return res.status(403).json({
+          message: "ไม่สามารถเข้าสู่ระบบได้ เนื่องจากบัญชีนี้ผูกอยู่กับปีการศึกษาที่สิ้นสุดการใช้งานไปแล้ว",
+        });
+      }
+    }
+
+    // 4. ตรวจสอบรหัสผ่าน
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: "รหัสผ่านไม่ถูกต้อง" });
     }
 
+    // 5. สร้าง Token สำหรับ Sign-in
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET || "secret123",
@@ -128,12 +164,12 @@ router.post("/login", async (req, res) => {
     });
   } catch (err) {
     console.error("LOGIN ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error: " + err.message });
   }
 });
 
 /* =========================
-   GET PROFILE
+    GET PROFILE
 ========================= */
 router.get("/profile", protect, async (req, res) => {
   try {
@@ -146,13 +182,12 @@ router.get("/profile", protect, async (req, res) => {
 });
 
 /* =========================
-   UPDATE PROFILE
+    UPDATE PROFILE
 ========================= */
 router.put("/profile", protect, async (req, res) => {
   try {
     const { name, email } = req.body;
 
-    // เช็ค email ซ้ำกับคนอื่น
     const exist = await User.findOne({ email, _id: { $ne: req.user.id } });
     if (exist) return res.status(400).json({ message: "Email นี้ถูกใช้งานแล้ว" });
 
@@ -169,7 +204,7 @@ router.put("/profile", protect, async (req, res) => {
 });
 
 /* =========================
-   CHANGE PASSWORD
+    CHANGE PASSWORD
 ========================= */
 router.put("/change-password", protect, async (req, res) => {
   try {
@@ -192,4 +227,4 @@ router.put("/change-password", protect, async (req, res) => {
   }
 });
 
-module.exports = router;   // ⭐⭐ สำคัญมาก
+module.exports = router;

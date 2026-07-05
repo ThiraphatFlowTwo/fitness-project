@@ -3,82 +3,77 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Trainer = require("../models/Trainer");
 const Instructor = require("../models/Instructor");
-const Notification = require("../models/Notification"); // ➕ นำเข้า Model Notification เพิ่มตรงนี้
+const Notification = require("../models/Notification");
+const AcademicYear = require("../models/academicYear.model"); // ➕ นำเข้า Model ปีการศึกษาเพิ่มตรงนี้
 
 // ================= Register =================
 exports.register = async (req, res) => {
   try {
-    const { username, password, role, name, email, student_id } = req.body;
+    // 🔒 ล็อกรับค่า บังคับเป็นสิทธิ์ trainer เสมอเพื่อความปลอดภัย
+    const { username, password, name, email, student_id } = req.body;
 
-    // 1. เช็ค Username ซ้ำ
+    // 1. เช็ค Username ซ้ำในระบบ
     const existUser = await User.findOne({ username });
     if (existUser) {
       return res.status(400).json({ message: "Username นี้ถูกใช้งานแล้ว" });
     }
 
-    // 2. Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    // 2. 🔍 ค้นหาปีการศึกษาปัจจุบันที่ Active (ห้ามหลุด null เด็ดขาด)
+    const activeYear = await AcademicYear.findOne({ status: "active" });
 
-    // 3. Create user (ส่งค่า name และ email เข้าไปด้วยตาม Model)
-    const user = await User.create({
-      username,
-      name, // ✅ ต้องส่ง เพราะ Model บอกว่า required
-      email, // ✅ ต้องส่ง เพราะ Model บอกว่า required
-      password: hashedPassword,
-      role: role || "pending", // ถ้าไม่ส่งมาให้เป็น pending
-      status: "pending", // รอแอดมินอนุมัติ
-    });
-
-    // 4. สร้าง Profile เฉพาะกรณีที่เลือก Role มาตอนสมัคร (ถ้ามี)
-    if (role === "trainer") {
-      await Trainer.create({
-        user_id: user._id,
-        student_id,
-        name,
-        email,
-      });
-    } else if (role === "instructor") {
-      await Instructor.create({
-        user_id: user._id,
-        name,
-        email,
+    // 🛑 ดักตรวจสอบแบบเข้มงวด: ถ้าในฐานข้อมูลไม่มีปีการศึกษาที่ active อยู่จริง
+    // ให้หยุดทำงานตรงนี้ทันที และส่ง Error กลับหน้าบ้านเพื่อความถูกต้องของระบบ
+    if (!activeYear) {
+      return res.status(400).json({
+        message:
+          "ไม่สามารถลงทะเบียนได้ เนื่องจากระบบยังไม่ได้เปิดใช้งานปีการศึกษาปัจจุบัน (ผู้ดูแลระบบต้องเข้าไปกดเปิดใช้งานสถานะ active ก่อน)",
       });
     }
 
-    // 🔔 5. เพิ่มระบบแจ้งเตือนส่งหา Admin ทุกคนเมื่อสมัครสำเร็จ
+    // 3. Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // 4. บันทึกข้อมูลลงตาราง User (ใช้ไอดีจริงเท่านั้น)
+    const user = await User.create({
+      username,
+      name,
+      email,
+      password: hashedPassword,
+      role: "trainer",
+      status: "pending",
+      academic_year_id: activeYear._id, // 🔗 ผูกไอดีจริงตามกติกา
+    });
+
+    // 5. ⚡ สร้าง Profile ในตาราง Trainer (ใช้ไอดีจริงเท่านั้น)
+    await Trainer.create({
+      user_id: user._id,
+      student_id,
+      name,
+      email,
+      academic_year_id: activeYear._id, // 🔗 ผูกไอดีจริงตามกติกา
+    });
+
+    // 🔔 6. ระบบแจ้งเตือนส่งหา Admin ทุกคน
     try {
       const admins = await User.find({ role: "admin" });
+      const yearText = `ประจำปีการศึกษา ${activeYear.academic_year}/${activeYear.semester}`;
 
-      // แปลงชื่อบทบาทให้เป็นภาษาไทยอ่านง่ายในแจ้งเตือน
-      const roleTH =
-        role === "trainer"
-          ? "เทรนเนอร์"
-          : role === "instructor"
-            ? "อาจารย์"
-            : role;
-
-      // วนลูปสร้างแจ้งเตือนให้แอดมินทุกคนในระบบได้รับทราบ
       for (let admin of admins) {
         await Notification.create({
           userId: admin._id,
           title: "คำขอลงทะเบียนใหม่",
-          message: `มีผู้ใช้ใหม่ชื่อคุณ ${name} สมัครเข้าสู่ระบบในบทบาท [${roleTH}] (รอการตรวจสอบและอนุมัติสิทธิ์)`,
+          message: `มีผู้ใช้ใหม่ชื่อคุณ ${name} สมัครเข้าสู่ระบบในบทบาท [เทรนเนอร์] ${yearText} (รอการตรวจสอบและอนุมัติสิทธิ์)`,
           type: "warning",
         });
       }
     } catch (notiError) {
-      // ดักข้อผิดพลาดเฉพาะตัวแจ้งเตือนแยกไว้ เพื่อไม่ให้ระบบ Register หลักล่ม หากแจ้งเตือนมีปัญหา
-      console.error(
-        "เกิดข้อผิดพลาดในการสร้างการแจ้งเตือนสมัครสมาชิก:",
-        notiError,
-      );
+      console.error("Notification Error:", notiError);
     }
 
     res.status(201).json({ message: "ลงทะเบียนสำเร็จ กรุณารอแอดมินอนุมัติ" });
   } catch (error) {
-    console.error(error);
-    // ส่ง Error Message ที่ละเอียดขึ้นกลับไปดู
+    console.error("REGISTER CRITICAL ERROR:", error);
     res.status(500).json({ message: "เกิดข้อผิดพลาด: " + error.message });
   }
 };

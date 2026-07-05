@@ -6,6 +6,7 @@ const TrainingLog = require("../models/TrainingLog");
 const TrainingLogSet = require("../models/TrainingLogSet");
 const TrainingProgram = require("../models/TrainingProgram");
 const ProgramExercise = require("../models/ProgramExercise");
+const AcademicYear = require("../models/academicYear.model"); // 🔥 นำเข้า Model ปีการศึกษา
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const { createNotification } = require("../utils/notificationHelper");
@@ -37,12 +38,18 @@ const auth = (req, res, next) => {
   }
 };
 
-// GET /api/logs/approved-programs — ดึงโปรแกรมที่อนุมัติแล้วของเทรนเนอร์
+// ── GET /api/logs/approved-programs — ดึงโปรแกรมที่อนุมัติแล้ว (เฉพาะภาคเรียนปัจจุบัน) ──
 router.get("/approved-programs", auth, async (req, res) => {
   try {
+    // 1. หาภาคเรียนปัจจุบันที่แอดมินเปิดใช้งานอยู่
+    const activeYear = await AcademicYear.findOne({ status: "active" });
+    if (!activeYear) return res.status(404).json({ message: "ไม่พบปีการศึกษาที่ใช้งานอยู่" });
+
+    // 2. เพิ่มเงื่อนไข academic_year_id เพื่อดึงเฉพาะเทอมล่าสุด
     const programs = await TrainingProgram.find({
       trainer_id: req.userId,
       status: "approved",
+      academic_year_id: activeYear._id, // 🔥 กรองเฉพาะเทอมปัจจุบัน
     })
       .populate("trainee_id", "name goal")
       .populate("academic_year_id", "academic_year semester")
@@ -67,10 +74,22 @@ router.get("/approved-programs", auth, async (req, res) => {
   }
 });
 
-// GET /api/logs — ดึงประวัติการฝึกทั้งหมดของเทรนเนอร์
+// ── GET /api/logs — ดึงประวัติการฝึกทั้งหมดของเทรนเนอร์ (เฉพาะภาคเรียนปัจจุบัน) ──
 router.get("/", auth, async (req, res) => {
   try {
-    const logs = await TrainingLog.find({ trainer_id: req.userId })
+    // 1. หาภาคเรียนปัจจุบันที่แอดมินเปิดใช้งานอยู่
+    const activeYear = await AcademicYear.findOne({ status: "active" });
+    if (!activeYear) return res.status(404).json({ message: "ไม่พบปีการศึกษาที่ใช้งานอยู่" });
+
+    // 2. หาโปรแกรมฝึกทั้งหมดที่ถูกสร้างในเทอมปัจจุบันนี้
+    const currentPrograms = await TrainingProgram.find({ academic_year_id: activeYear._id }).select("_id");
+    const programIds = currentPrograms.map(p => p._id);
+
+    // 3. กรองเอาเฉพาะ Log ที่ผูกกับโปรแกรมของเทอมปัจจุบันเท่านั้น (เทอมอื่นจะซ่อนไป แต่ข้อมูลใน DB ยังอยู่ครบ)
+    const logs = await TrainingLog.find({ 
+      trainer_id: req.userId,
+      program_id: { $in: programIds } // 🔥 กรองประวัติของเทอมเก่าออก
+    })
       .populate("program_id", "program_name")
       .populate("trainee_id", "name")
       .sort({ training_date: -1 });
@@ -93,7 +112,7 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
-// GET /api/logs/:id — ดึง log เดียว
+// ── GET /api/logs/:id — ดึง log เดียว ──
 router.get("/:id", auth, async (req, res) => {
   try {
     const log = await TrainingLog.findOne({
@@ -117,12 +136,22 @@ router.get("/:id", auth, async (req, res) => {
   }
 });
 
-// GET /api/logs/by-trainee/:traineeId — ดึง log ของลูกเทรนคนนี้
+// ── GET /api/logs/by-trainee/:traineeId — ดึง log ของลูกเทรนคนนี้ (เฉพาะภาคเรียนปัจจุบัน) ──
 router.get("/by-trainee/:traineeId", auth, async (req, res) => {
   try {
+    // 1. หาภาคเรียนปัจจุบันที่แอดมินเปิดใช้งานอยู่
+    const activeYear = await AcademicYear.findOne({ status: "active" });
+    if (!activeYear) return res.status(404).json({ message: "ไม่พบปีการศึกษาที่ใช้งานอยู่" });
+
+    // 2. หาโปรแกรมฝึกทั้งหมดที่ของเทอมปัจจุบัน
+    const currentPrograms = await TrainingProgram.find({ academic_year_id: activeYear._id }).select("_id");
+    const programIds = currentPrograms.map(p => p._id);
+
+    // 3. กรองเอาเฉพาะข้อมูลการบันทึกของเทอมปัจจุบัน
     const logs = await TrainingLog.find({
       trainer_id: req.userId,
       trainee_id: req.params.traineeId,
+      program_id: { $in: programIds } // 🔥 ดึงเฉพาะ Log ในเทอมปัจจุบันของลูกเทรนคนนี้
     })
       .populate("program_id", "program_name")
       .sort({ training_date: -1 });
@@ -130,7 +159,6 @@ router.get("/by-trainee/:traineeId", auth, async (req, res) => {
     const result = await Promise.all(
       logs.map(async (log) => {
         const sets = await TrainingLogSet.find({ log_id: log._id });
-        // นับจำนวนท่า (unique exercise)
         const uniqueExercises = [
           ...new Set(sets.map((s) => s.exercise_id.toString())),
         ];
@@ -153,11 +181,9 @@ router.get("/by-trainee/:traineeId", auth, async (req, res) => {
 router.post("/", auth, upload.single("photo"), async (req, res) => {
   try {
     const { program_id, trainee_id, training_date, duration, note } = req.body;
-    // sets ถูกส่งมาเป็น JSON string เพราะใช้ multipart/form-data
     const sets = req.body.sets ? JSON.parse(req.body.sets) : [];
     const photoPath = req.file ? `/uploads/${req.file.filename}` : "";
 
-    // สร้าง log หลัก
     const log = new TrainingLog({
       program_id,
       trainee_id,
@@ -169,7 +195,6 @@ router.post("/", auth, upload.single("photo"), async (req, res) => {
     });
     const savedLog = await log.save();
 
-    // บันทึก sets ทั้งหมด
     if (sets && sets.length > 0) {
       const setDocs = sets.map((s) => ({
         log_id: savedLog._id,
@@ -185,7 +210,6 @@ router.post("/", auth, upload.single("photo"), async (req, res) => {
       await TrainingLogSet.insertMany(setDocs);
     }
 
-    // ✅ แจ้งเตือนอาจารย์ทุกคนว่ามี log ใหม่
     const trainerUser = await User.findById(req.userId).select("name");
     const instructors = await User.find({ role: "instructor", status: "active" }).select("_id");
     await Promise.all(instructors.map(inst =>
