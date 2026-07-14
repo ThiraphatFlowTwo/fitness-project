@@ -1,13 +1,14 @@
 const express = require("express");
 const router  = express.Router();
 const Trainee = require("../models/Trainee");
+const User    = require("../models/User"); // 🔥 ดึง Model User เข้ามาเช็คสิทธิ์อาจารย์ที่ปรึกษา
 const jwt     = require("jsonwebtoken");
 
 const authMiddleware = (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
     if (!token) return res.status(401).json({ message: "ไม่มี token" });
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret123");
     req.userId = decoded.id;
     next();
   } catch {
@@ -15,7 +16,7 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-// GET — ดึงลูกเทรนของเทรนเนอร์คนนี้
+// ── GET — ดึงลูกเทรนของเทรนเนอร์คนนี้ ───────────────────────
 router.get("/", authMiddleware, async (req, res) => {
   try {
     const trainees = await Trainee.find({ user_id: req.userId })
@@ -26,9 +27,20 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
-// POST — บันทึก user_id ของเทรนเนอร์ลงไปด้วยอัตโนมัติ
+// ── 📝 [แก้ไขแล้ว] POST — บันทึกลูกเทรน (เพิ่มตรวจสอบอาจารย์ที่ปรึกษา) ──
 router.post("/", authMiddleware, async (req, res) => {
   try {
+    // 1. ค้นหาข้อมูลบัญชีผู้ใช้ของเทรนเนอร์คนปัจจุบัน
+    const trainerUser = await User.findById(req.userId);
+
+    // 2. 🔥 ล็อกสิทธิ์: หากมีบทบาทเป็นนักศึกษา (trainer) แต่ไม่มีอาจารย์ที่ปรึกษา (advisor_id เป็น null หรือไม่มีค่า)
+    if (trainerUser && trainerUser.role === "trainer" && !trainerUser.advisor_id) {
+      return res.status(403).json({ 
+        message: "ไม่สามารถเพิ่มลูกเทรนได้ เนื่องจากคุณยังไม่มีอาจารย์ที่ปรึกษา กรุณาเลือกอาจารย์ที่ปรึกษาก่อนใช้งาน" 
+      });
+    }
+
+    // 3. ปล่อยให้บันทึกข้อมูลหากมีอาจารย์ที่ปรึกษาเรียบร้อยแล้ว
     const trainee = new Trainee({
       ...req.body,
       user_id: req.userId  // ← FK เชื่อมกับ User
@@ -40,7 +52,7 @@ router.post("/", authMiddleware, async (req, res) => {
   }
 });
 
-// PUT — แก้ไขเฉพาะลูกเทรนของตัวเอง
+// ── PUT — แก้ไขเฉพาะลูกเทรนของตัวเอง ────────────────────────
 router.put("/:id", authMiddleware, async (req, res) => {
   try {
     const updated = await Trainee.findOneAndUpdate(
@@ -55,7 +67,7 @@ router.put("/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// DELETE — ลบเฉพาะลูกเทรนของตัวเอง
+// ── DELETE — ลบเฉพาะลูกเทรนของตัวเอง ─────────────────────
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
     const deleted = await Trainee.findOneAndDelete({

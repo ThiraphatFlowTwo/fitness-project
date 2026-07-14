@@ -1,13 +1,92 @@
 import { useState } from "react";
 import api from "../services/api";
 import { Link, useNavigate } from "react-router-dom";
-import { Dumbbell, Mail, Lock, Eye, EyeOff, Zap } from "lucide-react";
+import { Dumbbell, Mail, Lock, Eye, EyeOff, Zap, Clock, AlertCircle, X } from "lucide-react";
+
+// ── Custom Alert Modal ──────────────────────────────────────
+function AlertModal({ open, type = "error", title, message, onClose }) {
+  if (!open) return null;
+
+  const isWarning = type === "warning";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center px-4"
+      style={{ animation: "fadeIn 0.2s ease-out" }}
+    >
+      {/* backdrop */}
+      <div
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* card */}
+      <div
+        className="relative w-full max-w-sm rounded-3xl bg-slate-900/95 border border-white/10 shadow-2xl p-6 text-white"
+        style={{ animation: "popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)" }}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        <div className="flex items-start gap-3 mb-2">
+          <div
+            className={`w-11 h-11 shrink-0 rounded-2xl flex items-center justify-center ${
+              isWarning
+                ? "bg-amber-400/15 text-amber-300"
+                : "bg-rose-400/15 text-rose-300"
+            }`}
+          >
+            {isWarning ? (
+              <Clock className="w-5 h-5" />
+            ) : (
+              <AlertCircle className="w-5 h-5" />
+            )}
+          </div>
+          <div className="pt-1.5">
+            <p className="font-bold text-sm leading-snug">{title}</p>
+          </div>
+        </div>
+
+        <p className="text-slate-300 text-sm leading-relaxed mt-3 whitespace-pre-line pl-[3.5rem] -mt-1">
+          {message}
+        </p>
+
+        <button
+          onClick={onClose}
+          className="w-full mt-6 py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-blue-600 to-violet-600
+                     shadow-lg shadow-blue-500/25 hover:opacity-90 active:scale-95 transition-all"
+        >
+          ตกลง
+        </button>
+      </div>
+
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes popIn { from { opacity: 0; transform: scale(0.92) translateY(8px) } to { opacity: 1; transform: scale(1) translateY(0) } }
+      `}</style>
+    </div>
+  );
+}
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // ✅ state สำหรับ modal แจ้งเตือน
+  const [alertModal, setAlertModal] = useState({
+    open: false,
+    type: "error",
+    title: "",
+    message: "",
+  });
+
+  const closeAlert = () => setAlertModal((a) => ({ ...a, open: false }));
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -36,10 +115,21 @@ export default function Login() {
       }
     } catch (err) {
       const msg = err.response?.data?.message || "เข้าสู่ระบบไม่สำเร็จ";
+
       if (err.response?.status === 403) {
-        alert("⏳ " + msg + "\n\nเมื่อแอดมินอนุมัติแล้ว กรุณากลับมา Login ใหม่อีกครั้ง");
+        setAlertModal({
+          open: true,
+          type: "warning",
+          title: msg,
+          message: "เมื่อแอดมินอนุมัติแล้ว กรุณากลับมา Login ใหม่อีกครั้ง",
+        });
       } else {
-        alert(msg);
+        setAlertModal({
+          open: true,
+          type: "error",
+          title: msg,
+          message: "",
+        });
       }
     } finally {
       setLoading(false);
@@ -237,6 +327,15 @@ export default function Login() {
           © 2567 วิทยาลัยการกีฬา มหาวิทยาลัยราชภัฏเลย
         </p>
       </div>
+
+      {/* ── Alert Modal ── */}
+      <AlertModal
+        open={alertModal.open}
+        type={alertModal.type}
+        title={alertModal.title}
+        message={alertModal.message}
+        onClose={closeAlert}
+      />
     </div>
   );
-}
+} 

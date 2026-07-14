@@ -5,16 +5,17 @@ const API = "http://localhost:5000/api/auth";
 
 const authHeaders = () => {
   const token = localStorage.getItem("token");
-  // ✅ ไม่ redirect ออกเองตรงนี้ — แค่ส่ง header เปล่าไป backend จะตอบ 401 เอง
   return token
     ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
     : { "Content-Type": "application/json" };
 };
 
 const TrainerProfile = () => {
-  const [profileForm,    setProfileForm]    = useState({ name: '', email: '' });
+  // 📝 เพิ่มฟิลด์ advisor_id ลงใน profileForm state เพื่อเตรียมส่งไปหลังบ้าน
+  const [profileForm,    setProfileForm]    = useState({ name: '', email: '', advisor_id: '' });
   const [passwordForm,   setPasswordForm]   = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [userData,       setUserData]       = useState(null);
+  const [instructors,    setInstructors]    = useState([]); // 📋 ➕ สเตตสำหรับเก็บรายชื่ออาจารย์ทั้งหมดในระบบ
   const [loading,        setLoading]        = useState(true);
   const [savingProfile,  setSavingProfile]  = useState(false);
   const [savingPass,     setSavingPass]     = useState(false);
@@ -22,20 +23,35 @@ const TrainerProfile = () => {
   const [passMsg,        setPassMsg]        = useState(null);
 
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchProfileAndInstructors = async () => {
       try {
-        const res  = await fetch(`${API}/profile`, { headers: authHeaders() });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message);
-        setUserData(data);
-        setProfileForm({ name: data.name || '', email: data.email || '' });
+        // 1. ดึงข้อมูลโปรไฟล์ตัวเอง
+        const resProfile = await fetch(`${API}/profile`, { headers: authHeaders() });
+        const dataProfile = await resProfile.json();
+        if (!resProfile.ok) throw new Error(dataProfile.message);
+
+        // 2. ดึงรายชื่ออาจารย์ทั้งหมดสำหรับ Dropdown
+        const resInstructors = await fetch(`${API}/instructors`);
+        const dataInstructors = await resInstructors.json();
+
+        setUserData(dataProfile);
+        setProfileForm({
+          name: dataProfile.name || '',
+          email: dataProfile.email || '',
+          // หากข้อมูลถูก populate มาเป็น object ให้ดึงเฉพาะ ID ออกมา
+          advisor_id: dataProfile.advisor_id?._id || dataProfile.advisor_id || ''
+        });
+
+        if (dataInstructors.success) {
+          setInstructors(dataInstructors.data);
+        }
       } catch (err) {
         setProfileMsg({ type: 'error', text: err.message || 'โหลดข้อมูลไม่สำเร็จ' });
       } finally {
         setLoading(false);
       }
     };
-    fetchProfile();
+    fetchProfileAndInstructors();
   }, []);
 
   const handleSaveProfile = async (e) => {
@@ -46,16 +62,28 @@ const TrainerProfile = () => {
     setSavingProfile(true);
     setProfileMsg(null);
     try {
-      const res  = await fetch(`${API}/profile`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(profileForm) });
+      const res = await fetch(`${API}/profile`, { 
+        method: 'PUT', 
+        headers: authHeaders(), 
+        body: JSON.stringify(profileForm) // ส่งข้อมูลรวมถึง advisor_id ไปอัปเดต
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
+      
       setUserData(data.user);
+      
+      // 🔥 อัปเดตข้อมูล user ใน localStorage ให้มีค่า advisor_id ล่าสุดทันที เพื่อปลดล็อกสิทธิ์หน้าอื่นๆ
       const stored = localStorage.getItem("user");
       if (stored) {
         const u = JSON.parse(stored);
-        localStorage.setItem("user", JSON.stringify({ ...u, name: data.user.name, email: data.user.email }));
+        localStorage.setItem("user", JSON.stringify({ 
+          ...u, 
+          name: data.user.name, 
+          email: data.user.email,
+          advisor_id: data.user.advisor_id // 🔗 ผูกสถานะตัวล่าสุดเข้าเครื่อง
+        }));
       }
-      setProfileMsg({ type: 'success', text: 'บันทึกข้อมูลสำเร็จ' });
+      setProfileMsg({ type: 'success', text: 'บันทึกข้อมูลและเลือกอาจารย์ที่ปรึกษาสำเร็จ' });
     } catch (err) {
       setProfileMsg({ type: 'error', text: err.message || 'บันทึกไม่สำเร็จ' });
     } finally {
@@ -77,7 +105,7 @@ const TrainerProfile = () => {
     }
     setSavingPass(true);
     try {
-      const res  = await fetch(`${API}/change-password`, {
+      const res = await fetch(`${API}/change-password`, {
         method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({ currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword }),
       });
@@ -173,6 +201,27 @@ const TrainerProfile = () => {
                 </div>
               ))}
 
+              {/* ⚙️ ➕ ช่อง Dropdown เลือก/เปลี่ยนอาจารย์ที่ปรึกษาที่เพิ่มเข้ามาใหม่ */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 md:mb-2 font-bold text-purple-700">
+                  อาจารย์ที่ปรึกษาของคุณ
+                </label>
+                <select
+                  value={profileForm.advisor_id}
+                  onChange={e => setProfileForm(p => ({ ...p, advisor_id: e.target.value }))}
+                  required
+                  className="w-full border border-purple-300 rounded-lg px-3 py-2 md:px-4 bg-purple-50/50 focus:ring-2 focus:ring-purple-500 text-sm md:text-base cursor-pointer"
+                >
+                  <option value="">-- กรุณาเลือกอาจารย์ที่ปรึกษาของคุณ --</option>
+                  {instructors.map((ins) => (
+                    <option key={ins._id} value={ins._id}>
+                      {ins.name} ({ins.email})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-purple-500 mt-1">ต้องผูกอาจารย์ที่ปรึกษาก่อนระบบจัดการลูกเทรนและโปรแกรมจึงจะเปิดใช้งาน</p>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1 md:mb-2">รหัสผู้ใช้</label>
                 <input type="text" value={userData?.username || ''} disabled
@@ -188,7 +237,11 @@ const TrainerProfile = () => {
                     : <><Save className="w-4 h-4" /><span>บันทึกข้อมูล</span></>}
                 </button>
                 <button type="button"
-                  onClick={() => setProfileForm({ name: userData?.name || '', email: userData?.email || '' })}
+                  onClick={() => setProfileForm({ 
+                    name: userData?.name || '', 
+                    email: userData?.email || '',
+                    advisor_id: userData?.advisor_id?._id || userData?.advisor_id || '' 
+                  })}
                   className="px-4 md:px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2.5 md:py-3 rounded-lg font-semibold transition-colors text-sm md:text-base">
                   ยกเลิก
                 </button>

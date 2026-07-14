@@ -31,6 +31,63 @@ const getInitials = (name = "") =>
     .toUpperCase()
     .slice(0, 2) || "?";
 
+// ── Logout Confirm Modal ────────────────────────────────────
+function LogoutConfirmModal({ open, onConfirm, onCancel }) {
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+      style={{ animation: "fadeIn 0.2s ease-out" }}
+    >
+      <div
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+        onClick={onCancel}
+      />
+
+      <div
+        className="relative w-full max-w-sm rounded-3xl bg-slate-900/95 border border-white/10 shadow-2xl p-6 text-white"
+        style={{ animation: "popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)" }}
+      >
+        <div className="flex items-start gap-3 mb-1">
+          <div className="w-11 h-11 shrink-0 rounded-2xl flex items-center justify-center bg-red-400/15 text-red-300">
+            <LogOut className="w-5 h-5" />
+          </div>
+          <div className="pt-1.5">
+            <p className="font-bold text-sm leading-snug">ออกจากระบบ</p>
+          </div>
+        </div>
+
+        <p className="text-slate-300 text-sm leading-relaxed mt-3 pl-[3.5rem] -mt-1">
+          คุณต้องการออกจากระบบใช่หรือไม่?
+        </p>
+
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-3 rounded-2xl font-bold text-sm bg-white/10 hover:bg-white/15
+                       active:scale-95 transition-all"
+          >
+            ยกเลิก
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-red-600 to-rose-600
+                       shadow-lg shadow-red-500/25 hover:opacity-90 active:scale-95 transition-all"
+          >
+            ออกจากระบบ
+          </button>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes popIn { from { opacity: 0; transform: scale(0.92) translateY(8px) } to { opacity: 1; transform: scale(1) translateY(0) } }
+      `}</style>
+    </div>
+  );
+}
+
 export default function InstructorLayout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -38,7 +95,13 @@ export default function InstructorLayout() {
   const [collapsed,   setCollapsed]   = useState(false);
   const [user,        setUser]        = useState(null);
   const [notifications, setNotifications] = useState([]);
+  // ⚠️ เดิมโค้ดเรียก setNotiOpen ในฟังก์ชัน handleNotificationClick แต่ไม่เคยประกาศ state นี้ไว้ (จะพัง)
+  // เพิ่ม state ให้ครบเพื่อไม่ให้เกิด ReferenceError
+  const [notiOpen, setNotiOpen] = useState(false);
   const { activeYear, notifCount, notifList, markAllRead, markRead } = useTopbarData("instructor");
+
+  // 🚪 state สำหรับ popup ยืนยันออกจากระบบ
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   // กำหนด Base URL ไว้ที่เดียวเพื่อความง่ายในการดูแลจัดการ
   const API_BASE = "http://localhost:5000"; 
@@ -125,10 +188,15 @@ export default function InstructorLayout() {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
+  // 🚪 เปิด popup ยืนยันแทนการเรียก confirm() ของ browser
   const handleLogout = () => {
-    if (!confirm("ต้องการออกจากระบบใช่หรือไม่?")) return;
+    setLogoutConfirmOpen(true);
+  };
+
+  const confirmLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    setLogoutConfirmOpen(false);
     navigate("/login");
   };
 
@@ -283,6 +351,13 @@ export default function InstructorLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* 🚪 Popup ยืนยันออกจากระบบ */}
+      <LogoutConfirmModal
+        open={logoutConfirmOpen}
+        onConfirm={confirmLogout}
+        onCancel={() => setLogoutConfirmOpen(false)}
+      />
     </div>
   );
 }

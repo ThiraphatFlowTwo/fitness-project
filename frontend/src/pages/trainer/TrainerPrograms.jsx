@@ -1,98 +1,58 @@
 import React, { useState, useEffect } from "react";
-import {
-  PlusCircle,
-  Eye,
-  Edit,
-  Trash2,
-  Send,
-  Save,
-  X,
-  CheckCircle,
-  XCircle,
-  Clock,
-  Loader2,
-  Users,
-  Target,
-  Calendar,
-  Dumbbell,
-  Search,
-} from "lucide-react";
+import { Loader2, XCircle, Plus, Pencil, Trash2, Search, Save, X } from "lucide-react";
 
-const API = "http://localhost:5000/api/programs";
-const TRAINEE_API = "http://localhost:5000/api/trainees";
-const EXERCISE_API = "http://localhost:5000/api/exercises";
+const API = "/api/programs"; 
+const TRAINEE_API = "/api/trainees";
+const EXERCISE_API = "/api/exercises";
+
+const EMPTY_FORM = {
+  name: "",
+  description: "",
+  trainee_id: "",
+  duration_weeks: 4,
+  exercises: []
+};
 
 const authHeaders = () => {
   const token = localStorage.getItem("token");
-  // ✅ ไม่ redirect ออกเองตรงนี้ — แค่ส่ง header เปล่าไป backend จะตอบ 401 เอง
-  return token
-    ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
-    : { "Content-Type": "application/json" };
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
 };
 
-const STATUS_CONFIG = {
-  draft: {
-    text: "แบบร่าง",
-    bg: "bg-gray-100",
-    tc: "text-gray-600",
-    border: "border-gray-200",
-  },
-  pending: {
-    text: "รออนุมัติ",
-    bg: "bg-yellow-100",
-    tc: "text-yellow-700",
-    border: "border-yellow-200",
-  },
-  approved: {
-    text: "อนุมัติแล้ว",
-    bg: "bg-green-100",
-    tc: "text-green-700",
-    border: "border-green-200",
-  },
-  rejected: {
-    text: "ไม่อนุมัติ",
-    bg: "bg-red-100",
-    tc: "text-red-700",
-    border: "border-red-200",
-  },
-};
-
-const EMPTY_FORM = { program_name: "", trainee_id: "", goal: "" };
-
-const TrainerPrograms = () => {
+export default function TrainerPrograms() {
   const [programs, setPrograms] = useState([]);
   const [trainees, setTrainees] = useState([]);
   const [exercises, setExercises] = useState([]);
   const [activeYear, setActiveYear] = useState(null);
+  
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState("add");
-  const [selectedProgram, setSelectedProgram] = useState(null);
+  
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [selectedExercises, setSelectedExercises] = useState([]);
   const [exSearch, setExSearch] = useState("");
   const [exTypeFilter, setExTypeFilter] = useState("");
   const [exEquipFilter, setExEquipFilter] = useState("");
-
-  const exerciseTypes = [
-    ...new Set(exercises.map((e) => e.exercise_type).filter(Boolean)),
-  ];
-  const equipmentTypes = [
-    ...new Set(exercises.map((e) => e.equipment_type).filter(Boolean)),
-  ];
-
-  const filteredExercises = exercises.filter((ex) => {
-    const matchSearch = ex.exercise_name
-      .toLowerCase()
-      .includes(exSearch.toLowerCase());
-    const matchType = !exTypeFilter || ex.exercise_type === exTypeFilter;
-    const matchEquip = !exEquipFilter || ex.equipment_type === exEquipFilter;
-    return matchSearch && matchType && matchEquip;
-  });
+  const [hasAdvisor, setHasAdvisor] = useState(true); // State สำหรับควบคุมการตรวจสิทธิ์อาจารย์ที่ปรึกษา
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
+    // 🔍 ตรวจสอบสิทธิ์อาจารย์ที่ปรึกษาก่อนเรียกใช้ API
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      if (user.role === 'trainer' && !user.advisor_id) {
+        setHasAdvisor(false);
+        setLoading(false); // สั่งปิด Loader ทันทีเพื่อแสดงหน้าจอแจ้งเตือนเลือกอาจารย์
+        return;
+      } else {
+        setHasAdvisor(true);
+      }
+    }
+
     const loadAll = async () => {
       setLoading(true);
       try {
@@ -102,17 +62,19 @@ const TrainerPrograms = () => {
           fetch(EXERCISE_API, { headers: authHeaders() }),
           fetch(`${API}/active-year`, { headers: authHeaders() }),
         ]);
+        
         const [pData, tData, eData, yData] = await Promise.all([
           pRes.json(),
           tRes.json(),
           eRes.json(),
           yRes.ok ? yRes.json() : null,
         ]);
+        
         setPrograms(Array.isArray(pData) ? pData : []);
         setTrainees(Array.isArray(tData) ? tData : []);
         setExercises(Array.isArray(eData) ? eData : []);
         setActiveYear(yData);
-      } catch {
+      } catch (err) {
         setError("โหลดข้อมูลไม่สำเร็จ");
       } finally {
         setLoading(false);
@@ -121,771 +83,430 @@ const TrainerPrograms = () => {
     loadAll();
   }, []);
 
-  const handleAdd = () => {
-    setModalMode("add");
+  // ตัวกรองรายการท่าออกกำลังกาย
+  const filteredExercises = exercises.filter((ex) => {
+    const matchesSearch = ex.name.toLowerCase().includes(exSearch.toLowerCase());
+    const matchesType = exTypeFilter ? ex.type === exTypeFilter : true;
+    const matchesEquip = exEquipFilter ? ex.equipment === exEquipFilter : true;
+    return matchesSearch && matchesType && matchesEquip;
+  });
+
+  const handleOpenCreate = () => {
     setFormData(EMPTY_FORM);
     setSelectedExercises([]);
-    setSelectedProgram(null);
+    setEditingId(null);
     setIsModalOpen(true);
   };
 
-  const handleView = (p) => {
-    setModalMode("view");
-    setSelectedProgram(p);
+  const handleEdit = (program) => {
+    setEditingId(program.id);
     setFormData({
-      program_name: p.program_name,
-      trainee_id: p.trainee_id?._id || p.trainee_id,
-      goal: p.trainee_id?.goal || "",
+      name: program.name,
+      description: program.description || "",
+      trainee_id: program.trainee_id,
+      duration_weeks: program.duration_weeks,
     });
-    setSelectedExercises(
-      p.exercises?.map((e) => ({
-        exercise_id: e.exercise_id?._id || e.exercise_id,
-        name: e.exercise_id?.exercise_name || "",
-        type: e.exercise_id?.exercise_type || "",
-        exercise_category: e.exercise_id?.exercise_category || "weight",
-        sets: e.sets || "",
-        reps: e.reps || "",
-        rpe: e.rpe || "",
-        order: e.order || 1,
-      })) || [],
-    );
+    setSelectedExercises(program.exercises || []);
     setIsModalOpen(true);
   };
 
-  const handleEdit = (p) => {
-    if (p.status === "approved") {
-      alert("ไม่สามารถแก้ไขโปรแกรมที่อนุมัติแล้วได้");
-      return;
-    }
-    if (p.status === "pending") {
-      alert("ไม่สามารถแก้ไขโปรแกรมที่รออนุมัติอยู่ได้");
-      return;
-    }
-    setModalMode("edit");
-    setSelectedProgram(p);
-    setFormData({
-      program_name: p.program_name,
-      trainee_id: p.trainee_id?._id || p.trainee_id,
-      goal: p.trainee_id?.goal || "",
-    });
-    setSelectedExercises(
-      p.exercises?.map((e) => ({
-        exercise_id: e.exercise_id?._id || e.exercise_id,
-        name: e.exercise_id?.exercise_name || "",
-        type: e.exercise_id?.exercise_type || "",
-        sets: e.sets || "",
-        reps: e.reps || "",
-        rpe: e.rpe || "",
-        order: e.order || 1,
-      })) || [],
-    );
-    setIsModalOpen(true);
-  };
-
-  const handleDelete = async (p) => {
-    if (p.status === "approved") {
-      alert("ไม่สามารถลบโปรแกรมที่อนุมัติแล้วได้");
-      return;
-    }
-    if (p.status === "pending") {
-      alert("ไม่สามารถลบโปรแกรมที่รออนุมัติอยู่ได้");
-      return;
-    }
-    if (!window.confirm("ต้องการลบโปรแกรมนี้ใช่หรือไม่?")) return;
+  const handleDelete = async (id) => {
+    if (!window.confirm("คุณต้องการลบโปรแกรมนี้ใช่หรือไม่?")) return;
     try {
-      const res = await fetch(`${API}/${p._id}`, {
+      const res = await fetch(`${API}/${id}`, {
         method: "DELETE",
         headers: authHeaders(),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.message);
-        return;
+      if (res.ok) {
+        setPrograms(programs.filter((p) => p.id !== id));
+      } else {
+        alert("ไม่สามารถลบโปรแกรมได้");
       }
-      setPrograms((prev) => prev.filter((x) => x._id !== p._id));
-    } catch {
-      alert("ลบไม่สำเร็จ");
+    } catch (err) {
+      alert("เกิดข้อผิดพลาดในการลบ");
     }
   };
 
-  const handleSubmit = async (p) => {
-    if (!window.confirm("ส่งโปรแกรมนี้ให้อาจารย์ตรวจสอบใช่หรือไม่?")) return;
-    try {
-      const res = await fetch(`${API}/${p._id}/submit`, {
-        method: "PATCH",
-        headers: authHeaders(),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.message);
-        return;
-      }
-      setPrograms((prev) =>
-        prev.map((x) => (x._id === p._id ? { ...x, status: "pending" } : x)),
-      );
-    } catch {
-      alert("ส่งไม่สำเร็จ");
-    }
-  };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const payload = {
+      ...formData,
+      exercises: selectedExercises,
+    };
 
-  const handleCancel = async (p) => {
-    if (!window.confirm("ยกเลิกการส่ง และนำโปรแกรมกลับมาแก้ไขใช่หรือไม่?"))
-      return;
     try {
-      const res = await fetch(`${API}/${p._id}/cancel`, {
-        method: "PATCH",
-        headers: authHeaders(),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.message);
-        return;
-      }
-      setPrograms((prev) =>
-        prev.map((x) => (x._id === p._id ? { ...x, status: "draft" } : x)),
-      );
-    } catch {
-      alert("ยกเลิกไม่สำเร็จ");
-    }
-  };
+      const url = editingId ? `${API}/${editingId}` : API;
+      const method = editingId ? "PUT" : "POST";
 
-  const handleSave = async () => {
-    if (!formData.program_name || !formData.trainee_id) {
-      alert("กรุณากรอกชื่อโปรแกรมและเลือกผู้รับการฝึก");
-      return;
-    }
-    if (selectedExercises.length === 0) {
-      alert("กรุณาเลือกท่าออกกำลังกายอย่างน้อย 1 ท่า");
-      return;
-    }
-    setSaving(true);
-    try {
-      const body = {
-        program_name: formData.program_name,
-        trainee_id: formData.trainee_id,
-        exercises: selectedExercises.map((ex, i) => ({
-          exercise_id: ex.exercise_id,
-          order: i + 1,
-          sets: ex.sets ? Number(ex.sets) : undefined,
-          reps: ex.reps ? Number(ex.reps) : undefined,
-          rpe: ex.rpe ? Number(ex.rpe) : undefined,
-        })),
-      };
-      const url = modalMode === "add" ? API : `${API}/${selectedProgram._id}`;
-      const method = modalMode === "add" ? "POST" : "PUT";
       const res = await fetch(url, {
         method,
         headers: authHeaders(),
-        body: JSON.stringify(body),
+        body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(`บันทึกไม่สำเร็จ: ${data.message}`);
-        return;
+
+      if (res.ok) {
+        const savedProgram = await res.json();
+        if (editingId) {
+          setPrograms(programs.map((p) => (p.id === editingId ? savedProgram : p)));
+        } else {
+          setPrograms([savedProgram, ...programs]);
+        }
+        setIsModalOpen(false);
+        setFormData(EMPTY_FORM);
+        setSelectedExercises([]);
+      } else {
+        alert("บันทึกข้อมูลไม่สำเร็จ");
       }
-      if (modalMode === "add") setPrograms((prev) => [data, ...prev]);
-      else
-        setPrograms((prev) =>
-          prev.map((x) => (x._id === selectedProgram._id ? data : x)),
-        );
-      setIsModalOpen(false);
-    } catch {
-      alert("เกิดข้อผิดพลาด");
-    } finally {
-      setSaving(false);
+    } catch (err) {
+      alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
     }
   };
 
-  const addExercise = (ex) => {
-    if (selectedExercises.find((e) => e.exercise_id === ex._id)) return;
-    setSelectedExercises((prev) => [
-      ...prev,
-      {
-        exercise_id: ex._id,
-        name: ex.exercise_name,
-        type: ex.exercise_type,
-        exercise_category: ex.exercise_category || "weight",
-        sets: "",
-        reps: "",
-        order: prev.length + 1,
-      },
-    ]);
+  const handleAddExercise = (ex) => {
+    if (selectedExercises.some((item) => item.id === ex.id)) return;
+    setSelectedExercises([...selectedExercises, { ...ex, sets: 3, reps: 12, rest_seconds: 60 }]);
   };
 
-  const removeExercise = (exerciseId) =>
-    setSelectedExercises((prev) =>
-      prev
-        .filter((e) => e.exercise_id !== exerciseId)
-        .map((e, i) => ({ ...e, order: i + 1 })),
-    );
-
-  const updateExerciseField = (exerciseId, field, value) =>
-    setSelectedExercises((prev) =>
-      prev.map((e) =>
-        e.exercise_id === exerciseId ? { ...e, [field]: value } : e,
-      ),
-    );
-
-  const moveExercise = (index, direction) => {
-    const newList = [...selectedExercises];
-    const target = index + direction;
-    if (target < 0 || target >= newList.length) return;
-    [newList[index], newList[target]] = [newList[target], newList[index]];
-    setSelectedExercises(newList.map((e, i) => ({ ...e, order: i + 1 })));
+  const handleRemoveExercise = (id) => {
+    setSelectedExercises(selectedExercises.filter((ex) => ex.id !== id));
   };
 
-  if (loading)
+  const handleExerciseDetailChange = (id, field, value) => {
+    setSelectedExercises(
+      selectedExercises.map((ex) =>
+        ex.id === id ? { ...ex, [field]: value } : ex
+      )
+    );
+  };
+
+  // --- RENDERING CONDITIONS ---
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
-        <span className="ml-2 text-gray-600">กำลังโหลดข้อมูล...</span>
+        <span className="ml-2 text-gray-600 font-medium font-sans">กำลังโหลดข้อมูล...</span>
       </div>
     );
+  }
 
-  if (error)
+  if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-red-500">
+      <div className="flex items-center justify-center min-h-screen text-red-500 bg-gray-50 font-medium font-sans">
         {error}
       </div>
     );
+  }
+
+  // 🛑 บล็อกการเข้าใช้งานหน้าจอทั้งหมดหากเทรนเนอร์ยังไม่ได้เลือกอาจารย์ที่ปรึกษา
+  if (!hasAdvisor) {
+    return (
+      <div className="p-4 md:p-8 bg-gray-50 min-h-screen flex items-center justify-center font-sans">
+        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-amber-200">
+          <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-5">
+            <XCircle className="w-10 h-10 text-amber-500 animate-pulse" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-800 mb-2">ยังไม่ได้เลือกอาจารย์ที่ปรึกษา</h3>
+          <p className="text-gray-500 text-sm leading-relaxed mb-6">
+            คุณจำเป็นต้องเลือกอาจารย์ที่ปรึกษาให้เรียบร้อยก่อน จึงจะสามารถสร้างหรือแก้ไขโปรแกรมฝึกซ้อมในระบบได้
+          </p>
+          <a
+            href="/trainer/profile"
+            className="block w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg text-sm text-center"
+          >
+            ไปที่หน้าโปรไฟล์เพื่อเลือกอาจารย์
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-4 md:p-8 bg-gray-50 min-h-screen">
+    <div className="p-4 md:p-8 bg-gray-50 min-h-screen font-sans">
       {/* Header */}
-      <div className="flex justify-between items-center mb-3 md:mb-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
-          <h3 className="text-xl md:text-2xl font-bold text-gray-800">
-            โปรแกรมการฝึก
-          </h3>
-          {activeYear && (
-            <p className="text-xs md:text-sm text-gray-500 mt-1">
-              ปีการศึกษา {activeYear.academic_year} ภาคเรียนที่{" "}
-              {activeYear.semester}
-            </p>
-          )}
-          {!activeYear && (
-            <p className="text-xs md:text-sm text-red-500 mt-1">
-              ⚠️ ไม่พบปีการศึกษาที่ใช้งานอยู่
-            </p>
-          )}
+          <h1 className="text-2xl font-bold text-gray-800">โปรแกรมฝึกซ้อมของฉัน</h1>
+          <p className="text-sm text-gray-500">จัดการโปรแกรมการออกกำลังกายสำหรับนักกีฬาของคุณ</p>
         </div>
         <button
-          onClick={handleAdd}
-          disabled={!activeYear}
-          className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 md:px-4 rounded-lg flex items-center space-x-1 md:space-x-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base"
+          onClick={handleOpenCreate}
+          className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold px-4 py-2.5 rounded-xl transition-all shadow-sm"
         >
-          <PlusCircle className="w-4 h-4 md:w-5 md:h-5" />
-          <span className="hidden sm:inline">สร้างโปรแกรมใหม่</span>
-          <span className="sm:hidden">สร้าง</span>
+          <Plus className="w-5 h-5" />
+          สร้างโปรแกรมใหม่
         </button>
       </div>
 
-      {/* สถานะ legend */}
-      <div className="mb-4 md:mb-6 bg-white rounded-lg p-3 md:p-4 shadow-sm flex flex-wrap gap-2">
-        {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
-          <span
-            key={key}
-            className={`px-2 py-1 rounded-full text-xs font-semibold ${cfg.bg} ${cfg.tc}`}
-          >
-            {cfg.text}
-          </span>
-        ))}
-      </div>
-
-      {/* Grid การ์ด */}
+      {/* Program List Grid */}
       {programs.length === 0 ? (
-        <p className="text-center text-gray-400 py-20">ยังไม่มีโปรแกรมการฝึก</p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {programs.map((p) => {
-            const cfg = STATUS_CONFIG[p.status] || STATUS_CONFIG.draft;
-            return (
-              <div
-                key={p._id}
-                className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all hover:-translate-y-1"
-              >
-                <div className={`p-3 md:p-4 ${cfg.bg} border-b ${cfg.border}`}>
-                  <div className="flex justify-between items-start gap-2">
-                    <h4 className="font-bold text-gray-800 text-sm md:text-base">
-                      {p.program_name}
-                    </h4>
-                    <span
-                      className={`text-xs font-semibold px-2 py-1 rounded-full bg-white ${cfg.tc} shrink-0`}
-                    >
-                      {cfg.text}
-                    </span>
-                  </div>
-                </div>
-                <div className="p-3 md:p-4 space-y-1.5 md:space-y-2">
-                  {[
-                    { icon: Users, text: p.trainee_id?.name || "-" },
-                    { icon: Target, text: p.trainee_id?.goal || "-" },
-                    {
-                      icon: Calendar,
-                      text: p.academic_year_id
-                        ? `ปี ${p.academic_year_id.academic_year} เทอม ${p.academic_year_id.semester}`
-                        : "-",
-                    },
-                    { icon: Dumbbell, text: `${p.exercises?.length || 0} ท่า` },
-                  ].map(({ icon: Icon, text }) => (
-                    <div
-                      key={text}
-                      className="flex items-center text-xs md:text-sm text-gray-600"
-                    >
-                      <Icon className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 shrink-0" />
-                      {text}
-                    </div>
-                  ))}
-
-                  <div
-                    className={`mt-2 p-2 ${cfg.bg} ${cfg.border} border rounded-lg text-xs ${cfg.tc} flex items-center`}
-                  >
-                    {p.status === "approved" && (
-                      <>
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        อนุมัติแล้ว — ใช้งานได้ ✅
-                      </>
-                    )}
-                    {p.status === "pending" && (
-                      <>
-                        <Clock className="w-3 h-3 mr-1" />
-                        รออาจารย์อนุมัติ...
-                      </>
-                    )}
-                    {p.status === "rejected" && (
-                      <>
-                        <XCircle className="w-3 h-3 mr-1" />
-                        ไม่อนุมัติ — กรุณาแก้ไข
-                      </>
-                    )}
-                    {p.status === "draft" && (
-                      <>
-                        <Send className="w-3 h-3 mr-1" />
-                        แบบร่าง — ส่งอาจารย์เมื่อพร้อม
-                      </>
-                    )}
-                  </div>
-
-                  {p.instructor_comment && (
-                    <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
-                      <span className="font-semibold">💬 อาจารย์:</span>{" "}
-                      {p.instructor_comment}
-                    </div>
-                  )}
-
-                  {/* ปุ่ม */}
-                  <div className="pt-2 md:pt-3 border-t space-y-2">
-                    <div className="grid grid-cols-3 gap-1.5 md:gap-2">
-                      {[
-                        {
-                          label: "ดู",
-                          icon: Eye,
-                          onClick: () => handleView(p),
-                          cls: "bg-blue-100 text-blue-600 hover:bg-blue-200",
-                          disabled: false,
-                        },
-                        {
-                          label: "แก้ไข",
-                          icon: Edit,
-                          onClick: () => handleEdit(p),
-                          cls:
-                            p.status === "approved" || p.status === "pending"
-                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                              : "bg-green-100 text-green-600 hover:bg-green-200",
-                          disabled:
-                            p.status === "approved" || p.status === "pending",
-                        },
-                        {
-                          label: "ลบ",
-                          icon: Trash2,
-                          onClick: () => handleDelete(p),
-                          cls:
-                            p.status === "approved" || p.status === "pending"
-                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                              : "bg-red-100 text-red-600 hover:bg-red-200",
-                          disabled:
-                            p.status === "approved" || p.status === "pending",
-                        },
-                      ].map((btn) => (
-                        <button
-                          key={btn.label}
-                          onClick={btn.onClick}
-                          disabled={btn.disabled}
-                          className={`py-1.5 md:py-2 rounded-lg flex items-center justify-center text-xs md:text-sm ${btn.cls}`}
-                        >
-                          <btn.icon className="w-3.5 h-3.5 md:w-4 md:h-4 mr-0.5 md:mr-1" />
-                          {btn.label}
-                        </button>
-                      ))}
-                    </div>
-                    {(p.status === "draft" || p.status === "rejected") && (
-                      <button
-                        onClick={() => handleSubmit(p)}
-                        className="w-full bg-purple-600 hover:bg-purple-700 text-white py-1.5 md:py-2 rounded-lg flex items-center justify-center text-xs md:text-sm font-semibold"
-                      >
-                        <Send className="w-3.5 h-3.5 mr-1" />
-                        ส่งให้อาจารย์ตรวจสอบ
-                      </button>
-                    )}
-                    {p.status === "pending" && (
-                      <button
-                        onClick={() => handleCancel(p)}
-                        className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-1.5 md:py-2 rounded-lg flex items-center justify-center text-xs md:text-sm font-semibold"
-                      >
-                        <XCircle className="w-3.5 h-3.5 mr-1" />
-                        ยกเลิกการส่ง
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        <div className="bg-white rounded-2xl p-12 text-center border border-dashed border-gray-300">
+          <p className="text-gray-500">ยังไม่มีโปรแกรมฝึกซ้อมในระบบ</p>
         </div>
-      )}
-
-      {/* ===== Modal ===== */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 md:p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="p-4 md:p-6 border-b flex justify-between items-center sticky top-0 bg-white z-10">
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {programs.map((program) => (
+            <div key={program.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
               <div>
-                <h3 className="text-lg md:text-xl font-bold text-gray-800">
-                  {modalMode === "add" && "📝 สร้างโปรแกรมการฝึกใหม่"}
-                  {modalMode === "edit" && "✏️ แก้ไขโปรแกรมการฝึก"}
-                  {modalMode === "view" && "👁️ รายละเอียดโปรแกรมการฝึก"}
-                </h3>
-                {activeYear && (
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    ปีการศึกษา {activeYear.academic_year} ภาคเรียนที่{" "}
-                    {activeYear.semester}
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-5 h-5 md:w-6 md:h-6" />
-              </button>
-            </div>
-
-            <div className="p-4 md:p-6 space-y-4 md:space-y-6">
-              {/* ชื่อโปรแกรม + ลูกเทรน */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 md:mb-2">
-                    ชื่อโปรแกรม <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.program_name}
-                    onChange={(e) =>
-                      setFormData((p) => ({
-                        ...p,
-                        program_name: e.target.value,
-                      }))
-                    }
-                    disabled={modalMode === "view"}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 md:px-4 focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 text-sm md:text-base"
-                    placeholder="เช่น โปรแกรมเพิ่มมวลกล้ามเนื้อ"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 md:mb-2">
-                    ผู้รับการฝึก <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={formData.trainee_id}
-                    onChange={(e) => {
-                      const t = trainees.find((t) => t._id === e.target.value);
-                      setFormData((p) => ({
-                        ...p,
-                        trainee_id: e.target.value,
-                        goal: t?.goal || "",
-                      }));
-                    }}
-                    disabled={modalMode === "view"}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 md:px-4 focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 text-sm md:text-base"
-                  >
-                    <option value="">เลือกผู้รับการฝึก...</option>
-                    {trainees.map((t) => (
-                      <option key={t._id} value={t._id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {formData.goal && (
-                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg flex items-center">
-                  <Target className="w-4 h-4 text-purple-600 mr-2 shrink-0" />
-                  <span className="text-sm text-purple-700 font-medium">
-                    เป้าหมาย: {formData.goal}
+                <h3 className="text-lg font-bold text-gray-800 mb-2">{program.name}</h3>
+                <p className="text-gray-500 text-sm mb-4 line-clamp-2">{program.description || "ไม่มีรายละเอียด"}</p>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <span className="text-xs bg-purple-50 text-purple-600 px-2.5 py-1 rounded-full font-medium">
+                    ระยะเวลา: {program.duration_weeks} สัปดาห์
+                  </span>
+                  <span className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full font-medium">
+                    นักกีฬา: {trainees.find(t => t.id === program.trainee_id)?.name || "ทั่วไป"}
                   </span>
                 </div>
-              )}
-
-              {/* เลือกท่า */}
-              {modalMode !== "view" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    เพิ่มท่าออกกำลังกาย <span className="text-red-500">*</span>
-                    <span className="text-purple-600 text-xs ml-2 font-normal">
-                      (เลือกแล้ว {selectedExercises.length} ท่า)
-                    </span>
-                  </label>
-
-                  {/* Search + Filter */}
-                  <div className="flex flex-col gap-2 mb-2">
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                      <input
-                        type="text"
-                        value={exSearch}
-                        onChange={(e) => setExSearch(e.target.value)}
-                        placeholder="ค้นหาท่า..."
-                        className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-400 outline-none"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <select
-                        value={exTypeFilter}
-                        onChange={(e) => setExTypeFilter(e.target.value)}
-                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600"
-                      >
-                        <option value="">ทุกประเภท</option>
-                        {exerciseTypes.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={exEquipFilter}
-                        onChange={(e) => setExEquipFilter(e.target.value)}
-                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600"
-                      >
-                        <option value="">ทุกอุปกรณ์</option>
-                        {equipmentTypes.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                      {(exSearch || exTypeFilter || exEquipFilter) && (
-                        <button
-                          onClick={() => {
-                            setExSearch("");
-                            setExTypeFilter("");
-                            setExEquipFilter("");
-                          }}
-                          className="px-2 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-lg text-xs font-medium"
-                        >
-                          ล้าง
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="border border-gray-200 rounded-lg p-3 max-h-52 overflow-y-auto bg-gray-50">
-                    {filteredExercises.length === 0 ? (
-                      <p className="text-center text-gray-400 py-4 text-sm">
-                        ไม่พบท่าที่ค้นหา
-                      </p>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {filteredExercises.map((ex) => {
-                          const added = selectedExercises.find(
-                            (e) => e.exercise_id === ex._id,
-                          );
-                          return (
-                            <button
-                              key={ex._id}
-                              onClick={() => addExercise(ex)}
-                              disabled={!!added}
-                              className={`flex items-center p-2 rounded-lg text-left text-sm transition-colors ${
-                                added
-                                  ? "bg-purple-100 border-2 border-purple-400 cursor-not-allowed opacity-60"
-                                  : "bg-white border-2 border-transparent hover:border-purple-300 hover:bg-purple-50"
-                              }`}
-                            >
-                              <Dumbbell className="w-4 h-4 mr-2 text-purple-500 flex-shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-gray-800 truncate text-xs md:text-sm">
-                                  {ex.exercise_name}
-                                </p>
-                                <div className="flex gap-1 mt-0.5 flex-wrap">
-                                  <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
-                                    {ex.exercise_type}
-                                  </span>
-                                  <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
-                                    {ex.equipment_type}
-                                  </span>
-                                </div>
-                              </div>
-                              {added && (
-                                <CheckCircle className="w-4 h-4 text-purple-500 flex-shrink-0 ml-1" />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1">
-                    แสดง {filteredExercises.length} จาก {exercises.length} ท่า
-                  </p>
-                </div>
-              )}
-
-              {/* รายการท่าที่เลือก */}
-              {selectedExercises.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    ท่าในโปรแกรม ({selectedExercises.length} ท่า)
-                  </label>
-                  <div className="space-y-2">
-                    {selectedExercises.map((ex, index) => (
-                      <div
-                        key={ex.exercise_id}
-                        className="border border-gray-200 rounded-lg p-3 bg-white"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center space-x-2">
-                            {modalMode !== "view" && (
-                              <div className="flex flex-col">
-                                <button
-                                  onClick={() => moveExercise(index, -1)}
-                                  disabled={index === 0}
-                                  className="text-gray-400 hover:text-gray-600 disabled:opacity-30 text-xs leading-none"
-                                >
-                                  ▲
-                                </button>
-                                <button
-                                  onClick={() => moveExercise(index, 1)}
-                                  disabled={
-                                    index === selectedExercises.length - 1
-                                  }
-                                  className="text-gray-400 hover:text-gray-600 disabled:opacity-30 text-xs leading-none"
-                                >
-                                  ▼
-                                </button>
-                              </div>
-                            )}
-                            <span className="w-5 h-5 md:w-6 md:h-6 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
-                              {index + 1}
-                            </span>
-                            <div>
-                              <p className="font-medium text-gray-800 text-xs md:text-sm">
-                                {ex.name}
-                              </p>
-                              <p className="text-xs text-gray-500">{ex.type}</p>
-                            </div>
-                          </div>
-                          {modalMode !== "view" && (
-                            <button
-                              onClick={() => removeExercise(ex.exercise_id)}
-                              className="text-red-400 hover:text-red-600"
-                            >
-                              <X className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                            </button>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 mt-2">
-                          {[
-                            { label: "Sets", field: "sets", placeholder: "3" },
-                            { label: "Reps", field: "reps", placeholder: "10" },
-                          ].map((f) => (
-                            <div key={f.field}>
-                              <label className="block text-xs text-gray-500 mb-1">
-                                {f.label}
-                              </label>
-                              <input
-                                type="number"
-                                value={ex[f.field]}
-                                onChange={(e) =>
-                                  updateExerciseField(
-                                    ex.exercise_id,
-                                    f.field,
-                                    e.target.value,
-                                  )
-                                }
-                                disabled={modalMode === "view"}
-                                className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-purple-400 disabled:bg-gray-100"
-                                placeholder={f.placeholder}
-                                min="1"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* สถานะ (view) */}
-              {modalMode === "view" && selectedProgram && (
-                <div className="bg-gray-50 rounded-lg p-3 md:p-4 space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-semibold text-gray-700">
-                      สถานะ:
-                    </span>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${STATUS_CONFIG[selectedProgram.status]?.bg} ${STATUS_CONFIG[selectedProgram.status]?.tc}`}
-                    >
-                      {STATUS_CONFIG[selectedProgram.status]?.text}
-                    </span>
-                  </div>
-                  {selectedProgram.instructor_comment && (
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-sm font-semibold text-blue-800 mb-1">
-                        💬 ความเห็นจากอาจารย์:
-                      </p>
-                      <p className="text-sm text-blue-700">
-                        {selectedProgram.instructor_comment}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ปุ่ม */}
-              <div className="flex space-x-2 md:space-x-3 pt-3 md:pt-4 border-t">
-                {modalMode !== "view" && (
-                  <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2.5 md:py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 disabled:opacity-60 text-sm md:text-base"
-                  >
-                    {saving ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>กำลังบันทึก...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4" />
-                        <span>บันทึก</span>
-                      </>
-                    )}
-                  </button>
-                )}
+              </div>
+              <div className="flex gap-2 pt-4 border-t border-gray-50">
                 <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 md:px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2.5 md:py-3 rounded-lg font-semibold text-sm md:text-base"
+                  onClick={() => handleEdit(program)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                 >
-                  {modalMode === "view" ? "ปิด" : "ยกเลิก"}
+                  <Pencil className="w-4 h-4" />
+                  แก้ไข
+                </button>
+                <button
+                  onClick={() => handleDelete(program.id)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  ลบ
                 </button>
               </div>
             </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal สำหรับสร้าง/แก้ไขโปรแกรม */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800">
+                {editingId ? "แก้ไขโปรแกรมฝึกซ้อม" : "สร้างโปรแกรมฝึกซ้อมใหม่"}
+              </h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Side: Program Details */}
+              <div className="space-y-4">
+                <h3 className="text-md font-bold text-gray-700 pb-2 border-b">ข้อมูลทั่วไป</h3>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 mb-1">ชื่อโปรแกรม</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="เช่น สร้างกล้ามเนื้อระยะเริ่มต้น"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 mb-1">รายละเอียด</label>
+                  <textarea
+                    rows={3}
+                    className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="รายละเอียดเป้าหมายโปรแกรม..."
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-600 mb-1">นักกีฬาเป้าหมาย</label>
+                    <select
+                      required
+                      className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
+                      value={formData.trainee_id}
+                      onChange={(e) => setFormData({ ...formData, trainee_id: e.target.value })}
+                    >
+                      <option value="">เลือกนักกีฬา</option>
+                      {trainees.map((t) => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-600 mb-1">ระยะเวลา (สัปดาห์)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
+                      value={formData.duration_weeks}
+                      onChange={(e) => setFormData({ ...formData, duration_weeks: parseInt(e.target.value) })}
+                    />
+                  </div>
+                </div>
+
+                {/* Selected Exercises Details */}
+                <div className="mt-6">
+                  <h3 className="text-md font-bold text-gray-700 pb-2 border-b mb-3">ท่าออกกำลังกายที่เลือก ({selectedExercises.length})</h3>
+                  {selectedExercises.length === 0 ? (
+                    <p className="text-xs text-gray-400 italic">ยังไม่ได้เลือกท่าออกกำลังกาย (กรุณาเลือกจากแผงด้านขวา)</p>
+                  ) : (
+                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                      {selectedExercises.map((ex) => (
+                        <div key={ex.id} className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex flex-col gap-2 relative">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveExercise(ex.id)}
+                            className="absolute top-2 right-2 text-red-400 hover:text-red-600"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                          <span className="font-bold text-sm text-gray-700 pr-6">{ex.name}</span>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <label className="block text-[10px] text-gray-400">จำนวนเซ็ต</label>
+                              <input
+                                type="number"
+                                min="1"
+                                className="w-full px-2 py-1 text-xs border rounded-lg"
+                                value={ex.sets || 3}
+                                onChange={(e) => handleExerciseDetailChange(ex.id, "sets", parseInt(e.target.value))}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-gray-400">ครั้ง/เซ็ต</label>
+                              <input
+                                type="number"
+                                min="1"
+                                className="w-full px-2 py-1 text-xs border rounded-lg"
+                                value={ex.reps || 12}
+                                onChange={(e) => handleExerciseDetailChange(ex.id, "reps", parseInt(e.target.value))}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-gray-400">พัก (วินาที)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                className="w-full px-2 py-1 text-xs border rounded-lg"
+                                value={ex.rest_seconds || 60}
+                                onChange={(e) => handleExerciseDetailChange(ex.id, "rest_seconds", parseInt(e.target.value))}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Side: Exercise Selector */}
+              <div className="bg-gray-50 p-4 rounded-xl flex flex-col max-h-[600px]">
+                <h3 className="text-md font-bold text-gray-700 pb-2 mb-3 border-b flex items-center justify-between">
+                  ค้นหาท่าออกกำลังกาย
+                </h3>
+                <div className="flex gap-2 mb-3">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="ค้นหาชื่อท่า..."
+                      className="w-full pl-9 pr-3 py-1.5 text-sm border rounded-lg outline-none bg-white focus:ring-1 focus:ring-purple-500"
+                      value={exSearch}
+                      onChange={(e) => setExSearch(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <select
+                    className="text-xs border rounded-lg p-1.5 bg-white outline-none"
+                    value={exTypeFilter}
+                    onChange={(e) => setExTypeFilter(e.target.value)}
+                  >
+                    <option value="">ทุกกลุ่มกล้ามเนื้อ</option>
+                    <option value="Chest">อก (Chest)</option>
+                    <option value="Back">หลัง (Back)</option>
+                    <option value="Legs">ขา (Legs)</option>
+                    <option value="Arms">แขน (Arms)</option>
+                  </select>
+                  <select
+                    className="text-xs border rounded-lg p-1.5 bg-white outline-none"
+                    value={exEquipFilter}
+                    onChange={(e) => setExEquipFilter(e.target.value)}
+                  >
+                    <option value="">ทุกอุปกรณ์</option>
+                    <option value="Barbell">บาร์เบล (Barbell)</option>
+                    <option value="Dumbbell">ดัมเบล (Dumbbell)</option>
+                    <option value="Machine">เครื่องฝึก (Machine)</option>
+                    <option value="Bodyweight">น้ำหนักตัว (Bodyweight)</option>
+                  </select>
+                </div>
+
+                {/* Exercise List */}
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                  {filteredExercises.map((ex) => {
+                    const isAdded = selectedExercises.some((item) => item.id === ex.id);
+                    return (
+                      <div
+                        key={ex.id}
+                        className="p-3 bg-white rounded-xl border border-gray-200 flex justify-between items-center hover:shadow-sm transition-all"
+                      >
+                        <div>
+                          <div className="font-bold text-sm text-gray-800">{ex.name}</div>
+                          <span className="text-[10px] text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full font-semibold mr-1.5">
+                            {ex.type}
+                          </span>
+                          <span className="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
+                            {ex.equipment}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={isAdded}
+                          onClick={() => handleAddExercise(ex)}
+                          className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                            isAdded
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "bg-purple-500 hover:bg-purple-600 text-white"
+                          }`}
+                        >
+                          {isAdded ? "เลือกแล้ว" : "เลือกท่า"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {filteredExercises.length === 0 && (
+                    <p className="text-center text-xs text-gray-400 py-8">ไม่พบข้อมูลท่าออกกำลังกาย</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Footer (Col-span 2) */}
+              <div className="md:col-span-2 pt-4 border-t border-gray-100 flex justify-end gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-5 py-2 border rounded-xl hover:bg-gray-50 text-gray-700 font-semibold text-sm transition-colors"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-sm rounded-xl transition-colors flex items-center gap-1.5"
+                >
+                  <Save className="w-4 h-4" />
+                  บันทึกข้อมูล
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
     </div>
   );
-};
-
-export default TrainerPrograms;
+}

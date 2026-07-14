@@ -1,13 +1,26 @@
 const Trainee = require("../models/Trainee");
 const AcademicYear = require("../models/academicYear.model"); // 🔥 นำเข้า Model ปีการศึกษา
 const TrainingProgram = require("../models/TrainingProgram"); // 🔥 นำเข้า Model โปรแกรมการฝึก
+const User = require("../models/User"); // ➕ นำเข้า Model User เพิ่มเติมเพื่อใช้ตรวจเช็คสิทธิ์ที่ปรึกษา
 
-// เพิ่มลูกเทรน
+// ── 📝 [แก้ไขแล้ว] เพิ่มลูกเทรน (ล็อกสิทธิ์อาจารย์ที่ปรึกษา) ──────────────────
 exports.addTrainee = async (req, res) => {
   try {
     // ดึง trainerId จาก req.user (รองรับทั้ง id และ _id จาก JWT)
     const trainerId = req.user.id || req.user._id;
 
+    // 1. ค้นหาข้อมูลบัญชีผู้ใช้ของเทรนเนอร์คนปัจจุบัน
+    const trainerUser = await User.findById(trainerId);
+
+    // 2. 🔥 ล็อกสิทธิ์: หากมีบทบาทเป็นนักศึกษา (trainer) แต่ไม่มีอาจารย์ที่ปรึกษา (advisor_id เป็น null หรือไม่มีค่า)
+    if (trainerUser && trainerUser.role === "trainer" && !trainerUser.advisor_id) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "ไม่สามารถเพิ่มลูกเทรนได้ เนื่องจากคุณยังไม่มีอาจารย์ที่ปรึกษา กรุณาเลือกอาจารย์ที่ปรึกษาก่อนใช้งาน" 
+      });
+    }
+
+    // 3. ปล่อยให้บันทึกข้อมูลหากมีอาจารย์ที่ปรึกษาเรียบร้อยแล้ว
     const trainee = await Trainee.create({
       ...req.body,
       trainer: trainerId, 

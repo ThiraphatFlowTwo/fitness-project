@@ -32,22 +32,19 @@ router.get("/active-year", auth, async (req, res) => {
   }
 });
 
-// ── [แก้ไขแล้ว] GET /api/programs/instructor/all — อาจารย์ดูและสามารถส่งไอดีปีการศึกษามากรองข้อมูลได้ ──
+// ── GET /api/programs/instructor/all — อาจารย์ดูและสามารถส่งไอดีปีการศึกษามากรองข้อมูลได้ ──
 router.get("/instructor/all", auth, async (req, res) => {
   try {
     if (req.role !== "instructor" && req.role !== "admin")
       return res.status(403).json({ message: "ไม่มีสิทธิ์" });
 
-    // 🔥 รับค่ากรองสถานะงาน และ ไอดีปีการศึกษาจาก Frontend (เช่น ?status=pending&academicYearId=660c...)
     const { status, academicYearId } = req.query;
     
     let filter = {};
 
     if (academicYearId) {
-      // 1. ถ้าอาจารย์กดเลือกปีเก่าๆ จาก Dropdown หน้าระบบ ให้กรองเอาเฉพาะปีการศึกษานั้นมาโชว์
       filter.academic_year_id = academicYearId;
     } else {
-      // 2. ถ้าอาจารย์เปิดหน้าเว็บมาครั้งแรก (ไม่ได้เลือกอะไรมา) บังคับแสดงเฉพาะเทอมปัจจุบัน (active) ก่อน
       const activeYear = await AcademicYear.findOne({ status: "active" });
       if (activeYear) {
         filter.academic_year_id = activeYear._id;
@@ -59,7 +56,6 @@ router.get("/instructor/all", auth, async (req, res) => {
     }
 
     const programs = await TrainingProgram.find(filter)
-      // populate ข้อมูลเทรนเนอร์เพิ่มเพื่อให้รู้ว่าเด็กคนนี้ผูกกับปีไหน
       .populate({
         path: "trainer_id",
         select: "name email academic_year_id",
@@ -109,9 +105,19 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
-// ── POST /api/programs — สร้างโปรแกรมใหม่ ─────────────────────
+// ── 📝 [แก้ไขแล้ว] POST /api/programs — สร้างโปรแกรมใหม่ (เพิ่มเช็คอาจารย์ที่ปรึกษา) ─────────────────────
 router.post("/", auth, async (req, res) => {
   try {
+    // 1. ตรวจสอบข้อมูลเทรนเนอร์ (นักศึกษา) ผู้ส่งคำขอสร้างโปรแกรมก่อน
+    const trainerUser = await User.findById(req.userId);
+    
+    // 🔥 ล็อกสิทธิ์: หากเป็นบทบาทนักศึกษา (trainer) แต่ไม่มีการลงทะเบียนอาจารย์ที่ปรึกษาไว้ในระบบ
+    if (trainerUser && trainerUser.role === "trainer" && !trainerUser.advisor_id) {
+      return res.status(403).json({ 
+        message: "ไม่สามารถสร้างโปรแกรมได้ เนื่องจากคุณยังไม่มีอาจารย์ที่ปรึกษา กรุณาลงทะเบียนเลือกอาจารย์ที่ปรึกษาก่อนใช้งาน" 
+      });
+    }
+
     const { program_name, trainee_id, exercises } = req.body;
 
     const activeYear = await AcademicYear.findOne({ status: "active" });
@@ -205,7 +211,7 @@ router.delete("/:id", auth, async (req, res) => {
   }
 });
 
-// ── PATCH /api/programs/:id/submit — ส่งให้อาจารย์ ───────────
+// ── 📝 [แก้ไขแล้ว] PATCH /api/programs/:id/submit — ส่งโปรแกรมหาอาจารย์ที่ปรึกษาโดยตรง ───────────
 router.patch("/:id/submit", auth, async (req, res) => {
   try {
     const program = await TrainingProgram.findOne({ _id: req.params.id, trainer_id: req.userId });
@@ -213,23 +219,27 @@ router.patch("/:id/submit", auth, async (req, res) => {
     if (program.status !== "draft" && program.status !== "rejected")
       return res.status(400).json({ message: "ส่งได้เฉพาะแบบร่างหรือที่ถูกปฏิเสธ" });
 
+    // ตรวจสอบข้อมูลผู้ส่งเพื่อหา ID อาจารย์ที่ปรึกษาของตนเอง
+    const trainerUser = await User.findById(req.userId).select("name advisor_id");
+    
+    if (!trainerUser.advisor_id) {
+      return res.status(400).json({ message: "ไม่สามารถส่งงานได้ เนื่องจากคุณยังไม่มีอาจารย์ที่ปรึกษา" });
+    }
+
     program.status = "pending";
     program.instructor_comment = "";
     await program.save();
 
-    const instructors = await User.find({ role: "instructor", status: "active" }).select("_id");
-    const trainerUser = await User.findById(req.userId).select("name");
-    await Promise.all(instructors.map(inst =>
-      createNotification({
-        recipient_id:   inst._id,
-        recipient_role: "instructor",
-        type:           "program_submitted",
-        title:          "โปรแกรมใหม่รออนุมัติ",
-        message:        `เทรนเนอร์ ${trainerUser?.name ?? ""} ได้ส่งโปรแกรม "${program.program_name}" ให้ตรวจสอบแล้ว`,
-        ref_id:         program._id,
-        ref_model:      "TrainingProgram",
-      })
-    ));
+    // 🔥 ปรับปรุง: ยิงแจ้งเตือนเฉพาะอาจารย์ที่เป็นที่ปรึกษาของนักศึกษาคนนี้เท่านั้น ไม่ยิงหาทุกคนแบบหว่านแห
+    await createNotification({
+      recipient_id:   trainerUser.advisor_id,
+      recipient_role: "instructor",
+      type:           "program_submitted",
+      title:          "โปรแกรมใหม่รออนุมัติ",
+      message:        `เทรนเนอร์ ${trainerUser?.name ?? ""} ได้ส่งโปรแกรม "${program.program_name}" ให้ตรวจสอบแล้ว`,
+      ref_id:         program._id,
+      ref_model:      "TrainingProgram",
+    });
 
     res.json(program);
   } catch (err) {
@@ -321,7 +331,7 @@ router.patch("/:id/reject", auth, async (req, res) => {
   }
 });
 
-// [คงไว้กันพัง] ── GET /api/programs/pending — อาจารย์ดูรออนุมัติ สามารถส่งปีการศึกษามากรองได้แบบเดียวกับด้านบน ──
+// ── GET /api/programs/pending — อาจารย์ดูรออนุมัติ ──
 router.get("/pending", auth, async (req, res) => {
   try {
     if (req.role !== "instructor" && req.role !== "admin")

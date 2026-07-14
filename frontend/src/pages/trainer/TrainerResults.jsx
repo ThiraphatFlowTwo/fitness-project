@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Save,
   User,
@@ -12,6 +12,8 @@ import {
   Loader2,
   Calendar,
   AlertCircle,
+  CheckCircle,
+  HelpCircle,
 } from "lucide-react";
 
 const API = "http://localhost:5000/api/logs";
@@ -91,6 +93,85 @@ const getFieldConfig = (category) => {
 
 const DRAFT_KEY = "trainer_results_draft";
 
+// ── Unified Action Modal (แทน alert() / confirm()) ─────────────
+function ActionModal({ state, onClose }) {
+  if (!state.open) return null;
+
+  const isConfirm = state.mode === "confirm";
+
+  const styles = {
+    error: { icon: <AlertCircle className="w-5 h-5" />, bg: "bg-rose-400/15 text-rose-300" },
+    success: { icon: <CheckCircle className="w-5 h-5" />, bg: "bg-emerald-400/15 text-emerald-300" },
+    warning: { icon: <AlertCircle className="w-5 h-5" />, bg: "bg-amber-400/15 text-amber-300" },
+    confirm: { icon: <HelpCircle className="w-5 h-5" />, bg: "bg-amber-400/15 text-amber-300" },
+  };
+  const s = styles[state.type] || styles.error;
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center px-4"
+      style={{ animation: "fadeIn 0.2s ease-out" }}
+    >
+      <div
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+        onClick={() => !isConfirm && onClose(true)}
+      />
+
+      <div
+        className="relative w-full max-w-sm rounded-3xl bg-slate-900/95 border border-white/10 shadow-2xl p-6 text-white"
+        style={{ animation: "popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)" }}
+      >
+        <div className="flex items-start gap-3 mb-1">
+          <div className={`w-11 h-11 shrink-0 rounded-2xl flex items-center justify-center ${s.bg}`}>
+            {s.icon}
+          </div>
+          <div className="pt-1.5">
+            <p className="font-bold text-sm leading-snug">{state.title}</p>
+          </div>
+        </div>
+
+        {state.message && (
+          <p className="text-slate-300 text-sm leading-relaxed mt-3 whitespace-pre-line pl-[3.5rem] -mt-1">
+            {state.message}
+          </p>
+        )}
+
+        {isConfirm ? (
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => onClose(false)}
+              className="flex-1 py-3 rounded-2xl font-bold text-sm bg-white/10 hover:bg-white/15
+                         active:scale-95 transition-all"
+            >
+              ยกเลิก
+            </button>
+            <button
+              onClick={() => onClose(true)}
+              className="flex-1 py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-blue-600 to-violet-600
+                         shadow-lg shadow-blue-500/25 hover:opacity-90 active:scale-95 transition-all"
+            >
+              ตกลง
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => onClose(true)}
+            className="w-full mt-6 py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-blue-600 to-violet-600
+                       shadow-lg shadow-blue-500/25 hover:opacity-90 active:scale-95 transition-all"
+          >
+            ตกลง
+          </button>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes popIn { from { opacity: 0; transform: scale(0.92) translateY(8px) } to { opacity: 1; transform: scale(1) translateY(0) } }
+      `}</style>
+    </div>
+  );
+}
+
 const TrainerResults = () => {
   const loadDraft = () => {
     try {
@@ -116,6 +197,30 @@ const TrainerResults = () => {
   const [isTimerRunning,   setIsTimerRunning]   = useState(false);
   const [photoFile,        setPhotoFile]        = useState(null);
   const [photoPreview,     setPhotoPreview]     = useState(null);
+
+  // ── Modal state + helper functions (แทน alert()/confirm()) ──
+  const [modalState, setModalState] = useState({ open: false });
+  const resolveRef = useRef(null);
+
+  const showAlert = (title, message = "", type = "error") =>
+    new Promise((resolve) => {
+      resolveRef.current = resolve;
+      setModalState({ open: true, mode: "alert", type, title, message });
+    });
+
+  const showConfirm = (title, message = "") =>
+    new Promise((resolve) => {
+      resolveRef.current = resolve;
+      setModalState({ open: true, mode: "confirm", type: "confirm", title, message });
+    });
+
+  const closeModal = (result) => {
+    setModalState((s) => ({ ...s, open: false }));
+    if (resolveRef.current) {
+      resolveRef.current(result);
+      resolveRef.current = null;
+    }
+  };
 
   useEffect(() => {
     const fetchPrograms = async () => {
@@ -171,8 +276,10 @@ const TrainerResults = () => {
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   };
 
-  const handleProgramSelect = (e) => {
+  const handleProgramSelect = async (e) => {
     const id = e.target.value;
+    const selectEl = e.target;
+
     if (!id) {
       setSelectedProgram(null);
       setWorkoutSessions([]);
@@ -180,7 +287,22 @@ const TrainerResults = () => {
       setIsTimerRunning(false);
       return;
     }
+
     const program = approvedPrograms.find((p) => p._id === id);
+
+    // 📝 popup ถามผู้ใช้ก่อนเริ่มการฝึก
+    const confirmStart = await showConfirm(
+      `เริ่มการฝึกโปรแกรม "${program.program_name}"?`,
+      "ระบบจะเริ่มนับเวลาทันที"
+    );
+
+    // ถ้าผู้ใช้กด "ยกเลิก" ให้รีเซ็ตค่าซีเล็คกลับเป็นค่าว่างแล้วหยุดทำงาน
+    if (!confirmStart) {
+      selectEl.value = "";
+      return;
+    }
+
+    // ถ้ากด "ตกลง" ถึงจะทำงานต่อและเริ่มจับเวลา
     setSelectedProgram(program);
     setWorkoutSessions(
       (program.exercises || []).map((ex) => ({
@@ -200,7 +322,7 @@ const TrainerResults = () => {
     setTimerSeconds(0);
     setIsTimerRunning(true);
   };
-
+  
   const addSet = (exercise_id) =>
     setWorkoutSessions((prev) =>
       prev.map((s) =>
@@ -311,11 +433,17 @@ const TrainerResults = () => {
     ]);
   };
 
-  const handlePhotoSelect = (e) => {
+  const handlePhotoSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) { alert("กรุณาเลือกไฟล์รูปภาพเท่านั้น"); return; }
-    if (file.size > 5 * 1024 * 1024) { alert("ขนาดรูปต้องไม่เกิน 5MB"); return; }
+    if (!file.type.startsWith("image/")) {
+      await showAlert("ไฟล์ไม่ถูกต้อง", "กรุณาเลือกไฟล์รูปภาพเท่านั้น");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      await showAlert("ไฟล์ใหญ่เกินไป", "ขนาดรูปต้องไม่เกิน 5MB");
+      return;
+    }
     setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
   };
@@ -327,12 +455,24 @@ const TrainerResults = () => {
   };
 
   const handleSave = async () => {
-    if (!selectedProgram)        { alert("กรุณาเลือกโปรแกรม"); return; }
-    if (workoutSessions.length === 0) { alert("กรุณาเลือกท่าอย่างน้อย 1 ท่า"); return; }
+    if (!selectedProgram) {
+      await showAlert("ยังไม่ได้เลือกโปรแกรม", "กรุณาเลือกโปรแกรมก่อนบันทึก", "warning");
+      return;
+    }
+    if (workoutSessions.length === 0) {
+      await showAlert("ยังไม่มีท่าออกกำลังกาย", "กรุณาเลือกท่าอย่างน้อย 1 ท่า", "warning");
+      return;
+    }
 
     const completedSets = workoutSessions.flatMap(s => s.sets).filter(st => st.completed).length;
-    if (completedSets === 0 && !window.confirm("ยังไม่มีเซตที่ทำเสร็จ ต้องการบันทึกหรือไม่?")) return;
-    if (!photoFile && !window.confirm("ยังไม่ได้แนบรูปยืนยันการฝึก ต้องการบันทึกโดยไม่มีรูปหรือไม่?")) return;
+    if (completedSets === 0) {
+      const proceed = await showConfirm("ยังไม่มีเซตที่ทำเสร็จ", "ต้องการบันทึกหรือไม่?");
+      if (!proceed) return;
+    }
+    if (!photoFile) {
+      const proceed = await showConfirm("ยังไม่ได้แนบรูปยืนยันการฝึก", "ต้องการบันทึกโดยไม่มีรูปหรือไม่?");
+      if (!proceed) return;
+    }
 
     setSaving(true);
     try {
@@ -367,11 +507,15 @@ const TrainerResults = () => {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(`บันทึกไม่สำเร็จ: ${data.message}`);
+        await showAlert("บันทึกไม่สำเร็จ", data.message || "", "error");
         return;
       }
-      alert(`✅ บันทึกผลการฝึกสำเร็จ!\nโปรแกรม: ${selectedProgram.program_name}\nเวลา: ${formatTime(timerSeconds)}`);
-      
+      await showAlert(
+        "บันทึกผลการฝึกสำเร็จ!",
+        `โปรแกรม: ${selectedProgram.program_name}\nเวลา: ${formatTime(timerSeconds)}`,
+        "success"
+      );
+
       // ล้างค่าหลังจากบันทึกเสร็จ
       localStorage.removeItem(DRAFT_KEY);
       setSelectedProgram(null);
@@ -380,7 +524,9 @@ const TrainerResults = () => {
       setIsTimerRunning(false);
       setLogNote("");
       removePhoto();
-    } catch { alert("เกิดข้อผิดพลาด"); }
+    } catch {
+      await showAlert("เกิดข้อผิดพลาด", "", "error");
+    }
     finally  { setSaving(false); }
   };
 
@@ -632,8 +778,9 @@ const TrainerResults = () => {
             {workoutSessions.length > 0 && (
               <div className="flex justify-end space-x-2 md:space-x-3 pt-3 md:pt-4 border-t">
                 <button
-                  onClick={() => {
-                    if (!window.confirm("ยกเลิกการบันทึกใช่หรือไม่?")) return;
+                  onClick={async () => {
+                    const ok = await showConfirm("ยกเลิกการบันทึก", "ยกเลิกการบันทึกใช่หรือไม่?");
+                    if (!ok) return;
                     localStorage.removeItem(DRAFT_KEY);
                     setSelectedProgram(null);
                     setWorkoutSessions([]);
@@ -749,6 +896,9 @@ const TrainerResults = () => {
           </div>
         </div>
       )}
+
+      {/* ── Action Modal (alert / confirm ทั้งหมดในหน้านี้) ── */}
+      <ActionModal state={modalState} onClose={closeModal} />
     </div>
   );
 };
