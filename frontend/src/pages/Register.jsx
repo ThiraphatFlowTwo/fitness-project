@@ -3,7 +3,7 @@ import api from "../services/api";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Dumbbell, User, Mail, Lock,
-  Eye, EyeOff, Shield, IdCard, Zap, CheckCircle, AlertCircle, X
+  Eye, EyeOff, IdCard, Zap, CheckCircle, AlertCircle, X
 } from "lucide-react";
 
 // ── Custom Alert Modal ──────────────────────────────────────
@@ -38,7 +38,9 @@ function AlertModal({ open, type = "error", title, message, onClose }) {
         </button>
 
         <div className="flex items-start gap-3 mb-2">
-          <div className={`w-11 h-11 shrink-0 rounded-2xl flex items-center justify-center ${s.bg}`}>
+          <div
+            className={`w-11 h-11 shrink-0 rounded-2xl flex items-center justify-center ${s.bg}`}
+          >
             {s.icon}
           </div>
           <div className="pt-1.5">
@@ -71,23 +73,31 @@ function AlertModal({ open, type = "error", title, message, onClose }) {
 
 const Field = ({ label, name, type = "text", placeholder, error, icon, rightEl, value, onChange }) => (
   <div className="mb-4">
-    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">{label}</label>
+    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+      {label}
+    </label>
     <div className="relative">
-      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">{icon}</span>
+      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+        {icon}
+      </span>
       <input
         name={name}
         type={type}
         value={value}
         placeholder={placeholder}
         onChange={onChange}
-        className={`w-full pl-11 ${rightEl ? "pr-12" : "pr-5"} py-3.5 bg-white border-2 rounded-2xl text-sm outline-none
+        className={`w-full pl-11 ${rightEl ? 'pr-12' : 'pr-5'} py-3.5 bg-white border-2 rounded-2xl text-sm outline-none
           transition-all placeholder:text-slate-300
-          ${error
-            ? "border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-500/10"
-            : "border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+          ${error 
+            ? 'border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-500/10' 
+            : 'border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'
           }`}
       />
-      {rightEl && <div className="absolute right-4 top-1/2 -translate-y-1/2">{rightEl}</div>}
+      {rightEl && (
+        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+          {rightEl}
+        </div>
+      )}
     </div>
     {error && (
       <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1 font-medium">
@@ -100,24 +110,28 @@ const Field = ({ label, name, type = "text", placeholder, error, icon, rightEl, 
 export default function Register() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
-    student_id: "", name: "", email: "",
-    password: "", confirmPassword: "", role: "pending",
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "", // ➕ เพิ่ม State สำหรับยืนยันรหัสผ่าน
+    student_id: "",
+    role: "trainer"
   });
-  const [errors, setErrors]       = useState({});
-  const [loading, setLoading]     = useState(false);
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPw] = useState(false);
-  const [showConfirm, setShowCf]  = useState(false);
+  const [showConfirmPassword, setShowConfirmPw] = useState(false); // ➕ เปิด/ปิดการมองเห็น Confirm Password
 
   const [alertModal, setAlertModal] = useState({
     open: false,
     type: "error",
     title: "",
-    message: "",
+    message: ""
   });
 
   const closeAlert = () => {
     const wasSuccess = alertModal.type === "success";
-    setAlertModal((a) => ({ ...a, open: false }));
+    setAlertModal(a => ({ ...a, open: false }));
     if (wasSuccess) navigate("/login");
   };
 
@@ -125,25 +139,34 @@ export default function Register() {
 
   const validate = () => {
     const e = {};
-    const isTrainer = form.role === "trainer";
+    if (!form.name.trim()) e.name = "กรุณากรอกชื่อ-นามสกุล";
     
-    // ดักกรอกรหัสประจำตัวเฉพาะเทรนเนอร์ และต้องเป็นตัวเลข 10 ตัวเท่านั้น เพื่อไม่ให้ติด Bug ยาวเกินไป
-    if (isTrainer) {
-      if (!form.student_id) {
+    if (!form.email.trim()) {
+      e.email = "กรุณากรอกอีเมลสำหรับเข้าใช้งาน";
+    } else if (!/^\S+@\S+\.\S+$/.test(form.email)) {
+      e.email = "รูปแบบอีเมลไม่ถูกต้อง";
+    }
+
+    // 🔒 1. ตรวจสอบรหัสผ่านอย่างน้อย 8 ตัวอักษร
+    if (!form.password) {
+      e.password = "กรุณากรอกรหัสผ่าน";
+    } else if (form.password.length < 8) {
+      e.password = "รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร";
+    }
+
+    // 🔒 2. ตรวจสอบรหัสผ่านตรงกันสองครั้ง
+    if (!form.confirmPassword) {
+      e.confirmPassword = "กรุณากรอกยืนยันรหัสผ่าน";
+    } else if (form.password !== form.confirmPassword) {
+      e.confirmPassword = "รหัสผ่านที่ยืนยันไม่ตรงกัน";
+    }
+
+    if (form.role === "trainer") {
+      if (!form.student_id.trim()) {
         e.student_id = "กรุณากรอกรหัสนักศึกษา";
-      } else if (!/^\d{10}$/.test(form.student_id)) {
-        e.student_id = "รหัสนักศึกษาต้องเป็นตัวเลข 10 หลักเท่านั้น (ห้ามใส่อีเมลในช่องนี้)";
       }
     }
-    
-    if (!form.name) e.name = "กรุณากรอกชื่อ-นามสกุล";
-    if (!form.email) e.email = "กรุณากรอก Email";
-    else if (!/^\S+@\S+\.\S+$/.test(form.email)) e.email = "รูปแบบ Email ไม่ถูกต้อง";
-    if (!form.role || form.role === "pending") e.role = "กรุณาเลือกประเภทบัญชี";
-    if (!form.password) e.password = "กรุณากรอกรหัสผ่าน";
-    else if (form.password.length < 8) e.password = "รหัสผ่านต้องอย่างน้อย 8 ตัวอักษร";
-    if (!form.confirmPassword) e.confirmPassword = "กรุณายืนยันรหัสผ่าน";
-    else if (form.password !== form.confirmPassword) e.confirmPassword = "รหัสผ่านไม่ตรงกัน";
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -153,31 +176,31 @@ export default function Register() {
     try {
       setLoading(true);
 
-      const isInstructor = form.role === "instructor";
-      
       const payload = {
-        username: isInstructor ? form.email : form.student_id.trim(), 
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
         password: form.password,
         role: form.role,
-        name: form.name,
-        email: form.email,
-        student_id: isInstructor ? "" : form.student_id.trim(), 
       };
 
-      await api.post("/auth/register", payload);
+      if (form.role === "trainer") {
+        payload.student_id = form.student_id.trim();
+      }
+
+      const response = await api.post("/auth/register", payload);
 
       setAlertModal({
         open: true,
         type: "success",
-        title: "สมัครสมาชิกสำเร็จ!",
-        message: "กรุณารอ Admin อนุมัติสิทธิ์การใช้งาน",
+        title: "ลงทะเบียนสำเร็จ!",
+        message: response.data.message || "กรุณารอแอดมินหรืออาจารย์ตรวจสอบและอนุมัติสิทธิ์เข้าใช้งาน"
       });
     } catch (err) {
       setAlertModal({
         open: true,
         type: "error",
-        title: "สมัครสมาชิกไม่สำเร็จ",
-        message: err.response?.data?.message || "กรุณาตรวจสอบข้อมูลอีกครั้ง",
+        title: "การลงทะเบียนไม่สำเร็จ",
+        message: err.response?.data?.message || "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง"
       });
     } finally {
       setLoading(false);
@@ -186,10 +209,9 @@ export default function Register() {
 
   return (
     <div className="min-h-screen flex">
-
       {/* ── Left Panel ── */}
       <div className="hidden lg:flex lg:w-2/5 relative overflow-hidden">
-        <div
+        <div 
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: "url('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200')" }}
         />
@@ -208,28 +230,14 @@ export default function Register() {
           <div>
             <div className="w-12 h-1 bg-gradient-to-r from-blue-400 to-violet-400 rounded-full mb-6" />
             <h2 className="text-2xl font-black text-white mb-6 leading-tight">
-              เริ่มต้นเส้นทาง<br />
+              ร่วมเป็นส่วนหนึ่ง<br />
               <span className="bg-gradient-to-r from-blue-300 to-violet-300 bg-clip-text text-transparent">
-                นักกีฬามืออาชีพ
+                ของทีมกีฬาคุณภาพ
               </span>
             </h2>
-            <div className="space-y-4">
-              {[
-                { step: "01", text: "สมัครและรอการอนุมัติ" },
-                { step: "02", text: "เลือกโปรแกรมฝึกซ้อม"  },
-                { step: "03", text: "ติดตามผลและพัฒนาตัวเอง" },
-              ].map(({ step, text }) => (
-                <div key={step} className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
-                    <CheckCircle className="w-4 h-4 text-blue-300" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-blue-400 font-bold">STEP {step}</span>
-                    <p className="text-white text-sm font-medium">{text}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <p className="text-blue-200 text-sm max-w-sm leading-relaxed mb-6">
+              ลงทะเบียนเพื่อเข้าสู่แพลตฟอร์มการจัดการ เรียนรู้ และพัฒนาเทรนเนอร์กีฬาสู่ระดับมาตรฐานสากล
+            </p>
           </div>
 
           <p className="text-blue-300 text-xs">
@@ -238,9 +246,8 @@ export default function Register() {
         </div>
       </div>
 
-      {/* ── Right Panel (form) ── */}
+      {/* ── Right Panel ── */}
       <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 bg-slate-50 overflow-y-auto">
-
         <div className="lg:hidden flex items-center gap-3 mb-8">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center shadow-lg">
             <Dumbbell className="w-5 h-5 text-white" />
@@ -253,76 +260,116 @@ export default function Register() {
 
         <div className="w-full max-w-sm">
           <div className="mb-7">
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-violet-600 bg-violet-50 px-3 py-1 rounded-full mb-3">
-              <Zap className="w-3 h-3" /> สมัครสมาชิก
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full mb-3">
+              <Zap className="w-3 h-3" /> ยินดีต้อนรับสมาชิกใหม่
             </span>
-            <h1 className="text-3xl font-black text-slate-800 leading-tight">สร้างบัญชีใหม่</h1>
-            <p className="text-slate-500 text-sm mt-1">กรอกข้อมูลเพื่อรอการอนุมัติจากผู้ดูแลระบบ</p>
+            <h1 className="text-3xl font-black text-slate-800 leading-tight">สมัครสมาชิก</h1>
+            <p className="text-slate-500 text-sm mt-1">กรอกข้อมูลให้ครบถ้วนเพื่อสร้างบัญชีใหม่ของคุณ</p>
           </div>
 
-          {/* Role selector */}
-          <div className="flex flex-col gap-1.5 mb-4">
-            <label className="text-sm font-semibold text-slate-700">ประเภทบัญชี</label>
+          {/* Role Selection */}
+          <div className="mb-5">
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+              ประเภทผู้ใช้งาน
+            </label>
             <div className="grid grid-cols-2 gap-3">
-              {[
-                { value: "trainer",    label: "เทรนเนอร์",  desc: "ผู้ฝึกสอน" },
-                { value: "instructor", label: "อาจารย์",    desc: "ผู้ดูแลหลักสูตร" },
-              ].map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setForm(f => ({ ...f, role: opt.value, student_id: "" }))}
-                  className={`p-3 rounded-xl border-2 text-left transition-all ${
-                    form.role === opt.value
-                      ? "border-violet-500 bg-violet-50"
-                      : "border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <p className={`font-semibold text-sm ${form.role === opt.value ? "text-violet-700" : "text-slate-700"}`}>
-                    {opt.label}
-                  </p>
-                  <p className="text-xs text-slate-400">{opt.desc}</p>
-                </button>
-              ))}
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, role: "trainer" })}
+                className={`py-3 rounded-2xl text-xs font-bold border-2 transition-all ${
+                  form.role === "trainer"
+                    ? "border-blue-500 bg-blue-50/50 text-blue-600 shadow-sm"
+                    : "border-slate-200 hover:border-slate-300 text-slate-500"
+                }`}
+              >
+                นักศึกษา (Trainer)
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, role: "instructor" })}
+                className={`py-3 rounded-2xl text-xs font-bold border-2 transition-all ${
+                  form.role === "instructor"
+                    ? "border-blue-500 bg-blue-50/50 text-blue-600 shadow-sm"
+                    : "border-slate-200 hover:border-slate-300 text-slate-500"
+                }`}
+              >
+                อาจารย์ (Instructor)
+              </button>
             </div>
-            {errors.role && <p className="text-xs text-red-500">{errors.role}</p>}
           </div>
 
           {/* Fields */}
+          <Field
+            label="ชื่อ - นามสกุล"
+            name="name"
+            value={form.name}
+            onChange={handleChange}
+            placeholder="เช่น สมชาย ใจดี"
+            error={errors.name}
+            icon={<User className="w-4 h-4" />}
+          />
+
+          <Field
+            label="อีเมลที่ใช้งานจริง"
+            name="email"
+            type="email"
+            value={form.email}
+            onChange={handleChange}
+            placeholder="เช่น somchai@example.com"
+            error={errors.email}
+            icon={<Mail className="w-4 h-4" />}
+          />
+
           {form.role === "trainer" && (
-            <Field label="รหัสนักศึกษา (10 หลัก)" name="student_id" value={form.student_id}
-              onChange={handleChange} placeholder="เช่น 6640248106"
-              error={errors.student_id} icon={<IdCard className="w-4 h-4" />} />
+            <Field
+              label="รหัสนักศึกษา"
+              name="student_id"
+              value={form.student_id}
+              onChange={handleChange}
+              placeholder="กรอกรหัสนักศึกษา 11 หลัก"
+              error={errors.student_id}
+              icon={<IdCard className="w-4 h-4" />}
+            />
           )}
 
-          <Field label="ชื่อ-นามสกุล" name="name" value={form.name}
-            onChange={handleChange} placeholder="ชื่อ-นามสกุล"
-            error={errors.name} icon={<User className="w-4 h-4" />} />
-
-          <Field label="อีเมล" type="email" value={form.email}
-            onChange={handleChange} placeholder="example@xxx.com"
-            error={errors.email} icon={<Mail className="w-4 h-4" />} name="email" />
-
-          <Field label="รหัสผ่าน (อย่างน้อย 8 ตัว)" name="password"
-            type={showPassword ? "text" : "password"} value={form.password}
-            onChange={handleChange} placeholder="ตั้งรหัสผ่าน"
-            error={errors.password} icon={<Lock className="w-4 h-4" />}
+          {/* 🔒 รหัสผ่านตัวแรก */}
+          <Field
+            label="รหัสผ่าน"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            value={form.password}
+            onChange={handleChange}
+            placeholder="กำหนดรหัสผ่าน (8 ตัวขึ้นไป)"
+            error={errors.password}
+            icon={<Lock className="w-4 h-4" />}
             rightEl={
-              <button type="button" onClick={() => setShowPw(!showPassword)}
-                className="text-slate-400 hover:text-slate-600 transition-colors">
+              <button
+                type="button"
+                onClick={() => setShowPw(!showPassword)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             }
           />
 
-          <Field label="ยืนยันรหัสผ่าน" name="confirmPassword"
-            type={showConfirm ? "text" : "password"} value={form.confirmPassword}
-            onChange={handleChange} placeholder="กรอกรหัสผ่านอีกครั้ง"
-            error={errors.confirmPassword} icon={<Shield className="w-4 h-4" />}
+          {/* 🔒 ยืนยันรหัสผ่าน */}
+          <Field
+            label="ยืนยันรหัสผ่านอีกครั้ง"
+            name="confirmPassword"
+            type={showConfirmPassword ? "text" : "password"}
+            value={form.confirmPassword}
+            onChange={handleChange}
+            placeholder="กรอกรหัสผ่านเหมือนด้านบนอีกครั้ง"
+            error={errors.confirmPassword}
+            icon={<Lock className="w-4 h-4" />}
             rightEl={
-              <button type="button" onClick={() => setShowCf(!showConfirm)}
-                className="text-slate-400 hover:text-slate-600 transition-colors">
-                {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              <button
+                type="button"
+                onClick={() => setShowConfirmPw(!showConfirmPassword)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             }
           />
@@ -330,7 +377,7 @@ export default function Register() {
           <button
             onClick={handleRegister}
             disabled={loading}
-            className="w-full mt-2 py-3.5 rounded-2xl font-bold text-white text-sm
+            className="w-full mt-4 py-3.5 rounded-2xl font-bold text-white text-sm
                        bg-gradient-to-r from-blue-600 to-violet-600
                        shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-violet-500/30
                        hover:opacity-90 active:scale-95 disabled:opacity-60 transition-all"

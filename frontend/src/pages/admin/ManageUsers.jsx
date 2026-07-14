@@ -26,7 +26,6 @@ export default function ManageUsers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [errors, setErrors] = useState({});
   const [newUser, setNewUser] = useState({
-    username: "",
     password: "",
     role: "trainer",
     name: "",
@@ -39,12 +38,26 @@ export default function ManageUsers() {
   const [editForm, setEditForm] = useState({
     name: "",
     email: "",
-    username: "",
   });
 
+  // ฟังก์ชันดึง Token ป้องกันโค้ดซ้ำซ้อน
+  const getHeaders = () => {
+    const token = localStorage.getItem("token");
+    return {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    };
+  };
+
+  // ===== GET ALL USERS =====
   const fetchUsers = async () => {
-    const res = await api.get("/admin/users");
-    setUsers(res.data);
+    try {
+      const res = await api.get("/admin/users", getHeaders());
+      setUsers(res.data);
+    } catch (err) {
+      console.error("โหลดข้อมูลผู้ใช้ไม่สำเร็จ:", err);
+    }
   };
 
   const openEditModal = (user) => {
@@ -52,23 +65,28 @@ export default function ManageUsers() {
     setEditForm({
       name:     user.name     || "",
       email:    user.email    || "",
-      username: user.username || "",
     });
     setShowEdit(true);
   };
 
+  // ===== UPDATE USER =====
   const handleUpdateUser = async () => {
     try {
-      await api.put(`/admin/users/${editingUser._id}`, {
-        name:     editForm.name,
-        email:    editForm.email,
-        username: editForm.username,
-      });
+      await api.put(
+        `/admin/users/${editingUser._id}`,
+        {
+          name:     editForm.name,
+          email:    editForm.email,
+        },
+        getHeaders()
+      );
 
+      alert("แก้ไขข้อมูลผู้ใช้สำเร็จ");
       setShowEdit(false);
       fetchUsers();
     } catch (err) {
-      alert("แก้ไขไม่สำเร็จ");
+      console.error("แก้ไขไม่สำเร็จ:", err);
+      alert(err.response?.data?.message || "แก้ไขไม่สำเร็จ");
     }
   };
 
@@ -80,10 +98,7 @@ export default function ManageUsers() {
   const validate = () => {
     const newErrors = {};
 
-    if (!newUser.username) newErrors.username = "กรุณากรอก Username";
-
     if (!newUser.password) newErrors.password = "กรุณากรอกรหัสผ่าน";
-
     if (!newUser.name) newErrors.name = "กรุณากรอกชื่อ-นามสกุล";
 
     if (!newUser.email) {
@@ -103,12 +118,11 @@ export default function ManageUsers() {
     if (!validate()) return;
 
     try {
-      await api.post("/admin/users", newUser);
+      await api.post("/admin/users", newUser, getHeaders());
       alert("เพิ่มผู้ใช้สำเร็จ");
 
       setShowAdd(false);
       setNewUser({
-        username: "",
         password: "",
         role: "trainer",
         name: "",
@@ -117,6 +131,7 @@ export default function ManageUsers() {
       setErrors({});
       fetchUsers();
     } catch (err) {
+      console.error("เพิ่มไม่สำเร็จ:", err);
       alert(err.response?.data?.message || "เพิ่มผู้ใช้ไม่สำเร็จ");
     }
   };
@@ -124,31 +139,51 @@ export default function ManageUsers() {
   // ===== APPROVE USER =====
   const handleApprove = async (id) => {
     try {
-      await api.put(`/admin/users/${id}/approve`);
+      await api.put(`/admin/users/${id}/approve`, {}, getHeaders());
+      alert("อนุมัติผู้ใช้สำเร็จ");
       fetchUsers();
     } catch (err) {
-      alert("อนุมัติไม่สำเร็จ");
+      console.error("อนุมัติไม่สำเร็จ:", err);
+      alert(err.response?.data?.message || "อนุมัติไม่สำเร็จ");
     }
   };
 
   // ===== UPDATE ROLE =====
   const handleChangeRole = async (id, role) => {
-    await api.put(`/admin/users/${id}`, { role });
-    fetchUsers();
+    try {
+      await api.put(`/admin/users/${id}`, { role }, getHeaders());
+      alert("เปลี่ยนบทบาทสำเร็จ");
+      fetchUsers();
+    } catch (err) {
+      console.error("เปลี่ยนบทบาทไม่สำเร็จ:", err);
+      alert(err.response?.data?.message || "เปลี่ยนบทบาทไม่สำเร็จ");
+    }
   };
 
   // ===== TOGGLE STATUS =====
   const handleToggleStatus = async (id, status) => {
-    const newStatus = status === "active" ? "inactive" : "active";
-    await api.put(`/admin/users/${id}/status`, { status: newStatus });
-    fetchUsers();
+    try {
+      const newStatus = status === "active" ? "inactive" : "active";
+      await api.put(`/admin/users/${id}/status`, { status: newStatus }, getHeaders());
+      alert("อัปเดตสถานะการใช้งานสำเร็จ");
+      fetchUsers();
+    } catch (err) {
+      console.error("เปลี่ยนสถานะไม่สำเร็จ:", err);
+      alert(err.response?.data?.message || "เปลี่ยนสถานะไม่สำเร็จ");
+    }
   };
 
   // ===== DELETE USER =====
   const handleDelete = async (id) => {
     if (!confirm("ต้องการลบผู้ใช้นี้หรือไม่?")) return;
-    await api.delete(`/admin/users/${id}`);
-    fetchUsers();
+    try {
+      await api.delete(`/admin/users/${id}`, getHeaders());
+      alert("ลบผู้ใช้สำเร็จ");
+      fetchUsers();
+    } catch (err) {
+      console.error("ลบไม่สำเร็จ:", err);
+      alert(err.response?.data?.message || "ลบผู้ใช้ไม่สำเร็จ");
+    }
   };
 
   // ===== FILTER =====
@@ -157,9 +192,8 @@ export default function ManageUsers() {
     const matchRole = roleFilter === "all" ? true : u.role === roleFilter;
     const matchSearch =
       searchQuery === "" ||
-      u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email?.toLowerCase().includes(searchQuery.toLowerCase());
+      (u.name && u.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchStatus && matchRole && matchSearch;
   });
 
@@ -205,7 +239,7 @@ export default function ManageUsers() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
                 type="text"
-                placeholder="ค้นหาชื่อ, username, email..."
+                placeholder="ค้นหาชื่อ หรือ email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
@@ -279,55 +313,6 @@ export default function ManageUsers() {
 
               {/* Modal Body */}
               <div className="p-6 space-y-4">
-                {/* Username */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    <User className="w-4 h-4 inline mr-1" />
-                    Username / รหัส
-                  </label>
-                  <input
-                    placeholder="กรอก username"
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                      errors.username ? "border-red-500" : "border-slate-200"
-                    }`}
-                    value={newUser.username}
-                    onChange={(e) =>
-                      setNewUser({ ...newUser, username: e.target.value })
-                    }
-                  />
-                  {errors.username && (
-                    <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                      <XCircle className="w-4 h-4" />
-                      {errors.username}
-                    </p>
-                  )}
-                </div>
-
-                {/* Password */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    <Lock className="w-4 h-4 inline mr-1" />
-                    รหัสผ่าน
-                  </label>
-                  <input
-                    placeholder="กรอกรหัสผ่าน"
-                    type="password"
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                      errors.password ? "border-red-500" : "border-slate-200"
-                    }`}
-                    value={newUser.password}
-                    onChange={(e) =>
-                      setNewUser({ ...newUser, password: e.target.value })
-                    }
-                  />
-                  {errors.password && (
-                    <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                      <XCircle className="w-4 h-4" />
-                      {errors.password}
-                    </p>
-                  )}
-                </div>
-
                 {/* Name */}
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -373,6 +358,31 @@ export default function ManageUsers() {
                     <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
                       <XCircle className="w-4 h-4" />
                       {errors.email}
+                    </p>
+                  )}
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    <Lock className="w-4 h-4 inline mr-1" />
+                    รหัสผ่าน
+                  </label>
+                  <input
+                    placeholder="กรอกรหัสผ่าน"
+                    type="password"
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                      errors.password ? "border-red-500" : "border-slate-200"
+                    }`}
+                    value={newUser.password}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, password: e.target.value })
+                    }
+                  />
+                  {errors.password && (
+                    <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                      <XCircle className="w-4 h-4" />
+                      {errors.password}
                     </p>
                   )}
                 </div>
@@ -433,9 +443,6 @@ export default function ManageUsers() {
               <thead className="bg-gradient-to-r from-slate-100 to-slate-50 border-b-2 border-slate-200">
                 <tr>
                   <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">
-                    Username
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">
                     ชื่อ-นามสกุล
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">
@@ -456,7 +463,7 @@ export default function ManageUsers() {
                 {filteredUsers.length === 0 ? (
                   <tr>
                     <td
-                      colSpan="6"
+                      colSpan="5"
                       className="px-6 py-12 text-center text-slate-500"
                     >
                       <Users className="w-12 h-12 mx-auto mb-3 text-slate-300" />
@@ -472,15 +479,12 @@ export default function ManageUsers() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                            {u.username.charAt(0).toUpperCase()}
+                            {(u.name || u.email || "U").charAt(0).toUpperCase()}
                           </div>
                           <span className="font-medium text-slate-800">
-                            {u.username}
+                            {u.name || "-"}
                           </span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-slate-700">
-                        {u.name || "-"}
                       </td>
                       <td className="px-6 py-4 text-slate-600 text-sm">
                         {u.email || "-"}
@@ -581,16 +585,6 @@ export default function ManageUsers() {
             {/* Body */}
             <div className="p-6 space-y-4">
               <div>
-                <label className="block font-semibold mb-1">Username</label>
-                <input
-                  value={editForm.username}
-                  onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
-                  className="w-full border p-3 rounded-xl"
-                  placeholder="Username"
-                />
-              </div>
-
-              <div>
                 <label className="block font-semibold mb-1">ชื่อ–นามสกุล</label>
                 <input
                   value={editForm.name}
@@ -655,7 +649,6 @@ function TabButton({ label, count, icon, active, onClick, color }) {
         "bg-white text-slate-600 border-2 border-slate-200 hover:border-red-500",
     },
   };
-
 
   return (
     <button

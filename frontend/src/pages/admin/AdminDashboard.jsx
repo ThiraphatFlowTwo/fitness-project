@@ -28,7 +28,14 @@ export default function AdminDashboard() {
 
   const fetchSummary = async () => {
     try {
-      const res = await api.get("/dashboard/admin-summary");
+      // 🔑 ดึง Token ของแอดมินมาส่งไปด้วยเพื่อยืนยันตัวตนกับหลังบ้าน
+      const token = localStorage.getItem("token");
+      
+      const res = await api.get("/dashboard/admin-summary", {
+        headers: {
+          Authorization: `Bearer ${token}`, // ส่ง Token แนบไปใน Header
+        },
+      });
       setSummary(res.data);
     } catch (err) {
       console.error("โหลด summary ไม่สำเร็จ", err);

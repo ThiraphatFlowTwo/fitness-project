@@ -8,6 +8,9 @@ const AcademicYear = require("../models/academicYear.model");
 const { protect } = require("../middleware/authMiddleware");
 const { createNotification } = require("../utils/notificationHelper");
 
+// ➕ นำเข้า Controller เข้ามาใช้งานร่วมกัน
+const authController = require("../controllers/authController"); 
+
 /* =========================================================================
    ➕ GET INSTRUCTORS — ดึงรายชื่ออาจารย์ทั้งหมดในระบบเพื่อกางลง Dropdown หน้าบ้าน
    ========================================================================= */
@@ -24,128 +27,14 @@ router.get("/instructors", async (req, res) => {
 });
 
 /* =========================================================================
-   📝 [แก้ไขใหม่] REGISTER (ไม่ต้องเลือกอาจารย์ตอนสมัคร ปล่อยให้สมัครปกติเหมือนเดิม)
+   📝 REGISTER — เรียกใช้งานผ่าน authController โดยตรงเพื่อหลีกเลี่ยง Logic ซ้ำซ้อน
    ========================================================================= */
-router.post("/register", async (req, res) => {
-  try {
-    // 🔓 ถอด advisor_id ออกจากขั้นตอนนี้
-    const { username, email, password, name, student_id } = req.body;
-
-    // 🔴 Validate เฉพาะข้อมูลเบื้องต้น
-    if (!username || !email || !password || !name || !student_id) {
-      return res.status(400).json({
-        message: "กรุณากรอกข้อมูลให้ครบทุกช่องรวมถึงรหัสนักศึกษา",
-      });
-    }
-
-    const existUser = await User.findOne({ username });
-    if (existUser) return res.status(400).json({ message: "Username นี้ถูกใช้งานแล้ว" });
-
-    const existEmail = await User.findOne({ email });
-    if (existEmail) return res.status(400).json({ message: "Email นี้ถูกใช้งานแล้ว" });
-
-    const activeYear = await AcademicYear.findOne({ status: "active" });
-    if (!activeYear) {
-      return res.status(400).json({
-        message: "ไม่สามารถลงทะเบียนได้เนื่องจากระบบยังไม่ได้เปิดใช้งานปีการศึกษาปัจจุบัน",
-      });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // สร้าง User โดยที่ advisor_id จะยังไม่มีค่า (เป็น undefined หรือไม่ส่งไป)
-    const user = new User({
-      username,
-      email,
-      password: hashedPassword,
-      role: "trainer",
-      name,
-      status: "pending",
-      academic_year_id: activeYear._id
-    });
-
-    await user.save();
-
-    await Trainer.create({
-      user_id: user._id,
-      student_id,
-      name,
-      email,
-      academic_year_id: activeYear._id 
-    });
-
-    const admins = await User.find({ role: "admin", status: "active" }).select("_id");
-    const yearText = `ประจำปีการศึกษา ${activeYear.academic_year}/${activeYear.semester}`;
-    
-    await Promise.all(admins.map(admin =>
-      createNotification({
-        recipient_id:   admin._id,
-        recipient_role: "admin",
-        type:           "user_pending",
-        title:          "มีคำขอสมัครสมาชิกใหม่",
-        message:        `คุณ ${name} ขอสมัครเป็น "เทรนเนอร์" ${yearText} รอการตรวจสอบและอนุมัติสิทธิ์`,
-        ref_id:         user._id,
-        ref_model:      "User",
-      })
-    ));
-
-    res.status(201).json({
-      message: "สมัครสมาชิกสำเร็จ รอแอดมินอนุมัติ",
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        name: user.name,
-        status: user.status,
-      },
-    });
-  } catch (err) {
-    res.status(500).json({ message: "Server error: " + err.message });
-  }
-});
+router.post("/register", authController.register); // 👈 เปลี่ยนมาเรียกใช้ Controller ตรงนี้เพื่อความถูกต้องในการแยก Role
 
 /* =========================================================================
-   📝 LOGIN (ฝังข้อมูลอาจารย์เท่าที่มีลง Token)
+   📝 LOGIN — เรียกใช้งานผ่าน authController โดยตรง
    ========================================================================= */
-router.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email }).populate("academic_year_id");
-    if (!user) return res.status(400).json({ message: "ไม่พบบัญชีผู้ใช้" });
-
-    if (user.status !== "active") {
-      return res.status(403).json({ message: "บัญชีนี้ยังไม่ได้รับการอนุมัติจากผู้ดูแลระบบ" });
-    }
-
-    if (user.role === "trainer" && (!user.academic_year_id || user.academic_year_id.status !== "active")) {
-      return res.status(403).json({ message: "บัญชีนี้ผูกอยู่กับปีการศึกษาที่สิ้นสุดการใช้งานไปแล้ว" });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "รหัสผ่านไม่ถูกต้อง" });
-
-    const token = jwt.sign(
-      { id: user._id, role: user.role, advisorId: user.advisor_id || null },
-      process.env.JWT_SECRET || "secret123",
-      { expiresIn: "1d" }
-    );
-
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        advisor_id: user.advisor_id || null
-      },
-    });
-  } catch (err) {
-    res.status(500).json({ message: "Server error: " + err.message });
-  }
-});
+router.post("/login", authController.login); // 👈 เปลี่ยนมาเรียกใช้ Controller ตรงนี้
 
 /* =========================
    GET PROFILE
@@ -161,20 +50,17 @@ router.get("/profile", protect, async (req, res) => {
 });
 
 /* =========================================================================
-   📝 [แก้ไขใหม่] UPDATE PROFILE (เพิ่มให้สามารถบันทึกหรือเปลี่ยนอาจารย์ที่ปรึกษาได้ที่นี่)
+   📝 [แก้ไขใหม่] UPDATE PROFILE
    ========================================================================= */
 router.put("/profile", protect, async (req, res) => {
   try {
-    // ➕ รับค่า advisor_id มาจากฟอร์มหน้าโปรไฟล์ของ Frontend
     const { name, email, advisor_id } = req.body;
 
     const exist = await User.findOne({ email, _id: { $ne: req.user.id } });
     if (exist) return res.status(400).json({ message: "Email นี้ถูกใช้งานแล้ว" });
 
-    // เตรียมโครงสร้างข้อมูลที่จะอัปเดต
     const updateData = { name, email };
     
-    // ถ้าร่างค่า advisor_id ส่งมาจากหน้าบ้าน ให้จับบันทึกลงไปในสิทธิ์ User ด้วย
     if (advisor_id !== undefined) {
       updateData.advisor_id = advisor_id || null;
     }
@@ -185,7 +71,6 @@ router.put("/profile", protect, async (req, res) => {
       { new: true }
     ).select("-password");
 
-    // ส่งก้อน user ล่าสุดกลับไป เพื่อให้หน้าบ้านเอาไปทับ localStorage ทันที
     res.json({ message: "อัปเดตโปรไฟล์สำเร็จ", user: updated });
   } catch (err) {
     res.status(500).json({ message: "Server error: " + err.message });

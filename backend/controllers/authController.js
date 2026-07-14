@@ -6,142 +6,147 @@ const Instructor = require("../models/Instructor");
 const Notification = require("../models/Notification");
 const AcademicYear = require("../models/academicYear.model");
 
-// ================= Register =================
+// ================= REGISTER =================
 exports.register = async (req, res) => {
   try {
-    // 🔒 รับค่าจาก Frontend
-    const { username, password, name, email, student_id, role } = req.body;
+    const { password, name, email, student_id, role } = req.body;
 
-    // ตรวจสอบบทบาท (role) ให้ชัดเจน
     const userRole = (role && role !== "pending") ? role : "trainer";
     const isTrainer = userRole === "trainer";
     const isInstructor = userRole === "instructor";
 
-    // 🛑 1. ตรวจสอบข้อมูลตามบทบาท (Role Validation)
+    if (!email) {
+      return res.status(400).json({ message: "กรุณากรอกอีเมลสำหรับสมัครเข้าใช้งาน" });
+    }
+    if (isTrainer && !student_id) {
+      return res.status(400).json({ message: "กรุณากรอกรหัสนักศึกษาของคุณก่อนทำการลงทะเบียน" });
+    }
+
+    const finalEmail = email.trim().toLowerCase();
+
+    // 🔍 ตรวจสอบจาก email ฟิลด์เดียวตรง ๆ
+    const existUser = await User.findOne({ email: finalEmail });
+    if (existUser) {
+      return res.status(400).json({ message: "อีเมลนี้ถูกใช้งานลงทะเบียนในระบบแล้ว" });
+    }
+
     if (isTrainer) {
-      // สำหรับ Trainer (นักศึกษา) ต้องมีรหัสนักศึกษา
-      if (!student_id) {
-        return res.status(400).json({ 
-          message: "กรุณากรอกรหัสนักศึกษาของคุณก่อนทำการลงทะเบียน" 
-        });
+      const existTrainer = await Trainer.findOne({ student_id: student_id.trim() });
+      if (existTrainer) {
+        return res.status(400).json({ message: "รหัสนักศึกษานี้ถูกใช้งานในระบบแล้ว" });
       }
     }
 
-    // 🛑 2. สำหรับ Instructor (อาจารย์) จะไม่มีการเช็ค student_id ใดๆ ทั้งสิ้น
-    // (ข้ามการตรวจสอบรหัสนักศึกษาไปเลย)
-
-    // 3. เช็ค Username ซ้ำในระบบ
-    // ป้องกันกรณีส่งค่าซ้ำ
-    const finalUsername = isInstructor ? email : (student_id ? student_id.trim() : username);
-    const existUser = await User.findOne({ username: finalUsername });
-    if (existUser) {
-      return res.status(400).json({ message: "Username หรือ Email นี้ถูกใช้งานในระบบแล้ว" });
-    }
-
-    // 4. ค้นหาปีการศึกษาปัจจุบันที่ Active
     const activeYear = await AcademicYear.findOne({ status: "active" });
     if (!activeYear) {
       return res.status(400).json({
-        message: "ไม่สามารถลงทะเบียนได้ เนื่องจากระบบยังไม่ได้เปิดใช้งานปีการศึกษาปัจจุบัน (ผู้ดูแลระบบต้องเข้าไปเปิดใช้งานก่อน)",
+        message: "ไม่สามารถลงทะเบียนได้ เนื่องจากระบบยังไม่ได้เปิดใช้งานปีการศึกษาปัจจุบัน",
       });
     }
 
-    // 5. Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 6. บันทึกข้อมูลลงตาราง User (ตั้งค่า advisor_id เป็น null เสมอตอนสมัครสมาชิก)
+    // 💡 แก้ไขตรงนี้: แม้จะยกเลิกใช้ username แล้ว แต่เราจะใส่ค่าสำรอง (Fallback) 
+    // เป็นอีเมลหรือรหัสนักศึกษาลงไปในฟิลด์ username เพื่อไม่ให้ Database ติดขัดเรื่องดัชนีซ้ำ (duplicate key username: null)
+    const backupUsername = isTrainer ? student_id.trim() : finalEmail;
+
+    // 💾 บันทึกข้อมูล (ด้วยสถานะ "pending" เพื่อให้โผล่หน้าแอดมินรออนุมัติ)
     const user = await User.create({
-      username: finalUsername,
-      name,
-      email,
+      username: backupUsername, // 👈 ใส่เพื่อแก้ทางปัญหา Database Index error
+      email: finalEmail,
       password: hashedPassword,
+      name,
       role: userRole,
-      status: "pending",
+      status: "pending", // 👈 มีสถานะเป็น pending แน่นอน แอดมินจะมองเห็นเพื่อกดอนุมัติ
       academic_year_id: activeYear._id,
-      advisor_id: null, // ไม่มีให้เลือกอาจารย์ที่ปรึกษาตอนสมัครแล้ว
+      advisor_id: null,
     });
 
-    // 7. ⚡ แยกการบันทึก Profile ไปยังคอลเลกชันที่ถูกต้องตามบทบาทอย่างเด็ดขาด
     if (isTrainer) {
-      // 📝 บันทึกข้อมูลลงตาราง Trainer (เฉพาะนักศึกษา)
       await Trainer.create({
         user_id: user._id,
         student_id: student_id.trim(),
         name,
-        email,
+        email: finalEmail,
         academic_year_id: activeYear._id,
       });
     } else if (isInstructor) {
-      // 📝 บันทึกข้อมูลลงตาราง Instructor (เฉพาะอาจารย์ - จะไม่มีฟิลด์ student_id กวนใจ)
       await Instructor.create({
         user_id: user._id,
         name,
-        email,
+        email: finalEmail,
         academic_year_id: activeYear._id,
       });
     }
 
-    // 🔔 8. ระบบแจ้งเตือนส่งหา Admin
+    // แจ้งเตือนไปยัง Admin
     try {
       const admins = await User.find({ role: "admin" });
-      const yearText = `ประจำปีการศึกษา ${activeYear.academic_year}/${activeYear.semester}`;
       const roleText = isInstructor ? "อาจารย์ที่ปรึกษา" : "เทรนเนอร์";
-
       for (let admin of admins) {
         await Notification.create({
           userId: admin._id,
           title: "คำขอลงทะเบียนใหม่",
-          message: `มีผู้ใช้ใหม่ชื่อคุณ ${name} สมัครเข้าสู่ระบบในบทบาท [${roleText}] ${yearText} (รอการตรวจสอบและอนุมัติสิทธิ์)`,
+          message: `มีผู้ใช้ใหม่ชื่อคุณ ${name} สมัครในบทบาท [${roleText}] (รอการอนุมัติสิทธิ์)`,
           type: "warning",
         });
       }
-    } catch (notiError) {
-      console.error("Notification Error:", notiError);
+    } catch (err) {
+      console.error(err);
     }
 
-    res.status(201).json({ message: "ลงทะเบียนสำเร็จ กรุณารอแอดมินอนุมัติ" });
+    res.status(201).json({ message: "ลงทะเบียนสำเร็จ กรุณารอผู้ดูแลระบบตรวจสอบอนุมัติเข้าใช้งาน" });
   } catch (error) {
-    console.error("REGISTER CRITICAL ERROR:", error);
     res.status(500).json({ message: "เกิดข้อผิดพลาด: " + error.message });
   }
 };
 
-// ================= Login =================
+// ================= LOGIN =================
 exports.login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
 
-    const user = await User.findOne({ username });
+    if (!email || !password) {
+      return res.status(400).json({ message: "กรุณากรอกอีเมลและรหัสผ่านเพื่อเข้าใช้งาน" });
+    }
+
+    // 🔍 ค้นหาผู้ใช้จาก email ฟิลด์เดียวเท่านั้น
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
+
     if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(400).json({ message: "ไม่พบบัญชีผู้ใช้งานที่ผูกกับอีเมลนี้ในระบบ" });
+    }
+
+    if (user.role !== "admin" && user.status !== "active") {
+      return res.status(403).json({ 
+        message: "บัญชีของท่านยังไม่ได้รับการอนุมัติการใช้งาน กรุณารอผู้ดูแลระบบอนุมัติสิทธิ์" 
+      });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(400).json({ message: "รหัสผ่านไม่ถูกต้อง" });
     }
 
-    // 🔥 ใส่ advisor_id ลงไปใน JWT payload เพื่อความสะดวกสบายของ middleware ต่างๆ ในการดึงสิทธิ์ไปดักตรวจ
     const token = jwt.sign(
       { userId: user._id, role: user.role, advisorId: user.advisor_id || null },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || "secret123",
       { expiresIn: "1d" },
     );
 
-    // 🔥 ส่งกลับก้อนข้อมูลที่มีข้อมูล advisor_id ไปให้หน้าบ้านดักเช็คหรือล็อก UI ปุ่มต่างๆ
     res.json({
       token,
       user: {
         id: user._id,
-        username: user.username,
         role: user.role,
         name: user.name,
-        advisor_id: user.advisor_id || null // 🔗 ส่งไปให้ Frontend ตรวจเช็คสถานะการผูกที่ปรึกษา
+        email: user.email,
+        status: user.status,
+        advisor_id: user.advisor_id || null 
       },
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์ในการล็อกอิน" });
   }
 };
