@@ -7,6 +7,7 @@ const programExerciseSchema = new mongoose.Schema(
     order:       { type: Number, required: true },   // ลำดับท่า
     sets:        { type: Number },
     reps:        { type: Number },
+    rest_seconds:{ type: Number, min: 0 },
     rpe:         { type: Number, min: 1, max: 10 }   // ค่าความเหนื่อย RPE 1-10
   },
   { timestamps: true }

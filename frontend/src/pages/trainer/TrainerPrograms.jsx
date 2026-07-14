@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Loader2, XCircle, Plus, Pencil, Trash2, Search, Save, X } from "lucide-react";
+import { Loader2, XCircle, Plus, Pencil, Trash2, Search, Save, Send, Undo2, X } from "lucide-react";
 
-const API = "/api/programs"; 
-const TRAINEE_API = "/api/trainees";
-const EXERCISE_API = "/api/exercises";
+const API = "http://localhost:5000/api/programs";
+const TRAINEE_API = "http://localhost:5000/api/trainees";
+const EXERCISE_API = "http://localhost:5000/api/exercises";
 
 const EMPTY_FORM = {
   name: "",
@@ -69,13 +69,17 @@ export default function TrainerPrograms() {
           eRes.json(),
           yRes.ok ? yRes.json() : null,
         ]);
+
+        if (!pRes.ok || !tRes.ok || !eRes.ok) {
+          throw new Error(pData.message || tData.message || eData.message || "โหลดข้อมูลไม่สำเร็จ");
+        }
         
         setPrograms(Array.isArray(pData) ? pData : []);
         setTrainees(Array.isArray(tData) ? tData : []);
         setExercises(Array.isArray(eData) ? eData : []);
         setActiveYear(yData);
       } catch (err) {
-        setError("โหลดข้อมูลไม่สำเร็จ");
+        setError(err.message || "โหลดข้อมูลไม่สำเร็จ");
       } finally {
         setLoading(false);
       }
@@ -85,9 +89,9 @@ export default function TrainerPrograms() {
 
   // ตัวกรองรายการท่าออกกำลังกาย
   const filteredExercises = exercises.filter((ex) => {
-    const matchesSearch = ex.name.toLowerCase().includes(exSearch.toLowerCase());
-    const matchesType = exTypeFilter ? ex.type === exTypeFilter : true;
-    const matchesEquip = exEquipFilter ? ex.equipment === exEquipFilter : true;
+    const matchesSearch = (ex.exercise_name || "").toLowerCase().includes(exSearch.toLowerCase());
+    const matchesType = exTypeFilter ? ex.exercise_type === exTypeFilter : true;
+    const matchesEquip = exEquipFilter ? ex.equipment_type === exEquipFilter : true;
     return matchesSearch && matchesType && matchesEquip;
   });
 
@@ -99,11 +103,11 @@ export default function TrainerPrograms() {
   };
 
   const handleEdit = (program) => {
-    setEditingId(program.id);
+    setEditingId(program._id);
     setFormData({
-      name: program.name,
+      name: program.program_name,
       description: program.description || "",
-      trainee_id: program.trainee_id,
+      trainee_id: program.trainee_id?._id || program.trainee_id,
       duration_weeks: program.duration_weeks,
     });
     setSelectedExercises(program.exercises || []);
@@ -118,7 +122,7 @@ export default function TrainerPrograms() {
         headers: authHeaders(),
       });
       if (res.ok) {
-        setPrograms(programs.filter((p) => p.id !== id));
+        setPrograms(programs.filter((p) => p._id !== id));
       } else {
         alert("ไม่สามารถลบโปรแกรมได้");
       }
@@ -127,11 +131,55 @@ export default function TrainerPrograms() {
     }
   };
 
+  const handleWorkflowAction = async (id, action) => {
+    const isSubmit = action === "submit";
+    if (!window.confirm(isSubmit ? "ส่งโปรแกรมให้อาจารย์ที่ปรึกษาตรวจสอบหรือไม่?" : "ยกเลิกการส่งโปรแกรมหรือไม่?")) return;
+
+    try {
+      const res = await fetch(`${API}/${id}/${action}`, {
+        method: "PATCH",
+        headers: authHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "ทำรายการไม่สำเร็จ");
+
+      setPrograms((current) => current.map((program) => (
+        program._id === id ? { ...program, ...data } : program
+      )));
+    } catch (err) {
+      alert(err.message || "ทำรายการไม่สำเร็จ");
+    }
+  };
+
+  const statusLabel = {
+    draft: "แบบร่าง",
+    pending: "รออาจารย์อนุมัติ",
+    approved: "อนุมัติแล้ว",
+    rejected: "ส่งกลับให้แก้ไข",
+  };
+
+  const statusClass = {
+    draft: "bg-slate-100 text-slate-600",
+    pending: "bg-amber-100 text-amber-700",
+    approved: "bg-emerald-100 text-emerald-700",
+    rejected: "bg-red-100 text-red-700",
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const payload = {
-      ...formData,
-      exercises: selectedExercises,
+      program_name: formData.name,
+      description: formData.description,
+      trainee_id: formData.trainee_id,
+      duration_weeks: formData.duration_weeks,
+      exercises: selectedExercises.map((ex, index) => ({
+        exercise_id: ex.exercise_id?._id || ex.exercise_id || ex._id || ex.id,
+        order: index + 1,
+        sets: Number(ex.sets),
+        reps: Number(ex.reps),
+        rest_seconds: Number(ex.rest_seconds),
+        rpe: ex.rpe ? Number(ex.rpe) : undefined,
+      })),
     };
 
     try {
@@ -147,7 +195,7 @@ export default function TrainerPrograms() {
       if (res.ok) {
         const savedProgram = await res.json();
         if (editingId) {
-          setPrograms(programs.map((p) => (p.id === editingId ? savedProgram : p)));
+          setPrograms(programs.map((p) => (p._id === editingId ? savedProgram : p)));
         } else {
           setPrograms([savedProgram, ...programs]);
         }
@@ -163,18 +211,19 @@ export default function TrainerPrograms() {
   };
 
   const handleAddExercise = (ex) => {
-    if (selectedExercises.some((item) => item.id === ex.id)) return;
-    setSelectedExercises([...selectedExercises, { ...ex, sets: 3, reps: 12, rest_seconds: 60 }]);
+    const exerciseId = ex._id || ex.id;
+    if (selectedExercises.some((item) => (item.exercise_id?._id || item.exercise_id || item._id || item.id) === exerciseId)) return;
+    setSelectedExercises([...selectedExercises, { ...ex, exercise_id: exerciseId, sets: 3, reps: 12, rest_seconds: 60 }]);
   };
 
   const handleRemoveExercise = (id) => {
-    setSelectedExercises(selectedExercises.filter((ex) => ex.id !== id));
+    setSelectedExercises(selectedExercises.filter((ex) => (ex.exercise_id?._id || ex.exercise_id || ex._id || ex.id) !== id));
   };
 
   const handleExerciseDetailChange = (id, field, value) => {
     setSelectedExercises(
       selectedExercises.map((ex) =>
-        ex.id === id ? { ...ex, [field]: value } : ex
+        (ex.exercise_id?._id || ex.exercise_id || ex._id || ex.id) === id ? { ...ex, [field]: value } : ex
       )
     );
   };
@@ -246,34 +295,63 @@ export default function TrainerPrograms() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {programs.map((program) => (
-            <div key={program.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
+            <div key={program._id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
               <div>
-                <h3 className="text-lg font-bold text-gray-800 mb-2">{program.name}</h3>
+                <h3 className="text-lg font-bold text-gray-800 mb-2">{program.program_name}</h3>
                 <p className="text-gray-500 text-sm mb-4 line-clamp-2">{program.description || "ไม่มีรายละเอียด"}</p>
                 <div className="flex flex-wrap gap-2 mb-4">
                   <span className="text-xs bg-purple-50 text-purple-600 px-2.5 py-1 rounded-full font-medium">
                     ระยะเวลา: {program.duration_weeks} สัปดาห์
                   </span>
                   <span className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full font-medium">
-                    นักกีฬา: {trainees.find(t => t.id === program.trainee_id)?.name || "ทั่วไป"}
+                    นักกีฬา: {program.trainee_id?.name || trainees.find(t => t._id === program.trainee_id)?.name || "ทั่วไป"}
+                  </span>
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusClass[program.status] || statusClass.draft}`}>
+                    {statusLabel[program.status] || program.status}
                   </span>
                 </div>
+                {program.status === "rejected" && program.instructor_comment && (
+                  <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+                    ความเห็นอาจารย์: {program.instructor_comment}
+                  </p>
+                )}
               </div>
               <div className="flex gap-2 pt-4 border-t border-gray-50">
-                <button
-                  onClick={() => handleEdit(program)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                >
-                  <Pencil className="w-4 h-4" />
-                  แก้ไข
-                </button>
-                <button
-                  onClick={() => handleDelete(program.id)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  ลบ
-                </button>
+                {(program.status === "draft" || program.status === "rejected") && <>
+                  <button
+                    onClick={() => handleEdit(program)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    แก้ไข
+                  </button>
+                  <button
+                    onClick={() => handleWorkflowAction(program._id, "submit")}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  >
+                    <Send className="w-4 h-4" />
+                    ส่งอนุมัติ
+                  </button>
+                  <button
+                    onClick={() => handleDelete(program._id)}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="ลบ"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </>}
+                {program.status === "pending" && (
+                  <button
+                    onClick={() => handleWorkflowAction(program._id, "cancel")}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+                  >
+                    <Undo2 className="w-4 h-4" />
+                    ยกเลิกการส่ง
+                  </button>
+                )}
+                {program.status === "approved" && (
+                  <p className="w-full py-2 text-center text-sm font-medium text-emerald-700">นำไปบันทึกผลการฝึกได้แล้ว</p>
+                )}
               </div>
             </div>
           ))}
@@ -331,7 +409,7 @@ export default function TrainerPrograms() {
                     >
                       <option value="">เลือกนักกีฬา</option>
                       {trainees.map((t) => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
+                        <option key={t._id} value={t._id}>{t.name}</option>
                       ))}
                     </select>
                   </div>
@@ -356,15 +434,15 @@ export default function TrainerPrograms() {
                   ) : (
                     <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                       {selectedExercises.map((ex) => (
-                        <div key={ex.id} className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex flex-col gap-2 relative">
+                        <div key={ex.exercise_id?._id || ex.exercise_id || ex._id || ex.id} className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex flex-col gap-2 relative">
                           <button
                             type="button"
-                            onClick={() => handleRemoveExercise(ex.id)}
+                            onClick={() => handleRemoveExercise(ex.exercise_id?._id || ex.exercise_id || ex._id || ex.id)}
                             className="absolute top-2 right-2 text-red-400 hover:text-red-600"
                           >
                             <X className="w-4 h-4" />
                           </button>
-                          <span className="font-bold text-sm text-gray-700 pr-6">{ex.name}</span>
+                          <span className="font-bold text-sm text-gray-700 pr-6">{ex.exercise_name || ex.exercise_id?.exercise_name}</span>
                           <div className="grid grid-cols-3 gap-2">
                             <div>
                               <label className="block text-[10px] text-gray-400">จำนวนเซ็ต</label>
@@ -373,7 +451,7 @@ export default function TrainerPrograms() {
                                 min="1"
                                 className="w-full px-2 py-1 text-xs border rounded-lg"
                                 value={ex.sets || 3}
-                                onChange={(e) => handleExerciseDetailChange(ex.id, "sets", parseInt(e.target.value))}
+                                onChange={(e) => handleExerciseDetailChange(ex.exercise_id?._id || ex.exercise_id || ex._id || ex.id, "sets", parseInt(e.target.value))}
                               />
                             </div>
                             <div>
@@ -383,7 +461,7 @@ export default function TrainerPrograms() {
                                 min="1"
                                 className="w-full px-2 py-1 text-xs border rounded-lg"
                                 value={ex.reps || 12}
-                                onChange={(e) => handleExerciseDetailChange(ex.id, "reps", parseInt(e.target.value))}
+                                onChange={(e) => handleExerciseDetailChange(ex.exercise_id?._id || ex.exercise_id || ex._id || ex.id, "reps", parseInt(e.target.value))}
                               />
                             </div>
                             <div>
@@ -393,7 +471,7 @@ export default function TrainerPrograms() {
                                 min="0"
                                 className="w-full px-2 py-1 text-xs border rounded-lg"
                                 value={ex.rest_seconds || 60}
-                                onChange={(e) => handleExerciseDetailChange(ex.id, "rest_seconds", parseInt(e.target.value))}
+                                onChange={(e) => handleExerciseDetailChange(ex.exercise_id?._id || ex.exercise_id || ex._id || ex.id, "rest_seconds", parseInt(e.target.value))}
                               />
                             </div>
                           </div>
@@ -450,19 +528,22 @@ export default function TrainerPrograms() {
                 {/* Exercise List */}
                 <div className="flex-1 overflow-y-auto space-y-2 pr-1">
                   {filteredExercises.map((ex) => {
-                    const isAdded = selectedExercises.some((item) => item.id === ex.id);
+                    const exerciseId = ex._id || ex.id;
+                    const isAdded = selectedExercises.some(
+                      (item) => (item.exercise_id?._id || item.exercise_id || item._id || item.id) === exerciseId,
+                    );
                     return (
                       <div
-                        key={ex.id}
+                        key={exerciseId}
                         className="p-3 bg-white rounded-xl border border-gray-200 flex justify-between items-center hover:shadow-sm transition-all"
                       >
                         <div>
-                          <div className="font-bold text-sm text-gray-800">{ex.name}</div>
+                          <div className="font-bold text-sm text-gray-800">{ex.exercise_name}</div>
                           <span className="text-[10px] text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full font-semibold mr-1.5">
-                            {ex.type}
+                            {ex.exercise_type}
                           </span>
                           <span className="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
-                            {ex.equipment}
+                            {ex.equipment_type}
                           </span>
                         </div>
                         <button

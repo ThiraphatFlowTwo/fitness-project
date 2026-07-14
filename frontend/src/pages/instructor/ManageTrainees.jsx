@@ -84,8 +84,7 @@ export default function ManageTrainees() {
     const q = search.trim().toLowerCase();
     const matchSearch =
       t.name?.toLowerCase().includes(q) ||
-      t.email?.toLowerCase().includes(q) ||
-      t.username?.toLowerCase().includes(q);
+      t.email?.toLowerCase().includes(q);
       
     const matchFilter = filter === "all" || t.status === filter;
 

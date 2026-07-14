@@ -19,21 +19,21 @@ router.get("/users", protect, adminOnly, async (req, res) => {
 ========================= */
 router.post("/users", protect, adminOnly, async (req, res) => {
   try {
-    const { username, password, role, name, email } = req.body;
+    const { password, role, name, email } = req.body;
 
-    const exist = await User.findOne({ username });
+    const normalizedEmail = email?.trim().toLowerCase();
+    const exist = await User.findOne({ email: normalizedEmail });
     if (exist) {
-      return res.status(400).json({ message: "มีผู้ใช้นี้แล้ว" });
+      return res.status(400).json({ message: "อีเมลนี้ถูกใช้งานแล้ว" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
-      username,
       password: hashedPassword,
       role,
       name,
-      email,
+      email: normalizedEmail,
       status: "active",
     });
 
@@ -48,19 +48,18 @@ router.post("/users", protect, adminOnly, async (req, res) => {
    UPDATE USER
 ========================= */
 router.put("/users/:id", protect, adminOnly, async (req, res) => {
-  const { name, email, role, username } = req.body;
+  const { name, email, role } = req.body;
+  const normalizedEmail = email?.trim().toLowerCase();
 
-  // ตรวจสอบ username ซ้ำ (ถ้ามีการเปลี่ยน)
-  if (username) {
-    const exist = await User.findOne({ username, _id: { $ne: req.params.id } });
-    if (exist) return res.status(400).json({ message: "Username นี้มีคนใช้แล้ว" });
+  if (normalizedEmail) {
+    const exist = await User.findOne({ email: normalizedEmail, _id: { $ne: req.params.id } });
+    if (exist) return res.status(400).json({ message: "อีเมลนี้ถูกใช้งานแล้ว" });
   }
 
   await User.findByIdAndUpdate(req.params.id, {
     ...(name     && { name }),
-    ...(email    && { email }),
+    ...(normalizedEmail && { email: normalizedEmail }),
     ...(role     && { role }),
-    ...(username && { username }),
   });
 
   res.json({ message: "แก้ไขผู้ใช้สำเร็จ" });

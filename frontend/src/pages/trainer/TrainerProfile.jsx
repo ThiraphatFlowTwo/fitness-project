@@ -155,7 +155,7 @@ const TrainerProfile = () => {
               </span>
             </div>
             <p className="font-semibold text-gray-800">{userData?.name}</p>
-            <p className="text-sm text-gray-400 mt-1">@{userData?.username}</p>
+            <p className="text-sm text-gray-400 mt-1">{userData?.email}</p>
 
             <div className="mt-3 md:mt-4 space-y-2">
               {[
@@ -220,13 +220,6 @@ const TrainerProfile = () => {
                   ))}
                 </select>
                 <p className="text-xs text-purple-500 mt-1">ต้องผูกอาจารย์ที่ปรึกษาก่อนระบบจัดการลูกเทรนและโปรแกรมจึงจะเปิดใช้งาน</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 md:mb-2">รหัสผู้ใช้</label>
-                <input type="text" value={userData?.username || ''} disabled
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 md:px-4 bg-gray-100 cursor-not-allowed text-gray-500 text-sm md:text-base" />
-                <p className="text-xs text-gray-400 mt-1">ไม่สามารถเปลี่ยนรหัสผู้ใช้ได้</p>
               </div>
 
               <div className="flex space-x-2 md:space-x-3 pt-2">

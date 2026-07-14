@@ -13,7 +13,6 @@ import {
 const API = "http://localhost:5000/api/trainees";
 const FITNESS_API = "http://localhost:5000/api/fitness";
 
-const getToken = () => localStorage.getItem("token");
 const authHeaders = () => {
   const token = localStorage.getItem("token");
   // ✅ ไม่ redirect ออกเองตรงนี้ — แค่ส่ง header เปล่าไป backend จะตอบ 401 เอง
@@ -24,12 +23,12 @@ const authHeaders = () => {
 
 const getGoalColor = (goal) => {
   const map = {
-    เพิ่มมวลกล้ามเนื้อ: "green",
-    คาร์ดิโอ: "blue",
-    เพิ่มความแข็งแรง: "purple",
-    ลดไขมัน: "orange",
+    เพิ่มมวลกล้ามเนื้อ: "bg-green-100 text-green-800",
+    คาร์ดิโอ: "bg-blue-100 text-blue-800",
+    เพิ่มความแข็งแรง: "bg-purple-100 text-purple-800",
+    ลดไขมัน: "bg-orange-100 text-orange-800",
   };
-  return map[goal] || "gray";
+  return map[goal] || "bg-gray-100 text-gray-800";
 };
 
 const EMPTY_TRAINEE = {
@@ -79,10 +78,11 @@ const TrainerTrainees = () => {
     setLoading(true);
     try {
       const res = await fetch(API, { headers: authHeaders() });
-      if (!res.ok) throw new Error();
-      setTrainees(await res.json());
-    } catch {
-      setError("โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "โหลดข้อมูลไม่สำเร็จ");
+      setTrainees(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err.message || "โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่");
     } finally {
       setLoading(false);
     }
@@ -99,9 +99,11 @@ const TrainerTrainees = () => {
       const res = await fetch(`${FITNESS_API}/${traineeId}`, {
         headers: authHeaders(),
       });
-      setFitnessRecords(await res.json());
-    } catch {
-      alert("โหลดข้อมูลสมรรถภาพไม่สำเร็จ");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "โหลดข้อมูลสมรรถภาพไม่สำเร็จ");
+      setFitnessRecords(Array.isArray(data) ? data : []);
+    } catch (err) {
+      alert(err.message || "โหลดข้อมูลสมรรถภาพไม่สำเร็จ");
     } finally {
       setFitnessLoading(false);
     }
@@ -131,10 +133,14 @@ const TrainerTrainees = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("คุณต้องการลบผู้รับการฝึกนี้ใช่หรือไม่?")) return;
     try {
-      await fetch(`${API}/${id}`, { method: "DELETE", headers: authHeaders() });
+      const res = await fetch(`${API}/${id}`, { method: "DELETE", headers: authHeaders() });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "ลบไม่สำเร็จ");
+      }
       setTrainees((prev) => prev.filter((t) => t._id !== id));
-    } catch {
-      alert("ลบไม่สำเร็จ");
+    } catch (err) {
+      alert(err.message || "ลบไม่สำเร็จ");
     }
   };
 
@@ -211,13 +217,17 @@ const TrainerTrainees = () => {
   const handleDeleteFitness = async (id) => {
     if (!window.confirm("ลบข้อมูลสมรรถภาพนี้ใช่หรือไม่?")) return;
     try {
-      await fetch(`${FITNESS_API}/${id}`, {
+      const res = await fetch(`${FITNESS_API}/${id}`, {
         method: "DELETE",
         headers: authHeaders(),
       });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "ลบไม่สำเร็จ");
+      }
       setFitnessRecords((prev) => prev.filter((r) => r._id !== id));
-    } catch {
-      alert("ลบไม่สำเร็จ");
+    } catch (err) {
+      alert(err.message || "ลบไม่สำเร็จ");
     }
   };
 
@@ -358,7 +368,7 @@ const TrainerTrainees = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
-                      className={`px-3 py-1 bg-${getGoalColor(t.goal)}-100 text-${getGoalColor(t.goal)}-800 rounded-full text-sm`}
+                      className={`px-3 py-1 rounded-full text-sm ${getGoalColor(t.goal)}`}
                     >
                       {t.goal}
                     </span>

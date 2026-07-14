@@ -7,13 +7,32 @@ const User            = require("../models/User");
 const jwt             = require("jsonwebtoken");
 const { createNotification } = require("../utils/notificationHelper");
 
+// อาจารย์เห็นและพิจารณาได้เฉพาะโปรแกรมของเทรนเนอร์ที่เลือกตนเป็นอาจารย์ที่ปรึกษา
+// ผู้ดูแลระบบยังคงเข้าถึงได้ทุกโปรแกรมเพื่อการกำกับดูแล
+const reviewerProgramFilter = async (userId, role) => {
+  if (role === "admin") return {};
+
+  const adviseeIds = await User.find({ role: "trainer", advisor_id: userId }).distinct("_id");
+  return { trainer_id: { $in: adviseeIds } };
+};
+
+const canReviewProgram = async (program, userId, role) => {
+  if (role === "admin") return true;
+  const trainer = await User.findOne({
+    _id: program.trainer_id,
+    role: "trainer",
+    advisor_id: userId,
+  }).select("_id");
+  return Boolean(trainer);
+};
+
 // ── Middleware ────────────────────────────────────────────────
 const auth = (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
     if (!token) return res.status(401).json({ message: "ไม่มี token" });
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret123");
-    req.userId = decoded.id;
+    req.userId = decoded.userId || decoded.id;
     req.role   = decoded.role;
     next();
   } catch {
@@ -40,7 +59,7 @@ router.get("/instructor/all", auth, async (req, res) => {
 
     const { status, academicYearId } = req.query;
     
-    let filter = {};
+    let filter = await reviewerProgramFilter(req.userId, req.role);
 
     if (academicYearId) {
       filter.academic_year_id = academicYearId;
@@ -118,7 +137,7 @@ router.post("/", auth, async (req, res) => {
       });
     }
 
-    const { program_name, trainee_id, exercises } = req.body;
+    const { program_name, description, duration_weeks, trainee_id, exercises } = req.body;
 
     const activeYear = await AcademicYear.findOne({ status: "active" });
     if (!activeYear) return res.status(400).json({ message: "ไม่พบปีการศึกษาที่ใช้งานอยู่ กรุณาตั้งค่าปีการศึกษาก่อน" });
@@ -128,6 +147,8 @@ router.post("/", auth, async (req, res) => {
       trainee_id,
       academic_year_id: activeYear._id,
       program_name,
+      description,
+      duration_weeks,
       status:           "draft"
     });
     const saved = await program.save();
@@ -139,7 +160,8 @@ router.post("/", auth, async (req, res) => {
         order:       ex.order ?? index + 1,
         sets:        ex.sets,
         reps:        ex.reps,
-        rpe:         ex.rpe
+        rpe:         ex.rpe,
+        rest_seconds: ex.rest_seconds,
       }));
       await ProgramExercise.insertMany(exerciseDocs);
     }
@@ -165,9 +187,14 @@ router.put("/:id", auth, async (req, res) => {
     if (program.status === "approved") return res.status(400).json({ message: "ไม่สามารถแก้ไขโปรแกรมที่อนุมัติแล้วได้" });
     if (program.status === "pending")  return res.status(400).json({ message: "ไม่สามารถแก้ไขโปรแกรมที่รออนุมัติอยู่ได้" });
 
-    const { program_name, trainee_id, exercises } = req.body;
+    const { program_name, description, duration_weeks, trainee_id, exercises } = req.body;
 
-    await TrainingProgram.findByIdAndUpdate(req.params.id, { program_name, trainee_id });
+    await TrainingProgram.findByIdAndUpdate(req.params.id, {
+      program_name,
+      description,
+      duration_weeks,
+      trainee_id,
+    });
 
     if (exercises && exercises.length > 0) {
       await ProgramExercise.deleteMany({ program_id: req.params.id });
@@ -177,7 +204,8 @@ router.put("/:id", auth, async (req, res) => {
         order:       ex.order ?? index + 1,
         sets:        ex.sets,
         reps:        ex.reps,
-        rpe:         ex.rpe
+        rpe:         ex.rpe,
+        rest_seconds: ex.rest_seconds,
       }));
       await ProgramExercise.insertMany(exerciseDocs);
     }
@@ -277,12 +305,16 @@ router.patch("/:id/approve", auth, async (req, res) => {
     if (req.role !== "instructor" && req.role !== "admin")
       return res.status(403).json({ message: "ไม่มีสิทธิ์" });
 
-    const updated = await TrainingProgram.findByIdAndUpdate(
-      req.params.id,
-      { status: "approved", instructor_comment: req.body.comment || "" },
-      { new: true }
-    );
-    if (!updated) return res.status(404).json({ message: "ไม่พบโปรแกรม" });
+    const program = await TrainingProgram.findById(req.params.id);
+    if (!program) return res.status(404).json({ message: "ไม่พบโปรแกรม" });
+    if (!(await canReviewProgram(program, req.userId, req.role)))
+      return res.status(403).json({ message: "คุณไม่มีสิทธิ์พิจารณาโปรแกรมของเทรนเนอร์คนนี้" });
+    if (program.status !== "pending")
+      return res.status(400).json({ message: "อนุมัติได้เฉพาะโปรแกรมที่รอการพิจารณา" });
+
+    program.status = "approved";
+    program.instructor_comment = req.body.comment || "";
+    const updated = await program.save();
 
     const instructorUser = await User.findById(req.userId).select("name");
     await createNotification({
@@ -307,12 +339,18 @@ router.patch("/:id/reject", auth, async (req, res) => {
     if (req.role !== "instructor" && req.role !== "admin")
       return res.status(403).json({ message: "ไม่มีสิทธิ์" });
 
-    const updated = await TrainingProgram.findByIdAndUpdate(
-      req.params.id,
-      { status: "rejected", instructor_comment: req.body.comment || "" },
-      { new: true }
-    );
-    if (!updated) return res.status(404).json({ message: "ไม่พบโปรแกรม" });
+    const program = await TrainingProgram.findById(req.params.id);
+    if (!program) return res.status(404).json({ message: "ไม่พบโปรแกรม" });
+    if (!(await canReviewProgram(program, req.userId, req.role)))
+      return res.status(403).json({ message: "คุณไม่มีสิทธิ์พิจารณาโปรแกรมของเทรนเนอร์คนนี้" });
+    if (program.status !== "pending")
+      return res.status(400).json({ message: "ส่งกลับแก้ไขได้เฉพาะโปรแกรมที่รอการพิจารณา" });
+    if (!req.body.comment?.trim())
+      return res.status(400).json({ message: "กรุณาระบุเหตุผลที่ส่งกลับแก้ไข" });
+
+    program.status = "rejected";
+    program.instructor_comment = req.body.comment.trim();
+    const updated = await program.save();
 
     const instructorUser = await User.findById(req.userId).select("name");
     await createNotification({
@@ -338,7 +376,7 @@ router.get("/pending", auth, async (req, res) => {
       return res.status(403).json({ message: "ไม่มีสิทธิ์" });
 
     const { academicYearId } = req.query;
-    let filter = { status: "pending" };
+    let filter = { status: "pending", ...(await reviewerProgramFilter(req.userId, req.role)) };
 
     if (academicYearId) {
       filter.academic_year_id = academicYearId;

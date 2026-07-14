@@ -364,8 +364,8 @@ export default function AdminLayout() {
                 markRead={markRead}
               />
 
-              {/* 🔔 ส่วนกระดิ่งแจ้งเตือน Dropdown List ของ Admin */}
-              <div className="relative" ref={notiRef}>
+              {/* Legacy dropdown: ซ่อนไว้เพื่อใช้ NotificationDropdown ตัวเดียว */}
+              <div className="hidden">
                 <button
                   onClick={() => setNotiOpen(!notiOpen)}
                   className={`relative p-2 rounded-xl transition-colors ${notiOpen ? "bg-slate-100" : "hover:bg-slate-100"}`}

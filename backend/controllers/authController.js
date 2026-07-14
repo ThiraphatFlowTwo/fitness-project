@@ -47,13 +47,8 @@ exports.register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 💡 แก้ไขตรงนี้: แม้จะยกเลิกใช้ username แล้ว แต่เราจะใส่ค่าสำรอง (Fallback) 
-    // เป็นอีเมลหรือรหัสนักศึกษาลงไปในฟิลด์ username เพื่อไม่ให้ Database ติดขัดเรื่องดัชนีซ้ำ (duplicate key username: null)
-    const backupUsername = isTrainer ? student_id.trim() : finalEmail;
-
     // 💾 บันทึกข้อมูล (ด้วยสถานะ "pending" เพื่อให้โผล่หน้าแอดมินรออนุมัติ)
     const user = await User.create({
-      username: backupUsername, // 👈 ใส่เพื่อแก้ทางปัญหา Database Index error
       email: finalEmail,
       password: hashedPassword,
       name,

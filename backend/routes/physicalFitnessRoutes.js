@@ -11,7 +11,7 @@ const authMiddleware = (req, res, next) => {
     const token = req.headers.authorization?.split(" ")[1];
     if (!token) return res.status(401).json({ message: "ไม่มี token" });
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret123"); // 💡 เพิ่ม fallback secret ป้องกัน error หากไม่ได้ตั้งค่า env
-    req.userId = decoded.id;
+    req.userId = decoded.userId || decoded.id;
     next();
   } catch {
     res.status(401).json({ message: "token ไม่ถูกต้อง" });

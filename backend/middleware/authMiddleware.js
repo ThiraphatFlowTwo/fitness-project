@@ -15,7 +15,10 @@ const protect = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret123");
     
     // 2. ดึงข้อมูลผู้ใช้จากฐานข้อมูลขึ้นมาดูสถานะจริง พร้อมดึงรายละเอียดปีการศึกษาที่นักศึกษาคนนี้สังกัดอยู่ (populate)
-    const user = await User.findById(decoded.id).populate("academic_year_id");
+    // รองรับ token ปัจจุบันที่ authController ออกด้วย key `userId`
+    // และ token เก่าที่อาจใช้ key `id`
+    const userId = decoded.userId || decoded.id;
+    const user = await User.findById(userId).populate("academic_year_id");
     
     if (!user) {
       return res.status(401).json({ message: "ไม่พบผู้ใช้งานนี้ในระบบ" });

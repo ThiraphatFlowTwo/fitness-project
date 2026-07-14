@@ -20,8 +20,10 @@ import {
 
 export default function ManageUsers() {
   const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  const [activeTab, setActiveTab] = useState("pending");
+  const [activeTab, setActiveTab] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [errors, setErrors] = useState({});
@@ -53,10 +55,15 @@ export default function ManageUsers() {
   // ===== GET ALL USERS =====
   const fetchUsers = async () => {
     try {
+      setLoading(true);
+      setLoadError("");
       const res = await api.get("/admin/users", getHeaders());
       setUsers(res.data);
     } catch (err) {
       console.error("โหลดข้อมูลผู้ใช้ไม่สำเร็จ:", err);
+      setLoadError(err.response?.data?.message || "ไม่สามารถโหลดข้อมูลผู้ใช้ได้");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -188,7 +195,7 @@ export default function ManageUsers() {
 
   // ===== FILTER =====
   const filteredUsers = users.filter((u) => {
-    const matchStatus = u.status === activeTab;
+    const matchStatus = activeTab === "all" || u.status === activeTab;
     const matchRole = roleFilter === "all" ? true : u.role === roleFilter;
     const matchSearch =
       searchQuery === "" ||
@@ -198,6 +205,7 @@ export default function ManageUsers() {
   });
 
   const count = {
+    all: users.length,
     pending: users.filter((u) => u.status === "pending").length,
     active: users.filter((u) => u.status === "active").length,
     inactive: users.filter((u) => u.status === "inactive").length,
@@ -265,6 +273,14 @@ export default function ManageUsers() {
 
         {/* ===== TABS ===== */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+          <TabButton
+            label="ทั้งหมด"
+            count={count.all}
+            icon={<Users className="w-4 h-4" />}
+            active={activeTab === "all"}
+            onClick={() => setActiveTab("all")}
+            color="blue"
+          />
           <TabButton
             label="รออนุมัติ"
             count={count.pending}
@@ -438,6 +454,11 @@ export default function ManageUsers() {
 
         {/* USERS TABLE */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden border border-white/20">
+          {loadError && (
+            <div className="m-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {loadError}
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gradient-to-r from-slate-100 to-slate-50 border-b-2 border-slate-200">
@@ -460,7 +481,13 @@ export default function ManageUsers() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredUsers.length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-12 text-center text-slate-500">
+                      กำลังโหลดข้อมูลผู้ใช้...
+                    </td>
+                  </tr>
+                ) : filteredUsers.length === 0 ? (
                   <tr>
                     <td
                       colSpan="5"
@@ -630,6 +657,12 @@ export default function ManageUsers() {
 /* ===== TAB BUTTON COMPONENT ===== */
 function TabButton({ label, count, icon, active, onClick, color }) {
   const colorStyles = {
+    blue: {
+      active:
+        "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30",
+      inactive:
+        "bg-white text-slate-600 border-2 border-slate-200 hover:border-blue-500",
+    },
     yellow: {
       active:
         "bg-gradient-to-r from-yellow-400 to-yellow-500 text-white shadow-lg shadow-yellow-500/30",

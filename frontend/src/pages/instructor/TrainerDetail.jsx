@@ -149,7 +149,6 @@ export default function TrainerDetail() {
                   {st.label}
                 </span>
               </div>
-              <p className="text-slate-400 text-sm mb-1">@{trainer?.username}</p>
               <p className="text-slate-500 text-sm">{trainer?.email}</p>
               {trainer?.created_at && (
                 <p className="text-slate-400 text-xs mt-2">

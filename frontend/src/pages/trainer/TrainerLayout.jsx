@@ -386,8 +386,8 @@ export default function TrainerLayout() {
                 </span>
               </div>
 
-              {/* ใช้ NotificationDropdown ร่วมกับระบบปุ่มกดแจ้งเตือนเดิม */}
-              <div className="relative">
+              {/* Legacy dropdown: ซ่อนไว้เพื่อใช้ NotificationDropdown ตัวเดียว */}
+              <div className="hidden">
                 <button 
                   onClick={() => setNotiOpen(!notiOpen)}
                   className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full transition-colors relative"
@@ -470,7 +470,7 @@ export default function TrainerLayout() {
                 )}
               </div>
 
-              {/* เพื่อนเสริมคอมโพเนนต์อันนี้มาด้วย นำมาวางต่อกันให้ครับ */}
+              {/* Notification dropdown หลัก */}
               <NotificationDropdown
                 notifCount={notifCount}
                 notifList={notifList}

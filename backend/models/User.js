@@ -2,7 +2,6 @@ const mongoose = require("mongoose");
 
 const UserSchema = new mongoose.Schema(
   {
-    // ❌ ลบฟิลด์ username ออกทั้งหมดแล้ว
     email: {
       type: String,
       required: true,

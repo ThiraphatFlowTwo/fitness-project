@@ -6,6 +6,8 @@ const trainingProgramSchema = new mongoose.Schema(
     trainee_id:       { type: mongoose.Schema.Types.ObjectId, ref: "Trainee",     required: true },
     academic_year_id: { type: mongoose.Schema.Types.ObjectId, ref: "AcademicYear",required: true },
     program_name:     { type: String, required: true, maxlength: 100 },
+    description:      { type: String, default: "", maxlength: 1000 },
+    duration_weeks:   { type: Number, min: 1, default: 4 },
     status:           { type: String, enum: ["draft","pending","approved","rejected"], default: "draft" },
     instructor_comment: { type: String, default: "" },
     created_date:     { type: Date, default: Date.now }

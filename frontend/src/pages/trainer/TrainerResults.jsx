@@ -229,9 +229,10 @@ const TrainerResults = () => {
           headers: authHeaders(),
         });
         const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "โหลดโปรแกรมไม่สำเร็จ");
         setApprovedPrograms(Array.isArray(data) ? data : []);
-      } catch {
-        setError("โหลดโปรแกรมไม่สำเร็จ");
+      } catch (err) {
+        setError(err.message || "โหลดโปรแกรมไม่สำเร็จ");
       } finally {
         setLoading(false);
       }

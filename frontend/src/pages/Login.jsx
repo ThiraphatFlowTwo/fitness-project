@@ -135,7 +135,7 @@ const Field = ({
 export default function Login() {
   const navigate = useNavigate();
   
-  // 📧 1. เอา username ออก เปลี่ยนเป็นโครงสร้าง email เต็มรูปแบบ
+  // 📧 ใช้อีเมลเป็นข้อมูลสำหรับเข้าสู่ระบบ
   const [form, setForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -175,7 +175,7 @@ export default function Login() {
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-  // 📝 2. อัปเดต Validation ให้ตรวจสอบ email แทน username
+  // 📝 ตรวจสอบความถูกต้องของอีเมลก่อนเข้าสู่ระบบ
   const validate = () => {
     const e = {};
     if (!form.email.trim()) {

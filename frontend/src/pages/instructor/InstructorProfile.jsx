@@ -16,9 +16,7 @@ export default function InstructorProfile() {
   const [profileMsg,  setProfileMsg]  = useState(null);
   const [passMsg,     setPassMsg]     = useState(null);
 
-  const [profile, setProfile] = useState({
-    name: "", email: "", username: "",
-  });
+  const [profile, setProfile] = useState({ name: "", email: "" });
 
   const [passwords, setPasswords] = useState({
     current: "", newPw: "", confirm: ""
@@ -36,7 +34,7 @@ export default function InstructorProfile() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.message);
         setUserData(data);
-        setProfile({ name: data.name || "", email: data.email || "", username: data.username || "" });
+        setProfile({ name: data.name || "", email: data.email || "" });
       } catch (err) {
         setProfileMsg({ type: 'error', text: err.message || 'โหลดข้อมูลไม่สำเร็จ' });
       } finally {
@@ -56,7 +54,7 @@ export default function InstructorProfile() {
     try {
       const res  = await fetch(`${API}/profile`, {
         method: 'PUT', headers: authHeaders(),
-        body: JSON.stringify({ name: profile.name, email: profile.email, username: profile.username }),
+        body: JSON.stringify({ name: profile.name, email: profile.email }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
@@ -67,7 +65,7 @@ export default function InstructorProfile() {
       if (stored) {
         const u = JSON.parse(stored);
         localStorage.setItem("user", JSON.stringify({
-          ...u, name: data.user.name, email: data.user.email, username: data.user.username
+          ...u, name: data.user.name, email: data.user.email
         }));
       }
       setProfileMsg({ type: 'success', text: 'บันทึกข้อมูลสำเร็จ' });
@@ -152,7 +150,7 @@ export default function InstructorProfile() {
         </div>
         <div>
           <p className="font-bold text-slate-800 text-base">{userData?.name}</p>
-          <p className="text-sm text-slate-400 mt-0.5">@{userData?.username} · อาจารย์</p>
+          <p className="text-sm text-slate-400 mt-0.5">{userData?.email} · อาจารย์</p>
           <div className="flex items-center gap-2 mt-2">
             <span className="inline-flex items-center gap-1 text-xs bg-sky-50 text-sky-600 border border-sky-200 px-2.5 py-1 rounded-full font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
@@ -203,18 +201,6 @@ export default function InstructorProfile() {
             </div>
           </div>
 
-          {/* รหัสผู้ใช้ */}
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">รหัสผู้ใช้</label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input type="text" value={profile.username}
-                onChange={e => setProfile(p => ({ ...p, username: e.target.value }))}
-                className={inputCls} placeholder="username" />
-            </div>
-            <p className="text-xs text-slate-400 mt-1">ใช้สำหรับ login เข้าสู่ระบบ</p>
-          </div>
-
           {/* role — readonly */}
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">บทบาท</label>
@@ -227,7 +213,7 @@ export default function InstructorProfile() {
         </div>
 
         <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-slate-100">
-          <button onClick={() => setProfile({ name: userData?.name || '', email: userData?.email || '', username: userData?.username || '' })}
+          <button onClick={() => setProfile({ name: userData?.name || '', email: userData?.email || '' })}
             className="flex items-center gap-1.5 px-4 py-2.5 border-2 border-slate-200 rounded-xl text-sm text-slate-500 hover:bg-slate-50 transition-colors">
             <X className="w-4 h-4" />ยกเลิก
           </button>

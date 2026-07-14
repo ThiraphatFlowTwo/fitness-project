@@ -9,7 +9,9 @@ const auth = (req, res, next) => {
     const token = req.headers.authorization?.split(" ")[1];
     if (!token) return res.status(401).json({ message: "ไม่มี token" });
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret123");
-    req.userId = decoded.id;
+    // Token ที่ออกจาก authController ใช้ `userId`; รองรับ token รุ่นเก่าที่ใช้ `id` ด้วย
+    req.userId = decoded.userId || decoded.id;
+    if (!req.userId) return res.status(401).json({ message: "token ไม่มีข้อมูลผู้ใช้งาน" });
     req.role   = decoded.role;
     next();
   } catch {
@@ -45,10 +47,11 @@ router.get("/unread-count", auth, async (req, res) => {
 // PATCH /api/notifications/:id/read — mark อ่านแล้ว
 router.patch("/:id/read", auth, async (req, res) => {
   try {
-    await Notification.findOneAndUpdate(
+    const notification = await Notification.findOneAndUpdate(
       { _id: req.params.id, recipient_id: req.userId },
       { is_read: true }
     );
+    if (!notification) return res.status(404).json({ message: "ไม่พบการแจ้งเตือน" });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ message: err.message });
