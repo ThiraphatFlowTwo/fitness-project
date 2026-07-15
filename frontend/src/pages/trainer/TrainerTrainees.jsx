@@ -300,16 +300,16 @@ const TrainerTrainees = () => {
     );
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
       <div className="bg-white rounded-xl shadow-md">
         {/* Header */}
-        <div className="p-6 border-b flex justify-between items-center">
-          <h3 className="text-xl font-bold text-gray-800">
+        <div className="p-4 sm:p-6 border-b flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-800">
             จัดการข้อมูลผู้รับการฝึก
           </h3>
           <button
             onClick={handleAdd}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 md:px-6 md:py-2.5 rounded-xl font-bold flex items-center gap-1 md:gap-2 shadow-lg text-sm md:text-base"
           >
             <UserPlus className="w-5 h-5" />
             <span>เพิ่มผู้รับการฝึก</span>
@@ -317,8 +317,8 @@ const TrainerTrainees = () => {
         </div>
 
         {/* Table */}
-        <div className="p-6 overflow-x-auto">
-          <table className="w-full">
+        <div className="p-4 sm:p-6 overflow-x-auto">
+          <table className="w-full min-w-[700px]">
             <thead className="bg-gray-50">
               <tr>
                 {[

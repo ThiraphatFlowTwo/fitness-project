@@ -40,7 +40,13 @@ const roleLabel = {
 };
 
 const getInitials = (name = "") =>
-  name.trim().split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "?";
+  name
+    .trim()
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "?";
 
 // ── Logout Confirm Modal ────────────────────────────────────
 function LogoutConfirmModal({ open, onConfirm, onCancel }) {
@@ -102,7 +108,9 @@ function LogoutConfirmModal({ open, onConfirm, onCancel }) {
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => window.innerWidth >= 1024,
+  );
   const [collapsed, setCollapsed] = useState(false);
 
   // 🔔 ส่วนจัดการระบบแจ้งเตือน (Notification State)
@@ -112,7 +120,8 @@ export default function AdminLayout() {
 
   // ✅ ดึงข้อมูล user จาก localStorage
   const [user, setUser] = useState(null);
-  const { activeYear, notifCount, notifList, markAllRead, markRead } = useTopbarData("admin");
+  const { activeYear, notifCount, notifList, markAllRead, markRead } =
+    useTopbarData("admin");
 
   // 🚪 state สำหรับ popup ยืนยันออกจากระบบ
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
@@ -159,11 +168,11 @@ export default function AdminLayout() {
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
       // อัปเดตสถานะในตัวแปร state บนหน้าจอทันที ไม่ต้องโหลดใหม่
       setNotifications((prev) =>
-        prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
+        prev.map((n) => (n._id === id ? { ...n, isRead: true } : n)),
       );
     } catch (err) {
       console.error("ปรับสถานะการอ่านแจ้งเตือนผิดพลาด:", err);
@@ -230,12 +239,14 @@ export default function AdminLayout() {
       {/* ── Sidebar ── */}
       <aside
         style={{
-          background: "linear-gradient(160deg, #0B1F3A 0%, #1E293B 50%, #0EA5E9 100%)",
+          background:
+            "linear-gradient(160deg, #0B1F3A 0%, #1E293B 50%, #0EA5E9 100%)",
         }}
-        className={`
-          flex-shrink-0 flex flex-col h-full shadow-2xl transition-all duration-300
-          ${sidebarOpen ? (collapsed ? "w-20" : "w-64") : "w-0 overflow-hidden"}
-        `}
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col shadow-2xl transition-all duration-300 lg:relative lg:inset-auto lg:z-auto lg:shrink-0 ${
+          sidebarOpen
+            ? "translate-x-0"
+            : "-translate-x-full lg:w-0 lg:overflow-hidden"
+        } ${collapsed ? "lg:w-20" : "lg:w-64"}`}
       >
         {/* Logo */}
         <div
@@ -246,8 +257,13 @@ export default function AdminLayout() {
           </div>
           {!collapsed && (
             <div className="overflow-hidden">
-              <p className="font-bold text-white text-sm leading-tight">Admin Panel</p>
-              <p className="text-slate-300 text-xs truncate">ม.ราชภัฏเลย</p>
+              <p className="font-bold text-white text-sm leading-tight">
+                Admin Panel
+              </p>
+              <p className="text-slate-300 text-xs truncate">
+                นักศึกษาสาขาวิชาวิทยาศาสตร์การกีฬา และการออกกำลังกาย
+                มหาวิทยาลัยราชภัฏเลย
+              </p>
             </div>
           )}
         </div>
@@ -325,10 +341,10 @@ export default function AdminLayout() {
       </aside>
 
       {/* ── Main ── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         <header className="bg-white border-b border-gray-200 shadow-sm z-10">
-          <div className="px-6 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="h-16 px-4 sm:px-6 flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-4">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
@@ -339,10 +355,12 @@ export default function AdminLayout() {
                   <Menu className="w-5 h-5 text-slate-600" />
                 )}
               </button>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400 text-sm">Admin</span>
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="hidden sm:inline text-slate-400 text-sm">
+                  Admin
+                </span>
                 <ChevronRight className="w-4 h-4 text-slate-300" />
-                <span className="text-slate-800 font-semibold text-sm">
+                <span className="truncate text-slate-800 font-semibold text-sm">
                   {currentTitle}
                 </span>
               </div>
@@ -351,10 +369,14 @@ export default function AdminLayout() {
             <div className="flex items-center gap-3">
               <div className="hidden md:flex flex-col items-end">
                 <span className="text-xs font-semibold text-slate-700">
-                  {activeYear ? `ปีการศึกษา ${activeYear.academic_year}` : "ไม่มีปีการศึกษา"}
+                  {activeYear
+                    ? `ปีการศึกษา ${activeYear.academic_year}`
+                    : "ไม่มีปีการศึกษา"}
                 </span>
                 <span className="text-xs text-slate-400">
-                  {activeYear ? `ภาคเรียนที่ ${activeYear.semester}` : "ที่เปิดใช้งาน"}
+                  {activeYear
+                    ? `ภาคเรียนที่ ${activeYear.semester}`
+                    : "ที่เปิดใช้งาน"}
                 </span>
               </div>
               <NotificationDropdown
@@ -372,8 +394,10 @@ export default function AdminLayout() {
                 >
                   <Bell className="w-5 h-5 text-slate-600" />
                   {unreadCount > 0 && (
-                    <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold 
-                                    rounded-full flex items-center justify-center leading-none animate-pulse">
+                    <span
+                      className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold 
+                                    rounded-full flex items-center justify-center leading-none animate-pulse"
+                    >
                       {unreadCount}
                     </span>
                   )}
@@ -383,7 +407,9 @@ export default function AdminLayout() {
                 {notiOpen && (
                   <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50">
                     <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-                      <span className="font-semibold text-slate-700 text-sm">การแจ้งเตือน</span>
+                      <span className="font-semibold text-slate-700 text-sm">
+                        การแจ้งเตือน
+                      </span>
                       {unreadCount > 0 && (
                         <span className="text-xs bg-red-100 text-red-600 font-medium px-2 py-0.5 rounded-full">
                           ใหม่ {unreadCount} รายการ
@@ -411,25 +437,33 @@ export default function AdminLayout() {
                             />
 
                             <div className="flex-1 min-w-0">
-                              <p className={`text-xs font-semibold text-slate-800 truncate ${!noti.isRead ? "text-indigo-900" : ""}`}>
+                              <p
+                                className={`text-xs font-semibold text-slate-800 truncate ${!noti.isRead ? "text-indigo-900" : ""}`}
+                              >
                                 {noti.title}
                               </p>
                               <p className="text-xs text-slate-600 mt-0.5 line-clamp-2 leading-relaxed">
                                 {noti.message}
                               </p>
-                              
+
                               {/* 👤 แสดงข้อมูล User ต้นเรื่อง (ถ้าถูกส่งมาจาก Backend ใน Object 'senderId' หรือ 'senderName') */}
                               {noti.senderId && (
                                 <span className="inline-block mt-1 text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">
-                                  โดย: {noti.senderId.name || "ไม่ระบุชื่อ"} ({roleLabel[noti.senderId.role] || noti.senderId.role})
+                                  โดย: {noti.senderId.name || "ไม่ระบุชื่อ"} (
+                                  {roleLabel[noti.senderId.role] ||
+                                    noti.senderId.role}
+                                  )
                                 </span>
                               )}
 
                               <span className="text-[10px] text-slate-400 block mt-1">
-                                {new Date(noti.created_at).toLocaleDateString("th-TH", {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
+                                {new Date(noti.created_at).toLocaleDateString(
+                                  "th-TH",
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  },
+                                )}
                               </span>
                             </div>
 

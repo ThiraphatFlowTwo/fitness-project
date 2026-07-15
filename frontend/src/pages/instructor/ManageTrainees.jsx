@@ -105,7 +105,7 @@ export default function ManageTrainees() {
   );
 
   return (
-    <div className="w-full min-h-screen p-6 bg-slate-50">
+    <div className="w-full min-h-screen p-4 sm:p-6 bg-slate-50">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-xl font-bold text-slate-800">รายชื่อเทรนเนอร์</h1>
@@ -121,7 +121,7 @@ export default function ManageTrainees() {
       )}
 
       {/* 📊 ตัวเลขบนการ์ดเหล่านี้จะเปลี่ยนตามปีการศึกษาที่เลือกทันที */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {[
           { label: "ทั้งหมดในภาคนั้น",   value: total,   icon: Users,    from: "from-blue-500",    to: "to-violet-500"  },
           { label: "ใช้งานอยู่", value: active,  icon: Activity, from: "from-emerald-500", to: "to-teal-500"    },
@@ -156,7 +156,7 @@ export default function ManageTrainees() {
         <select
           value={yearFilter}
           onChange={e => setYearFilter(e.target.value)}
-          className="px-4 py-2.5 bg-white border-2 border-slate-100 rounded-xl text-sm text-slate-600 outline-none focus:border-blue-400 transition-all"
+          className="w-full md:w-auto px-4 py-2.5 bg-white border-2 border-slate-100 rounded-xl text-sm text-slate-600 outline-none focus:border-blue-400 transition-all"
         >
           <option value="all">ทุกปีการศึกษา</option>
           {academicYears.map((y) => (
@@ -170,7 +170,7 @@ export default function ManageTrainees() {
         <select
           value={filter}
           onChange={e => setFilter(e.target.value)}
-          className="px-4 py-2.5 bg-white border-2 border-slate-100 rounded-xl text-sm text-slate-600 outline-none focus:border-blue-400 transition-all"
+          className="w-full md:w-auto px-4 py-2.5 bg-white border-2 border-slate-100 rounded-xl text-sm text-slate-600 outline-none focus:border-blue-400 transition-all"
         >
           <option value="all">ทุกสถานะ</option>
           <option value="active">ใช้งานอยู่</option>
@@ -191,7 +191,7 @@ export default function ManageTrainees() {
             const gradient = GRADIENTS[i % GRADIENTS.length];
             return (
               <div key={t._id}
-                className="flex items-center gap-4 bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 hover:border-blue-200 hover:shadow-md transition-all group">
+                className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 hover:border-blue-200 hover:shadow-md transition-all group">
                 <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm`}>
                   {t.name?.charAt(0) || "?"}
                 </div>
@@ -226,7 +226,7 @@ export default function ManageTrainees() {
                 </span>
                 <button
                   onClick={() => navigate(`/instructor/trainees/${t._id}`)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-slate-100 rounded-xl text-xs text-slate-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all shrink-0">
+                  className="flex w-full sm:w-auto justify-center items-center gap-1.5 px-3 py-1.5 border-2 border-slate-100 rounded-xl text-xs text-slate-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all shrink-0">
                   <Eye className="w-3.5 h-3.5" />รายละเอียด
                 </button>
               </div>

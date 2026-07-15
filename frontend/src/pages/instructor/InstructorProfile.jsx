@@ -135,14 +135,14 @@ export default function InstructorProfile() {
   );
 
   return (
-    <div className="w-full min-h-screen p-6 bg-slate-50">
+    <div className="w-full min-h-screen p-4 sm:p-6 bg-slate-50">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-slate-800">โปรไฟล์อาจารย์</h1>
         <p className="text-sm text-slate-400 mt-0.5">จัดการข้อมูลส่วนตัวและความปลอดภัย</p>
       </div>
 
       {/* Avatar Card */}
-      <div className="bg-white rounded-2xl border-2 border-slate-100 p-5 mb-4 flex items-center gap-5">
+      <div className="bg-white rounded-2xl border-2 border-slate-100 p-5 mb-4 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
         <div className="relative shrink-0">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
             {userData?.name?.charAt(0) || '?'}
@@ -212,13 +212,13 @@ export default function InstructorProfile() {
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-slate-100">
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 mt-5 pt-4 border-t border-slate-100">
           <button onClick={() => setProfile({ name: userData?.name || '', email: userData?.email || '' })}
-            className="flex items-center gap-1.5 px-4 py-2.5 border-2 border-slate-200 rounded-xl text-sm text-slate-500 hover:bg-slate-50 transition-colors">
+            className="flex w-full sm:w-auto justify-center items-center gap-1.5 px-4 py-2.5 border-2 border-slate-200 rounded-xl text-sm text-slate-500 hover:bg-slate-50 transition-colors">
             <X className="w-4 h-4" />ยกเลิก
           </button>
           <button onClick={handleSaveProfile} disabled={savingProf}
-            className="flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-violet-600 text-white text-sm font-semibold rounded-xl shadow-md hover:opacity-90 disabled:opacity-60 transition-all">
+            className="flex w-full sm:w-auto justify-center items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-violet-600 text-white text-sm font-semibold rounded-xl shadow-md hover:opacity-90 disabled:opacity-60 transition-all">
             {savingProf
               ? <><Loader2 className="w-4 h-4 animate-spin" />กำลังบันทึก...</>
               : <><Save className="w-4 h-4" />บันทึก</>

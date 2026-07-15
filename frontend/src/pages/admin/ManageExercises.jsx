@@ -243,7 +243,7 @@ export default function ManageExercises() {
           </div>
           <button
             onClick={openAdd}
-            className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg"
+            className="flex w-full sm:w-auto justify-center items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg"
           >
             <Plus className="w-5 h-5" />
             เพิ่มท่าใหม่
@@ -257,12 +257,12 @@ export default function ManageExercises() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="ค้นหาท่า..."
-            className="flex-1 min-w-48 px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-400 outline-none"
+            className="w-full sm:flex-1 sm:min-w-48 px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-400 outline-none"
           />
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 focus:ring-2 focus:ring-emerald-400 outline-none"
+            className="w-full sm:w-auto px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 focus:ring-2 focus:ring-emerald-400 outline-none"
           >
             <option value="all">ทุกประเภทท่า</option>
             {EXERCISE_TYPES.map((t) => (
@@ -274,7 +274,7 @@ export default function ManageExercises() {
           <select
             value={equipmentFilter}
             onChange={(e) => setEquipmentFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 focus:ring-2 focus:ring-emerald-400 outline-none"
+            className="w-full sm:w-auto px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 focus:ring-2 focus:ring-emerald-400 outline-none"
           >
             <option value="all">ทุกอุปกรณ์</option>
             {EQUIPMENT_LIST.map((t) => (
@@ -286,7 +286,7 @@ export default function ManageExercises() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 focus:ring-2 focus:ring-emerald-400 outline-none"
+            className="w-full sm:w-auto px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 focus:ring-2 focus:ring-emerald-400 outline-none"
           >
             <option value="all">ทุกประเภทการวัดผล</option>
             {EXERCISE_CATEGORIES.map((c) => (
@@ -319,7 +319,7 @@ export default function ManageExercises() {
         {/* TABLE */}
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[900px]">
               <thead className="bg-slate-100">
                 <tr>
                   <th className="px-6 py-4 text-left">ชื่อท่า</th>

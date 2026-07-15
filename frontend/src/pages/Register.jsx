@@ -2,8 +2,17 @@ import { useState } from "react";
 import api from "../services/api";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Dumbbell, User, Mail, Lock,
-  Eye, EyeOff, IdCard, Zap, CheckCircle, AlertCircle, X
+  Dumbbell,
+  User,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  IdCard,
+  Zap,
+  CheckCircle,
+  AlertCircle,
+  X,
 } from "lucide-react";
 
 // ── Custom Alert Modal ──────────────────────────────────────
@@ -11,8 +20,14 @@ function AlertModal({ open, type = "error", title, message, onClose }) {
   if (!open) return null;
 
   const styles = {
-    success: { icon: <CheckCircle className="w-5 h-5" />, bg: "bg-emerald-400/15 text-emerald-300" },
-    error:   { icon: <AlertCircle className="w-5 h-5" />, bg: "bg-rose-400/15 text-rose-300" },
+    success: {
+      icon: <CheckCircle className="w-5 h-5" />,
+      bg: "bg-emerald-400/15 text-emerald-300",
+    },
+    error: {
+      icon: <AlertCircle className="w-5 h-5" />,
+      bg: "bg-rose-400/15 text-rose-300",
+    },
   };
   const s = styles[type] || styles.error;
 
@@ -71,7 +86,17 @@ function AlertModal({ open, type = "error", title, message, onClose }) {
   );
 }
 
-const Field = ({ label, name, type = "text", placeholder, error, icon, rightEl, value, onChange }) => (
+const Field = ({
+  label,
+  name,
+  type = "text",
+  placeholder,
+  error,
+  icon,
+  rightEl,
+  value,
+  onChange,
+}) => (
   <div className="mb-4">
     <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
       {label}
@@ -86,11 +111,12 @@ const Field = ({ label, name, type = "text", placeholder, error, icon, rightEl, 
         value={value}
         placeholder={placeholder}
         onChange={onChange}
-        className={`w-full pl-11 ${rightEl ? 'pr-12' : 'pr-5'} py-3.5 bg-white border-2 rounded-2xl text-sm outline-none
+        className={`w-full pl-11 ${rightEl ? "pr-12" : "pr-5"} py-3.5 bg-white border-2 rounded-2xl text-sm outline-none
           transition-all placeholder:text-slate-300
-          ${error 
-            ? 'border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-500/10' 
-            : 'border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'
+          ${
+            error
+              ? "border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-500/10"
+              : "border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
           }`}
       />
       {rightEl && (
@@ -115,7 +141,7 @@ export default function Register() {
     password: "",
     confirmPassword: "", // ➕ เพิ่ม State สำหรับยืนยันรหัสผ่าน
     student_id: "",
-    role: "trainer"
+    role: "trainer",
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -126,21 +152,22 @@ export default function Register() {
     open: false,
     type: "error",
     title: "",
-    message: ""
+    message: "",
   });
 
   const closeAlert = () => {
     const wasSuccess = alertModal.type === "success";
-    setAlertModal(a => ({ ...a, open: false }));
+    setAlertModal((a) => ({ ...a, open: false }));
     if (wasSuccess) navigate("/login");
   };
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
 
   const validate = () => {
     const e = {};
     if (!form.name.trim()) e.name = "กรุณากรอกชื่อ-นามสกุล";
-    
+
     if (!form.email.trim()) {
       e.email = "กรุณากรอกอีเมลสำหรับเข้าใช้งาน";
     } else if (!/^\S+@\S+\.\S+$/.test(form.email)) {
@@ -193,14 +220,17 @@ export default function Register() {
         open: true,
         type: "success",
         title: "ลงทะเบียนสำเร็จ!",
-        message: response.data.message || "กรุณารอแอดมินหรืออาจารย์ตรวจสอบและอนุมัติสิทธิ์เข้าใช้งาน"
+        message:
+          response.data.message ||
+          "กรุณารอแอดมินหรืออาจารย์ตรวจสอบและอนุมัติสิทธิ์เข้าใช้งาน",
       });
     } catch (err) {
       setAlertModal({
         open: true,
         type: "error",
         title: "การลงทะเบียนไม่สำเร็จ",
-        message: err.response?.data?.message || "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง"
+        message:
+          err.response?.data?.message || "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง",
       });
     } finally {
       setLoading(false);
@@ -211,9 +241,12 @@ export default function Register() {
     <div className="min-h-screen flex">
       {/* ── Left Panel ── */}
       <div className="hidden lg:flex lg:w-2/5 relative overflow-hidden">
-        <div 
+        <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200')" }}
+          style={{
+            backgroundImage:
+              "url('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200')",
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900/90 to-violet-900/85" />
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
@@ -222,26 +255,35 @@ export default function Register() {
               <Dumbbell className="w-5 h-5 text-white" />
             </div>
             <div>
-              <p className="font-bold text-white text-sm">ระบบจัดการเทรนเนอร์</p>
-              <p className="text-blue-300 text-xs">ม.ราชภัฏเลย</p>
+              <p className="font-bold text-white text-sm">
+                ระบบจัดการเทรนเนอร์
+              </p>
+              <p className="text-blue-300 text-xs">
+                นักศึกษาสาขาวิชาวิทยาศาสตร์การกีฬา และการออกกำลังกาย
+                มหาวิทยาลัยราชภัฏเลย
+              </p>
             </div>
           </div>
 
           <div>
             <div className="w-12 h-1 bg-gradient-to-r from-blue-400 to-violet-400 rounded-full mb-6" />
             <h2 className="text-2xl font-black text-white mb-6 leading-tight">
-              ร่วมเป็นส่วนหนึ่ง<br />
+              ร่วมเป็นส่วนหนึ่ง
+              <br />
               <span className="bg-gradient-to-r from-blue-300 to-violet-300 bg-clip-text text-transparent">
                 ของทีมกีฬาคุณภาพ
               </span>
             </h2>
             <p className="text-blue-200 text-sm max-w-sm leading-relaxed mb-6">
-              ลงทะเบียนเพื่อเข้าสู่แพลตฟอร์มการจัดการ เรียนรู้ และพัฒนาเทรนเนอร์กีฬาสู่ระดับมาตรฐานสากล
+              ลงทะเบียนเพื่อเข้าสู่แพลตฟอร์มการจัดการ เรียนรู้
+              และพัฒนาเทรนเนอร์กีฬาสู่ระดับมาตรฐานสากล
             </p>
           </div>
 
           <p className="text-blue-300 text-xs">
-            © 2567 วิทยาลัยการกีฬา คณะวิทยาศาสตร์และเทคโนโลยี
+            © 2569
+            ระบบจัดการข้อมูลเทรนเนอร์นักศึกษาสาขาวิชาวิทยาศาสตร์การกีฬาและการออกกำลังกาย
+            มหาวิทยาลัยราชภัฏเลย
           </p>
         </div>
       </div>
@@ -253,8 +295,13 @@ export default function Register() {
             <Dumbbell className="w-5 h-5 text-white" />
           </div>
           <div>
-            <p className="font-bold text-slate-800 text-sm">ระบบจัดการเทรนเนอร์</p>
-            <p className="text-slate-400 text-xs">ม.ราชภัฏเลย</p>
+            <p className="font-bold text-slate-800 text-sm">
+              ระบบจัดการเทรนเนอร์
+            </p>
+            <p className="text-slate-400 text-xs">
+              นักศึกษาสาขาวิชาวิทยาศาสตร์การกีฬา และการออกกำลังกาย
+              มหาวิทยาลัยราชภัฏเลย
+            </p>
           </div>
         </div>
 
@@ -263,8 +310,12 @@ export default function Register() {
             <span className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full mb-3">
               <Zap className="w-3 h-3" /> ยินดีต้อนรับสมาชิกใหม่
             </span>
-            <h1 className="text-3xl font-black text-slate-800 leading-tight">สมัครสมาชิก</h1>
-            <p className="text-slate-500 text-sm mt-1">กรอกข้อมูลให้ครบถ้วนเพื่อสร้างบัญชีใหม่ของคุณ</p>
+            <h1 className="text-3xl font-black text-slate-800 leading-tight">
+              สมัครสมาชิก
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">
+              กรอกข้อมูลให้ครบถ้วนเพื่อสร้างบัญชีใหม่ของคุณ
+            </p>
           </div>
 
           {/* Role Selection */}
@@ -348,7 +399,11 @@ export default function Register() {
                 onClick={() => setShowPw(!showPassword)}
                 className="text-slate-400 hover:text-slate-600 transition-colors"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
               </button>
             }
           />
@@ -369,7 +424,11 @@ export default function Register() {
                 onClick={() => setShowConfirmPw(!showConfirmPassword)}
                 className="text-slate-400 hover:text-slate-600 transition-colors"
               >
-                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showConfirmPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
               </button>
             }
           />
@@ -384,13 +443,30 @@ export default function Register() {
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
-                <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                <svg
+                  className="animate-spin h-4 w-4 text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8z"
+                  />
                 </svg>
                 กำลังดำเนินการ...
               </span>
-            ) : "สมัครสมาชิก →"}
+            ) : (
+              "สมัครสมาชิก →"
+            )}
           </button>
 
           <div className="flex items-center gap-3 my-5">
@@ -401,7 +477,10 @@ export default function Register() {
 
           <p className="text-center text-sm text-slate-500">
             มีบัญชีแล้ว?{" "}
-            <Link to="/login" className="font-bold text-blue-600 hover:text-violet-600 transition-colors">
+            <Link
+              to="/login"
+              className="font-bold text-blue-600 hover:text-violet-600 transition-colors"
+            >
               เข้าสู่ระบบที่นี่
             </Link>
           </p>

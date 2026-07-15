@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import axios from "axios"; 
+import axios from "axios";
 import {
   Home,
   Users,
@@ -15,10 +15,10 @@ import {
   X,
   ChevronRight,
   Check,
-  Scale
+  Scale,
 } from "lucide-react";
-import { useTopbarData } from '../../hooks/useTopbarData';
-import NotificationDropdown from '../../components/ui/NotificationDropdown';
+import { useTopbarData } from "../../hooks/useTopbarData";
+import NotificationDropdown from "../../components/ui/NotificationDropdown";
 
 const menuItems = [
   { id: "dashboard", label: "หน้าหลัก", icon: Home, path: "/trainer" },
@@ -137,7 +137,9 @@ function LogoutConfirmModal({ open, onConfirm, onCancel }) {
 }
 
 export default function TrainerLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => window.innerWidth >= 1024,
+  );
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -149,7 +151,8 @@ export default function TrainerLayout() {
 
   // ✅ ดึงข้อมูลระดับบนผ่าน Hook ของเพื่อน
   const [user, setUser] = useState(null);
-  const { activeYear, notifCount, notifList, markAllRead, markRead } = useTopbarData("trainer");
+  const { activeYear, notifCount, notifList, markAllRead, markRead } =
+    useTopbarData("trainer");
 
   // 🚪 state สำหรับ popup ยืนยันออกจากระบบ
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
@@ -230,7 +233,7 @@ export default function TrainerLayout() {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const isActive = (path) => location.pathname === path;
-  
+
   const page = pageTitles[location.pathname] || {
     th: "ระบบเทรนเนอร์",
     en: "Trainer",
@@ -256,10 +259,11 @@ export default function TrainerLayout() {
           background:
             "linear-gradient(160deg, #0B1F3A 0%, #1E293B 50%, #0EA5E9 100%)",
         }}
-        className={`
-          flex-shrink-0 flex flex-col h-full shadow-2xl transition-all duration-300
-          ${sidebarOpen ? (collapsed ? "w-20" : "w-64") : "w-0 overflow-hidden"}
-        `}
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col shadow-2xl transition-all duration-300 lg:relative lg:inset-auto lg:z-auto lg:shrink-0 ${
+          sidebarOpen
+            ? "translate-x-0"
+            : "-translate-x-full lg:w-0 lg:overflow-hidden"
+        } ${collapsed ? "lg:w-20" : "lg:w-64"}`}
       >
         {/* Logo */}
         <div
@@ -273,7 +277,10 @@ export default function TrainerLayout() {
               <p className="font-bold text-white text-sm leading-tight">
                 ระบบเทรนเนอร์
               </p>
-              <p className="text-slate-300 text-xs truncate">ม.ราชภัฏเลย</p>
+              <p className="text-slate-300 text-xs truncate">
+                นักศึกษาสาขาวิชาวิทยาศาสตร์การกีฬา และการออกกำลังกาย
+                มหาวิทยาลัยราชภัฏเลย
+              </p>
             </div>
           )}
         </div>
@@ -302,7 +309,10 @@ export default function TrainerLayout() {
             return (
               <button
                 key={id}
-                onClick={() => navigate(path)}
+                onClick={() => {
+                  navigate(path);
+                  if (window.innerWidth < 1024) setSidebarOpen(false);
+                }}
                 title={collapsed ? label : undefined}
                 className={`
                   w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
@@ -350,12 +360,12 @@ export default function TrainerLayout() {
       </aside>
 
       {/* ── Main ── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         {/* Header */}
         <header className="bg-white border-b border-gray-200 shadow-sm z-10">
-          <div className="px-6 h-16 flex items-center justify-between">
+          <div className="h-16 px-4 sm:px-6 flex items-center justify-between gap-2">
             {/* Left */}
-            <div className="flex items-center gap-4">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-4">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
@@ -366,10 +376,12 @@ export default function TrainerLayout() {
                   <Menu className="w-5 h-5 text-slate-600" />
                 )}
               </button>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400 text-sm">เทรนเนอร์</span>
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="hidden sm:inline text-slate-400 text-sm">
+                  เทรนเนอร์
+                </span>
                 <ChevronRight className="w-4 h-4 text-slate-300" />
-                <span className="text-slate-800 font-semibold text-sm">
+                <span className="truncate text-slate-800 font-semibold text-sm">
                   {page.th}
                 </span>
               </div>
@@ -379,16 +391,20 @@ export default function TrainerLayout() {
             <div className="flex items-center gap-3" ref={notiRef}>
               <div className="hidden md:flex flex-col items-end">
                 <span className="text-xs font-semibold text-slate-700">
-                  {activeYear ? `ปีการศึกษา ${activeYear.academic_year}` : "ไม่มีปีการศึกษา"}
+                  {activeYear
+                    ? `ปีการศึกษา ${activeYear.academic_year}`
+                    : "ไม่มีปีการศึกษา"}
                 </span>
                 <span className="text-xs text-slate-400">
-                  {activeYear ? `ภาคเรียนที่ ${activeYear.semester}` : "ที่เปิดใช้งาน"}
+                  {activeYear
+                    ? `ภาคเรียนที่ ${activeYear.semester}`
+                    : "ที่เปิดใช้งาน"}
                 </span>
               </div>
 
               {/* Legacy dropdown: ซ่อนไว้เพื่อใช้ NotificationDropdown ตัวเดียว */}
               <div className="hidden">
-                <button 
+                <button
                   onClick={() => setNotiOpen(!notiOpen)}
                   className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full transition-colors relative"
                 >
@@ -433,7 +449,9 @@ export default function TrainerLayout() {
                             />
 
                             <div className="flex-1 min-w-0">
-                              <p className={`text-xs font-semibold text-slate-800 truncate ${!noti.isRead ? "text-sky-900" : ""}`}>
+                              <p
+                                className={`text-xs font-semibold text-slate-800 truncate ${!noti.isRead ? "text-sky-900" : ""}`}
+                              >
                                 {noti.title}
                               </p>
                               <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 leading-relaxed">

@@ -126,7 +126,7 @@ export default function TrainerDetail() {
   const traineeFitness = fitness.filter(f => f.trainee_id?._id === viewTrainee?._id);
 
   return (
-    <div className="p-6 bg-slate-50 min-h-screen">
+    <div className="p-4 sm:p-6 bg-slate-50 min-h-screen">
       <div className="max-w-5xl mx-auto">
 
         <button onClick={() => navigate('/instructor/trainees')}
@@ -136,8 +136,8 @@ export default function TrainerDetail() {
         </button>
 
         {/* Profile Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
-          <div className="flex flex-wrap items-start gap-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-6 mb-6">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-start gap-4 sm:gap-6">
             <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-3xl font-bold shadow-lg shrink-0">
               {trainer?.name?.charAt(0) || '?'}
             </div>

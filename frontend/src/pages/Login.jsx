@@ -134,7 +134,7 @@ const Field = ({
 
 export default function Login() {
   const navigate = useNavigate();
-  
+
   // 📧 ใช้อีเมลเป็นข้อมูลสำหรับเข้าสู่ระบบ
   const [form, setForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
@@ -183,9 +183,9 @@ export default function Login() {
     } else if (!/^\S+@\S+\.\S+$/.test(form.email)) {
       e.email = "รูปแบบอีเมลไม่ถูกต้อง";
     }
-    
+
     if (!form.password) e.password = "กรุณากรอกรหัสผ่าน";
-    
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -243,7 +243,10 @@ export default function Login() {
               <p className="font-bold text-white text-sm">
                 ระบบจัดการเทรนเนอร์
               </p>
-              <p className="text-blue-300 text-xs">ม.ราชภัฏเลย</p>
+              <p className="text-blue-300 text-xs">
+                นักศึกษาสาขาวิชาวิทยาศาสตร์การกีฬา และการออกกำลังกาย
+                มหาวิทยาลัยราชภัฏเลย
+              </p>
             </div>
           </div>
 
@@ -263,7 +266,9 @@ export default function Login() {
           </div>
 
           <p className="text-blue-300 text-xs">
-            © 2567 วิทยาลัยการกีฬา คณะวิทยาศาสตร์และเทคโนโลยี
+            © 2569
+            ระบบจัดการข้อมูลเทรนเนอร์นักศึกษาสาขาวิชาวิทยาศาสตร์การกีฬาและการออกกำลังกาย
+            มหาวิทยาลัยราชภัฏเลย
           </p>
         </div>
       </div>
@@ -278,7 +283,10 @@ export default function Login() {
             <p className="font-bold text-slate-800 text-sm">
               ระบบจัดการเทรนเนอร์
             </p>
-            <p className="text-slate-400 text-xs">ม.ราชภัฏเลย</p>
+            <p className="text-slate-400 text-xs">
+              นักศึกษาสาขาวิชาวิทยาศาสตร์การกีฬา และการออกกำลังกาย
+              มหาวิทยาลัยราชภัฏเลย
+            </p>
           </div>
         </div>
 

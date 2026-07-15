@@ -178,9 +178,9 @@ export default function ManagePrograms() {
     );
 
   return (
-    <div className="w-full min-h-screen p-6 bg-slate-50">
+    <div className="w-full min-h-screen p-4 sm:p-6 bg-slate-50">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center mb-6">
         <div>
           <h1 className="text-xl font-bold text-slate-800">โปรแกรมการฝึก</h1>
           <p className="text-sm text-slate-400 mt-0.5">
@@ -190,7 +190,7 @@ export default function ManagePrograms() {
       </div>
 
       {/* [ปรับปรุง] ส่วนคลิกเลือกแท็บสถิติ — สามารถกดเพื่อคลิกเปลี่ยนฟิลเตอร์แท็บได้เลย */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
           {
             id: "all",
@@ -523,7 +523,7 @@ export default function ManagePrograms() {
             </div>
             <div className="p-6 space-y-4">
               {/* ข้อมูลพื้นฐาน */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-3 bg-slate-50 rounded-xl">
                   <p className="text-xs text-slate-400 mb-1">ชื่อโปรแกรม</p>
                   <p className="text-sm font-semibold text-slate-800">

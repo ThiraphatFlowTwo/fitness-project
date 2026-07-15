@@ -58,7 +58,7 @@ export default function Home() {
             </div>
             <div>
               <p className="text-sm font-bold text-slate-800 leading-tight">ระบบจัดการเทรนเนอร์</p>
-              <p className="text-[10px] text-slate-400">วิทยาลัยการกีฬา ม.ราชภัฏเลย</p>
+              <p className="text-[10px] text-slate-400">นักศึกษาสาขาวิชาวิทยาศาสตร์การกีฬาและการออกกำลังกาย มหาวิทยาลัยราชภัฏเลย</p>
             </div>
           </div>
           <Link
@@ -246,7 +246,7 @@ export default function Home() {
             </div>
             <span className="font-bold text-white text-sm">ระบบจัดการเทรนเนอร์</span>
           </div>
-          <p className="text-slate-500">© 2567 วิทยาลัยการกีฬา คณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยราชภัฏเลย</p>
+          <p className="text-slate-500">© 2569 ระบบจัดการข้อมูลเทรนเนอร์นักศึกษาสาขาวิชาวิทยาศาสตร์การกีฬาและการออกกำลังกาย มหาวิทยาลัยราชภัฏเลย</p>
         </div>
       </footer>
     </div>

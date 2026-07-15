@@ -232,7 +232,7 @@ export default function ManageUsers() {
 
           <button
             onClick={() => setShowAdd(true)}
-            className="group flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+            className="group flex w-full sm:w-auto justify-center items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
           >
             <UserPlus className="w-5 h-5 group-hover:rotate-12 transition-transform" />
             เพิ่มผู้ใช้

@@ -194,7 +194,7 @@ export default function ManageAcademicYear() {
           </div>
 
           {/* ===== FORM CARD ===== */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-white/20 mb-6">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-4 sm:p-6 border border-white/20 mb-6">
             <div className="flex items-center gap-2 mb-6">
               <div className="h-8 w-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
                 <Plus className="w-5 h-5 text-white" />
@@ -330,7 +330,7 @@ export default function ManageAcademicYear() {
           {/* ===== TABLE CARD ===== */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden border border-white/20">
             <div className="overflow-x-auto">
-              <table className="w-full">
+            <table className="w-full min-w-[700px]">
                 <thead className="bg-gradient-to-r from-slate-100 to-slate-50 border-b-2 border-slate-200">
                   <tr>
                     <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">

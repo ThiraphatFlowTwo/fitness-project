@@ -91,7 +91,7 @@ function LogoutConfirmModal({ open, onConfirm, onCancel }) {
 export default function InstructorLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1024);
   const [collapsed,   setCollapsed]   = useState(false);
   const [user,        setUser]        = useState(null);
   const [notifications, setNotifications] = useState([]);
@@ -215,9 +215,9 @@ export default function InstructorLayout() {
           background:
             "linear-gradient(160deg, #0B1F3A 0%, #1E293B 50%, #0EA5E9 100%)",
         }}
-        className={`flex-shrink-0 flex flex-col h-full shadow-2xl transition-all duration-300 ${
-          sidebarOpen ? (collapsed ? "w-20" : "w-64") : "w-0 overflow-hidden"
-        }`}
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col shadow-2xl transition-all duration-300 lg:relative lg:inset-auto lg:z-auto lg:shrink-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:w-0 lg:overflow-hidden"
+        } ${collapsed ? "lg:w-20" : "lg:w-64"}`}
       >
         {/* Logo */}
         <div className={`flex items-center gap-3 px-5 py-5 border-b border-white/10 ${collapsed ? "justify-center px-0" : ""}`}>
@@ -227,7 +227,7 @@ export default function InstructorLayout() {
           {!collapsed && (
             <div className="overflow-hidden">
               <p className="font-bold text-white text-sm leading-tight">Instructor Panel</p>
-              <p className="text-slate-300 text-xs truncate">ม.ราชภัฏเลย</p>
+              <p className="text-slate-300 text-xs truncate">มหาวิทยาลัยราชภัฏเลย</p>
             </div>
           )}
         </div>
@@ -289,18 +289,18 @@ export default function InstructorLayout() {
       </aside>
 
       {/* ── Main ── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         <header className="bg-white border-b border-gray-200 shadow-sm z-10">
-          <div className="px-6 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="h-16 px-4 sm:px-6 flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-4">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 {sidebarOpen ? <X className="w-5 h-5 text-slate-600" /> : <Menu className="w-5 h-5 text-slate-600" />}
               </button>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400 text-sm">Instructor</span>
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="hidden sm:inline text-slate-400 text-sm">Instructor</span>
                 <ChevronRight className="w-4 h-4 text-slate-300" />
                 {location.pathname.startsWith("/instructor/trainees/") ? (
                   <>
@@ -311,10 +311,10 @@ export default function InstructorLayout() {
                       เทรนเนอร์
                     </button>
                     <ChevronRight className="w-4 h-4 text-slate-300" />
-                    <span className="text-slate-800 font-semibold text-sm">รายละเอียดเทรนเนอร์</span>
+                  <span className="truncate text-slate-800 font-semibold text-sm">รายละเอียดเทรนเนอร์</span>
                   </>
                 ) : (
-                  <span className="text-slate-800 font-semibold text-sm">{currentTitle}</span>
+                  <span className="truncate text-slate-800 font-semibold text-sm">{currentTitle}</span>
                 )}
               </div>
             </div>
