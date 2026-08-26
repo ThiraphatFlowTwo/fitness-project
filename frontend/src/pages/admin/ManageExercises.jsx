@@ -1,6 +1,16 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
-import { Dumbbell, Plus, Edit2, Trash2, X, CheckCircle } from "lucide-react";
+import {
+  Dumbbell,
+  Plus,
+  Edit2,
+  Trash2,
+  X,
+  CheckCircle,
+  XCircle,
+  Info,
+  AlertTriangle,
+} from "lucide-react";
 
 const IMAGE_URL = "http://localhost:5000/uploads/";
 
@@ -100,6 +110,21 @@ export default function ManageExercises() {
   // ── ดึง currentUser จาก localStorage ─────────────────────────
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
 
+  // ── TOAST STATE ──────────────────────────────────────────────
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    window.clearTimeout(showToast._t);
+    showToast._t = window.setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }));
+    }, 3000);
+  };
+
+  // ── CONFIRM MODAL STATE (delete) ────────────────────────────
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const confirmTarget = exercises.find((ex) => ex._id === confirmDeleteId) || null;
+
   // ── เช็คสิทธิ์แก้ไข ──────────────────────────────────────────
   const canEdit = (ex) => {
     if (currentUser.role === "admin") return true;
@@ -182,28 +207,34 @@ export default function ManageExercises() {
         await api.put(`/exercises/${editing._id}`, payload, {
           headers: { "Content-Type": "multipart/form-data" },
         });
-        alert("แก้ไขท่าเรียบร้อยแล้ว ✅");
+        showToast("แก้ไขท่าเรียบร้อยแล้ว", "success");
       } else {
         await api.post("/exercises", payload, {
           headers: { "Content-Type": "multipart/form-data" },
         });
-        alert("เพิ่มท่าออกกำลังกายเรียบร้อยแล้ว ✅");
+        showToast("เพิ่มท่าออกกำลังกายเรียบร้อยแล้ว", "success");
       }
       setShowModal(false);
       fetchExercises();
     } catch (err) {
-      alert(err.response?.data?.message || "บันทึกไม่สำเร็จ");
+      showToast(err.response?.data?.message || "บันทึกไม่สำเร็จ", "error");
     }
   };
 
   // ── ลบ ────────────────────────────────────────────────────────
-  const handleDelete = async (id) => {
-    if (!confirm("ต้องการลบท่านี้ใช่หรือไม่?")) return;
+  const handleDeleteClick = (id) => setConfirmDeleteId(id);
+  const closeConfirmDelete = () => setConfirmDeleteId(null);
+
+  const confirmDelete = async () => {
+    if (!confirmDeleteId) return;
     try {
-      await api.delete(`/exercises/${id}`);
+      await api.delete(`/exercises/${confirmDeleteId}`);
+      closeConfirmDelete();
       fetchExercises();
+      showToast("ลบท่าออกกำลังกายแล้ว", "success");
     } catch (err) {
-      alert(err.response?.data?.message || "ลบไม่สำเร็จ");
+      closeConfirmDelete();
+      showToast(err.response?.data?.message || "ลบไม่สำเร็จ", "error");
     }
   };
 
@@ -243,7 +274,7 @@ export default function ManageExercises() {
           </div>
           <button
             onClick={openAdd}
-            className="flex w-full sm:w-auto justify-center items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg"
+            className="flex w-full sm:w-auto justify-center items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105"
           >
             <Plus className="w-5 h-5" />
             เพิ่มท่าใหม่
@@ -442,14 +473,14 @@ export default function ManageExercises() {
                             <>
                               <button
                                 onClick={() => openEdit(ex)}
-                                className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded-lg"
+                                className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded-lg transition-colors"
                                 title="แก้ไข"
                               >
                                 <Edit2 className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => handleDelete(ex._id)}
-                                className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded-lg"
+                                onClick={() => handleDeleteClick(ex._id)}
+                                className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded-lg transition-colors"
                                 title="ลบ"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -470,15 +501,18 @@ export default function ManageExercises() {
           </div>
         </div>
 
-        {/* MODAL */}
+        {/* MODAL: เพิ่ม/แก้ไข */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-6 flex justify-between items-center sticky top-0">
                 <h2 className="text-2xl font-bold">
                   {editing ? "แก้ไขท่า" : "เพิ่มท่าออกกำลังกาย"}
                 </h2>
-                <button onClick={() => setShowModal(false)}>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="hover:bg-white/20 rounded-lg p-1.5 transition-colors"
+                >
                   <X className="w-6 h-6" />
                 </button>
               </div>
@@ -618,19 +652,102 @@ export default function ManageExercises() {
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 px-6 py-3 rounded-xl font-semibold"
+                    className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 px-6 py-3 rounded-xl font-semibold transition-colors"
                   >
                     ยกเลิก
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-3 rounded-xl font-semibold flex justify-center items-center gap-2"
+                    className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-6 py-3 rounded-xl font-semibold flex justify-center items-center gap-2 shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]"
                   >
                     <CheckCircle className="w-5 h-5" />
                     บันทึก
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: ยืนยันการลบ */}
+        {confirmDeleteId && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center animate-[fadeIn_0.15s_ease-out]">
+              <div className="h-16 w-16 mx-auto rounded-2xl flex items-center justify-center shadow-lg ring-8 ring-red-100 bg-gradient-to-br from-red-500 to-rose-600">
+                <Trash2 className="w-7 h-7 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 mt-4">
+                ยืนยันการลบท่านี้
+              </h3>
+              <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+                {confirmTarget
+                  ? `ต้องการลบท่า "${confirmTarget.exercise_name}" ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้`
+                  : "การกระทำนี้ไม่สามารถย้อนกลับได้"}
+              </p>
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={closeConfirmDelete}
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-semibold transition-colors"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]"
+                >
+                  ลบท่านี้
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TOAST NOTIFICATION */}
+        {toast.show && (
+          <div className="fixed top-6 right-6 z-[60] animate-[fadeIn_0.2s_ease-out]">
+            <div
+              className={`flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl border-2 backdrop-blur-sm min-w-[280px] ${
+                toast.type === "success"
+                  ? "bg-green-50/95 border-green-200"
+                  : toast.type === "error"
+                  ? "bg-red-50/95 border-red-200"
+                  : "bg-blue-50/95 border-blue-200"
+              }`}
+            >
+              <div
+                className={`h-9 w-9 shrink-0 rounded-full flex items-center justify-center ${
+                  toast.type === "success"
+                    ? "bg-green-500"
+                    : toast.type === "error"
+                    ? "bg-red-500"
+                    : "bg-blue-500"
+                }`}
+              >
+                {toast.type === "success" ? (
+                  <CheckCircle className="w-5 h-5 text-white" />
+                ) : toast.type === "error" ? (
+                  <XCircle className="w-5 h-5 text-white" />
+                ) : (
+                  <Info className="w-5 h-5 text-white" />
+                )}
+              </div>
+              <p
+                className={`font-semibold text-sm ${
+                  toast.type === "success"
+                    ? "text-green-800"
+                    : toast.type === "error"
+                    ? "text-red-800"
+                    : "text-blue-800"
+                }`}
+              >
+                {toast.message}
+              </p>
+              <button
+                onClick={() => setToast((prev) => ({ ...prev, show: false }))}
+                className="ml-2 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}

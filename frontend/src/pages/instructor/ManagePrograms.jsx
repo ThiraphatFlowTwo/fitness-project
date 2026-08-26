@@ -9,6 +9,7 @@ import {
   Check,
   X,
   Loader2,
+  Info,
 } from "lucide-react";
 
 const API = "http://localhost:5000/api/programs";
@@ -62,6 +63,18 @@ export default function ManagePrograms() {
   const [actionProgram, setActionProgram] = useState(null);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [commentError, setCommentError] = useState("");
+
+  // ===== TOAST STATE =====
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    window.clearTimeout(showToast._t);
+    showToast._t = window.setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }));
+    }, 3000);
+  };
 
   // ── [แก้ไข] โหลดข้อมูลทั้งหมดมารวมไว้ที่หน้าบ้านครั้งเดียว ──────────────────
   useEffect(() => {
@@ -107,6 +120,7 @@ export default function ManagePrograms() {
     setActionProgram(p);
     setActionType("approve");
     setComment("");
+    setCommentError("");
     setActionModal(true);
   };
 
@@ -114,6 +128,7 @@ export default function ManagePrograms() {
     setActionProgram(p);
     setActionType("reject");
     setComment("");
+    setCommentError("");
     setActionModal(true);
   };
 
@@ -125,9 +140,11 @@ export default function ManagePrograms() {
   // ── อนุมัติ / ปฏิเสธ ─────────────────────────────────────────
   const handleAction = async () => {
     if (actionType === "reject" && !comment.trim()) {
-      alert("กรุณากรอกเหตุผลที่ไม่อนุมัติ");
+      setCommentError("กรุณากรอกเหตุผลที่ไม่อนุมัติ");
+      showToast("กรุณากรอกเหตุผลที่ไม่อนุมัติ", "error");
       return;
     }
+    setCommentError("");
     setSubmitting(true);
     try {
       const endpoint = actionType === "approve" ? "approve" : "reject";
@@ -138,7 +155,7 @@ export default function ManagePrograms() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.message);
+        showToast(data.message || "เกิดข้อผิดพลาด", "error");
         return;
       }
 
@@ -155,8 +172,12 @@ export default function ManagePrograms() {
         ),
       );
       setActionModal(false);
+      showToast(
+        actionType === "approve" ? "อนุมัติโปรแกรมแล้ว" : "ส่งคืนโปรแกรมเพื่อแก้ไขแล้ว",
+        "success",
+      );
     } catch {
-      alert("เกิดข้อผิดพลาด");
+      showToast("เกิดข้อผิดพลาด", "error");
     } finally {
       setSubmitting(false);
     }
@@ -456,22 +477,33 @@ export default function ManagePrograms() {
                 </label>
                 <textarea
                   value={comment}
-                  onChange={(e) => setComment(e.target.value)}
+                  onChange={(e) => {
+                    setComment(e.target.value);
+                    if (commentError) setCommentError("");
+                  }}
                   rows="3"
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-400 resize-none outline-none"
+                  className={`w-full border rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-400 resize-none outline-none transition-all ${
+                    commentError ? "border-red-400" : "border-slate-200"
+                  }`}
                   placeholder={
                     actionType === "approve"
                       ? "บันทึกความเห็นเพิ่มเติมถึงเทรนเนอร์..."
                       : "กรุณาระบุจุดที่ต้องการให้เทรนเนอร์แก้ไข..."
                   }
                 />
+                {commentError && (
+                  <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                    <XCircle className="w-3.5 h-3.5" />
+                    {commentError}
+                  </p>
+                )}
               </div>
 
               <div className="flex space-x-3 pt-2">
                 <button
                   onClick={handleAction}
                   disabled={submitting}
-                  className={`flex-1 py-3 rounded-xl font-semibold text-white flex items-center justify-center space-x-2 disabled:opacity-60 ${
+                  className={`flex-1 py-3 rounded-xl font-semibold text-white flex items-center justify-center space-x-2 disabled:opacity-60 transition-colors ${
                     actionType === "approve"
                       ? "bg-emerald-500 hover:bg-emerald-600"
                       : "bg-red-500 hover:bg-red-600"
@@ -496,7 +528,7 @@ export default function ManagePrograms() {
                 </button>
                 <button
                   onClick={() => setActionModal(false)}
-                  className="px-6 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-semibold"
+                  className="px-6 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-semibold transition-colors"
                 >
                   ยกเลิก
                 </button>
@@ -677,6 +709,56 @@ export default function ManagePrograms() {
                 ปิดหน้าต่าง
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== TOAST NOTIFICATION ===== */}
+      {toast.show && (
+        <div className="fixed top-6 right-6 z-[60] animate-fadeIn">
+          <div
+            className={`flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl border-2 backdrop-blur-sm min-w-[280px] ${
+              toast.type === "success"
+                ? "bg-emerald-50/95 border-emerald-200"
+                : toast.type === "error"
+                ? "bg-red-50/95 border-red-200"
+                : "bg-blue-50/95 border-blue-200"
+            }`}
+          >
+            <div
+              className={`h-9 w-9 shrink-0 rounded-full flex items-center justify-center ${
+                toast.type === "success"
+                  ? "bg-emerald-500"
+                  : toast.type === "error"
+                  ? "bg-red-500"
+                  : "bg-blue-500"
+              }`}
+            >
+              {toast.type === "success" ? (
+                <CheckCircle className="w-5 h-5 text-white" />
+              ) : toast.type === "error" ? (
+                <XCircle className="w-5 h-5 text-white" />
+              ) : (
+                <Info className="w-5 h-5 text-white" />
+              )}
+            </div>
+            <p
+              className={`font-semibold text-sm ${
+                toast.type === "success"
+                  ? "text-emerald-800"
+                  : toast.type === "error"
+                  ? "text-red-800"
+                  : "text-blue-800"
+              }`}
+            >
+              {toast.message}
+            </p>
+            <button
+              onClick={() => setToast((prev) => ({ ...prev, show: false }))}
+              className="ml-2 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}

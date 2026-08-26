@@ -16,6 +16,8 @@ import {
   Shield,
   Edit2,
   X,
+  Info,
+  AlertTriangle,
 } from "lucide-react";
 
 export default function ManageUsers() {
@@ -41,6 +43,32 @@ export default function ManageUsers() {
     name: "",
     email: "",
   });
+
+  // ===== TOAST STATE =====
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    window.clearTimeout(showToast._t);
+    showToast._t = window.setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }));
+    }, 3000);
+  };
+
+  // ===== CONFIRM MODAL STATE (approve / role / toggle / delete) =====
+  const [confirmModal, setConfirmModal] = useState({
+    show: false,
+    type: null, // "delete" | "toggle" | "approve" | "role"
+    id: null,
+    payload: null, // extra data e.g. new role
+    title: "",
+    description: "",
+    confirmLabel: "",
+    tone: "danger", // "danger" | "warning" | "success"
+  });
+
+  const closeConfirmModal = () =>
+    setConfirmModal((prev) => ({ ...prev, show: false }));
 
   // ฟังก์ชันดึง Token ป้องกันโค้ดซ้ำซ้อน
   const getHeaders = () => {
@@ -70,8 +98,8 @@ export default function ManageUsers() {
   const openEditModal = (user) => {
     setEditingUser(user);
     setEditForm({
-      name:     user.name     || "",
-      email:    user.email    || "",
+      name: user.name || "",
+      email: user.email || "",
     });
     setShowEdit(true);
   };
@@ -82,18 +110,18 @@ export default function ManageUsers() {
       await api.put(
         `/admin/users/${editingUser._id}`,
         {
-          name:     editForm.name,
-          email:    editForm.email,
+          name: editForm.name,
+          email: editForm.email,
         },
         getHeaders()
       );
 
-      alert("แก้ไขข้อมูลผู้ใช้สำเร็จ");
       setShowEdit(false);
       fetchUsers();
+      showToast("แก้ไขข้อมูลผู้ใช้สำเร็จ", "success");
     } catch (err) {
       console.error("แก้ไขไม่สำเร็จ:", err);
-      alert(err.response?.data?.message || "แก้ไขไม่สำเร็จ");
+      showToast(err.response?.data?.message || "แก้ไขไม่สำเร็จ", "error");
     }
   };
 
@@ -126,7 +154,6 @@ export default function ManageUsers() {
 
     try {
       await api.post("/admin/users", newUser, getHeaders());
-      alert("เพิ่มผู้ใช้สำเร็จ");
 
       setShowAdd(false);
       setNewUser({
@@ -137,60 +164,139 @@ export default function ManageUsers() {
       });
       setErrors({});
       fetchUsers();
+      showToast("เพิ่มผู้ใช้สำเร็จ", "success");
     } catch (err) {
       console.error("เพิ่มไม่สำเร็จ:", err);
-      alert(err.response?.data?.message || "เพิ่มผู้ใช้ไม่สำเร็จ");
+      showToast(err.response?.data?.message || "เพิ่มผู้ใช้ไม่สำเร็จ", "error");
     }
   };
 
   // ===== APPROVE USER =====
-  const handleApprove = async (id) => {
+  const handleApproveClick = (user) => {
+    setConfirmModal({
+      show: true,
+      type: "approve",
+      id: user._id,
+      payload: null,
+      title: "ยืนยันการอนุมัติ",
+      description: `ต้องการอนุมัติผู้ใช้ "${user.name || user.email}" ใช่หรือไม่?`,
+      confirmLabel: "อนุมัติ",
+      tone: "success",
+    });
+  };
+
+  const confirmApprove = async () => {
     try {
-      await api.put(`/admin/users/${id}/approve`, {}, getHeaders());
-      alert("อนุมัติผู้ใช้สำเร็จ");
+      await api.put(`/admin/users/${confirmModal.id}/approve`, {}, getHeaders());
+      closeConfirmModal();
       fetchUsers();
+      showToast("อนุมัติผู้ใช้สำเร็จ", "success");
     } catch (err) {
       console.error("อนุมัติไม่สำเร็จ:", err);
-      alert(err.response?.data?.message || "อนุมัติไม่สำเร็จ");
+      closeConfirmModal();
+      showToast(err.response?.data?.message || "อนุมัติไม่สำเร็จ", "error");
     }
   };
 
   // ===== UPDATE ROLE =====
-  const handleChangeRole = async (id, role) => {
+  const handleChangeRoleClick = (user, newRole) => {
+    if (newRole === user.role) return;
+    setConfirmModal({
+      show: true,
+      type: "role",
+      id: user._id,
+      payload: newRole,
+      title: "ยืนยันการเปลี่ยนบทบาท",
+      description: `ต้องการเปลี่ยนบทบาทของ "${user.name || user.email}" เป็น ${newRole} ใช่หรือไม่?`,
+      confirmLabel: "เปลี่ยนบทบาท",
+      tone: "warning",
+    });
+  };
+
+  const confirmChangeRole = async () => {
     try {
-      await api.put(`/admin/users/${id}`, { role }, getHeaders());
-      alert("เปลี่ยนบทบาทสำเร็จ");
+      await api.put(
+        `/admin/users/${confirmModal.id}`,
+        { role: confirmModal.payload },
+        getHeaders()
+      );
+      closeConfirmModal();
       fetchUsers();
+      showToast("เปลี่ยนบทบาทสำเร็จ", "success");
     } catch (err) {
       console.error("เปลี่ยนบทบาทไม่สำเร็จ:", err);
-      alert(err.response?.data?.message || "เปลี่ยนบทบาทไม่สำเร็จ");
+      closeConfirmModal();
+      showToast(err.response?.data?.message || "เปลี่ยนบทบาทไม่สำเร็จ", "error");
     }
   };
 
   // ===== TOGGLE STATUS =====
-  const handleToggleStatus = async (id, status) => {
+  const handleToggleClick = (user) => {
+    const willActivate = user.status !== "active";
+    setConfirmModal({
+      show: true,
+      type: "toggle",
+      id: user._id,
+      payload: user.status,
+      title: willActivate ? "ยืนยันการเปิดใช้งาน" : "ยืนยันการปิดใช้งาน",
+      description: willActivate
+        ? `ต้องการเปิดใช้งานบัญชีของ "${user.name || user.email}" ใช่หรือไม่?`
+        : `ต้องการปิดใช้งานบัญชีของ "${user.name || user.email}" ใช่หรือไม่?`,
+      confirmLabel: willActivate ? "เปิดใช้งาน" : "ปิดใช้งาน",
+      tone: willActivate ? "success" : "warning",
+    });
+  };
+
+  const confirmToggleStatus = async () => {
     try {
-      const newStatus = status === "active" ? "inactive" : "active";
-      await api.put(`/admin/users/${id}/status`, { status: newStatus }, getHeaders());
-      alert("อัปเดตสถานะการใช้งานสำเร็จ");
+      const newStatus = confirmModal.payload === "active" ? "inactive" : "active";
+      await api.put(
+        `/admin/users/${confirmModal.id}/status`,
+        { status: newStatus },
+        getHeaders()
+      );
+      closeConfirmModal();
       fetchUsers();
+      showToast("อัปเดตสถานะการใช้งานสำเร็จ", "success");
     } catch (err) {
       console.error("เปลี่ยนสถานะไม่สำเร็จ:", err);
-      alert(err.response?.data?.message || "เปลี่ยนสถานะไม่สำเร็จ");
+      closeConfirmModal();
+      showToast(err.response?.data?.message || "เปลี่ยนสถานะไม่สำเร็จ", "error");
     }
   };
 
   // ===== DELETE USER =====
-  const handleDelete = async (id) => {
-    if (!confirm("ต้องการลบผู้ใช้นี้หรือไม่?")) return;
+  const handleDeleteClick = (user) => {
+    setConfirmModal({
+      show: true,
+      type: "delete",
+      id: user._id,
+      payload: null,
+      title: "ยืนยันการลบผู้ใช้",
+      description: `ต้องการลบผู้ใช้ "${user.name || user.email}" ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้`,
+      confirmLabel: "ลบผู้ใช้",
+      tone: "danger",
+    });
+  };
+
+  const confirmDelete = async () => {
     try {
-      await api.delete(`/admin/users/${id}`, getHeaders());
-      alert("ลบผู้ใช้สำเร็จ");
+      await api.delete(`/admin/users/${confirmModal.id}`, getHeaders());
+      closeConfirmModal();
       fetchUsers();
+      showToast("ลบผู้ใช้สำเร็จ", "success");
     } catch (err) {
       console.error("ลบไม่สำเร็จ:", err);
-      alert(err.response?.data?.message || "ลบผู้ใช้ไม่สำเร็จ");
+      closeConfirmModal();
+      showToast(err.response?.data?.message || "ลบผู้ใช้ไม่สำเร็จ", "error");
     }
+  };
+
+  const handleConfirmAction = () => {
+    if (confirmModal.type === "delete") confirmDelete();
+    else if (confirmModal.type === "toggle") confirmToggleStatus();
+    else if (confirmModal.type === "approve") confirmApprove();
+    else if (confirmModal.type === "role") confirmChangeRole();
   };
 
   // ===== FILTER =====
@@ -210,6 +316,29 @@ export default function ManageUsers() {
     active: users.filter((u) => u.status === "active").length,
     inactive: users.filter((u) => u.status === "inactive").length,
   };
+
+  // ===== TONE STYLES FOR CONFIRM MODAL =====
+  const toneStyles = {
+    danger: {
+      icon: <Trash2 className="w-7 h-7 text-white" />,
+      iconBg: "bg-gradient-to-br from-red-500 to-rose-600",
+      button: "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700",
+      ring: "ring-red-100",
+    },
+    warning: {
+      icon: <AlertTriangle className="w-7 h-7 text-white" />,
+      iconBg: "bg-gradient-to-br from-amber-500 to-orange-500",
+      button: "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600",
+      ring: "ring-amber-100",
+    },
+    success: {
+      icon: <CheckCircle className="w-7 h-7 text-white" />,
+      iconBg: "bg-gradient-to-br from-green-500 to-emerald-600",
+      button: "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700",
+      ring: "ring-green-100",
+    },
+  };
+  const activeTone = toneStyles[confirmModal.tone] || toneStyles.danger;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 min-h-screen">
@@ -519,9 +648,7 @@ export default function ManageUsers() {
                       <td className="px-6 py-4">
                         <select
                           value={u.role}
-                          onChange={(e) =>
-                            handleChangeRole(u._id, e.target.value)
-                          }
+                          onChange={(e) => handleChangeRoleClick(u, e.target.value)}
                           className="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm font-medium"
                         >
                           <option value="trainer">Trainer</option>
@@ -555,7 +682,7 @@ export default function ManageUsers() {
                         <div className="flex items-center justify-center gap-2 flex-wrap">
                           {u.status === "pending" && (
                             <button
-                              onClick={() => handleApprove(u._id)}
+                              onClick={() => handleApproveClick(u)}
                               className="group flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all hover:scale-105"
                               title="อนุมัติ"
                             >
@@ -573,7 +700,7 @@ export default function ManageUsers() {
                           </button>
 
                           <button
-                            onClick={() => handleToggleStatus(u._id, u.status)}
+                            onClick={() => handleToggleClick(u)}
                             className="group flex items-center gap-1 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all hover:scale-105"
                             title="เปิด/ปิดใช้งาน"
                           >
@@ -581,7 +708,7 @@ export default function ManageUsers() {
                           </button>
 
                           <button
-                            onClick={() => handleDelete(u._id)}
+                            onClick={() => handleDeleteClick(u)}
                             className="group flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition-all hover:scale-105"
                             title="ลบ"
                           >
@@ -598,13 +725,17 @@ export default function ManageUsers() {
         </div>
       </div>
 
+      {/* EDIT USER MODAL */}
       {showEdit && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
             {/* Header */}
             <div className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white p-6 rounded-t-2xl flex justify-between items-center">
               <h2 className="text-xl font-bold">แก้ไขข้อมูลผู้ใช้</h2>
-              <button onClick={() => setShowEdit(false)}>
+              <button
+                onClick={() => setShowEdit(false)}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              >
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -612,21 +743,25 @@ export default function ManageUsers() {
             {/* Body */}
             <div className="p-6 space-y-4">
               <div>
-                <label className="block font-semibold mb-1">ชื่อ–นามสกุล</label>
+                <label className="block font-semibold mb-1 text-slate-700">
+                  ชื่อ–นามสกุล
+                </label>
                 <input
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full border p-3 rounded-xl"
+                  className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold mb-1">Email</label>
+                <label className="block font-semibold mb-1 text-slate-700">
+                  Email
+                </label>
                 <input
                   type="email"
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="w-full border p-3 rounded-xl"
+                  className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 />
               </div>
             </div>
@@ -635,13 +770,13 @@ export default function ManageUsers() {
             <div className="p-6 flex gap-3 border-t">
               <button
                 onClick={handleUpdateUser}
-                className="flex-1 bg-green-600 text-white py-3 rounded-xl font-semibold"
+                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]"
               >
                 บันทึก
               </button>
               <button
                 onClick={() => setShowEdit(false)}
-                className="flex-1 bg-gray-200 py-3 rounded-xl font-semibold"
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-semibold transition-colors"
               >
                 ยกเลิก
               </button>
@@ -650,6 +785,90 @@ export default function ManageUsers() {
         </div>
       )}
 
+      {/* CONFIRM MODAL (approve / role / toggle / delete) */}
+      {confirmModal.show && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center animate-[fadeIn_0.15s_ease-out]">
+            <div
+              className={`h-16 w-16 mx-auto rounded-2xl flex items-center justify-center shadow-lg ring-8 ${activeTone.iconBg} ${activeTone.ring}`}
+            >
+              {activeTone.icon}
+            </div>
+
+            <h3 className="text-lg font-bold text-slate-800 mt-4">
+              {confirmModal.title}
+            </h3>
+            <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+              {confirmModal.description}
+            </p>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={closeConfirmModal}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-semibold transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleConfirmAction}
+                className={`flex-1 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] ${activeTone.button}`}
+              >
+                {confirmModal.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TOAST NOTIFICATION */}
+      {toast.show && (
+        <div className="fixed top-6 right-6 z-[60] animate-[fadeIn_0.2s_ease-out]">
+          <div
+            className={`flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl border-2 backdrop-blur-sm min-w-[280px] ${
+              toast.type === "success"
+                ? "bg-green-50/95 border-green-200"
+                : toast.type === "error"
+                ? "bg-red-50/95 border-red-200"
+                : "bg-blue-50/95 border-blue-200"
+            }`}
+          >
+            <div
+              className={`h-9 w-9 shrink-0 rounded-full flex items-center justify-center ${
+                toast.type === "success"
+                  ? "bg-green-500"
+                  : toast.type === "error"
+                  ? "bg-red-500"
+                  : "bg-blue-500"
+              }`}
+            >
+              {toast.type === "success" ? (
+                <CheckCircle className="w-5 h-5 text-white" />
+              ) : toast.type === "error" ? (
+                <XCircle className="w-5 h-5 text-white" />
+              ) : (
+                <Info className="w-5 h-5 text-white" />
+              )}
+            </div>
+            <p
+              className={`font-semibold text-sm ${
+                toast.type === "success"
+                  ? "text-green-800"
+                  : toast.type === "error"
+                  ? "text-red-800"
+                  : "text-blue-800"
+              }`}
+            >
+              {toast.message}
+            </p>
+            <button
+              onClick={() => setToast((prev) => ({ ...prev, show: false }))}
+              className="ml-2 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

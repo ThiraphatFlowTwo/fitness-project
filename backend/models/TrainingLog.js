@@ -8,7 +8,8 @@ const trainingLogSchema = new mongoose.Schema(
     training_date: { type: Date, required: true },
     duration:      { type: Number, default: 0 }, // วินาที
     note:          { type: String, default: "" }, // หมายเหตุรวมทั้ง log
-    photo:         { type: String, default: "" }  // ✅ รูปยืนยันการฝึก
+    photo:         { type: String, default: "" }, // ✅ รูปแรก / รูปเดียว (เพื่อ Backward Compatibility)
+    photos:        [{ type: String, default: "" }] // 🔥 [เพิ่มใหม่] รองรับการเก็บรูปภาพหลายรูปเป็น Array
   },
   { timestamps: true }
 );

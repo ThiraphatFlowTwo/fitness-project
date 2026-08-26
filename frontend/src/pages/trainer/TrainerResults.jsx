@@ -14,9 +14,11 @@ import {
   AlertCircle,
   CheckCircle,
   HelpCircle,
+  Image as ImageIcon,
 } from "lucide-react";
 
 const API = "http://localhost:5000/api/logs";
+const EXERCISES_API = "http://localhost:5000/api/exercises";
 
 const authHeaders = () => {
   const token = localStorage.getItem("token");
@@ -93,7 +95,7 @@ const getFieldConfig = (category) => {
 
 const DRAFT_KEY = "trainer_results_draft";
 
-// ── Unified Action Modal (แทน alert() / confirm()) ─────────────
+// ── Unified Action Modal ─────────────
 function ActionModal({ state, onClose }) {
   if (!state.open) return null;
 
@@ -140,15 +142,13 @@ function ActionModal({ state, onClose }) {
           <div className="flex gap-3 mt-6">
             <button
               onClick={() => onClose(false)}
-              className="flex-1 py-3 rounded-2xl font-bold text-sm bg-white/10 hover:bg-white/15
-                         active:scale-95 transition-all"
+              className="flex-1 py-3 rounded-2xl font-bold text-sm bg-white/10 hover:bg-white/15 active:scale-95 transition-all"
             >
               ยกเลิก
             </button>
             <button
               onClick={() => onClose(true)}
-              className="flex-1 py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-blue-600 to-violet-600
-                         shadow-lg shadow-blue-500/25 hover:opacity-90 active:scale-95 transition-all"
+              className="flex-1 py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-blue-600 to-violet-600 shadow-lg shadow-blue-500/25 hover:opacity-90 active:scale-95 transition-all"
             >
               ตกลง
             </button>
@@ -156,8 +156,7 @@ function ActionModal({ state, onClose }) {
         ) : (
           <button
             onClick={() => onClose(true)}
-            className="w-full mt-6 py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-blue-600 to-violet-600
-                       shadow-lg shadow-blue-500/25 hover:opacity-90 active:scale-95 transition-all"
+            className="w-full mt-6 py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-blue-600 to-violet-600 shadow-lg shadow-blue-500/25 hover:opacity-90 active:scale-95 transition-all"
           >
             ตกลง
           </button>
@@ -182,6 +181,7 @@ const TrainerResults = () => {
   const draft = loadDraft();
 
   const [approvedPrograms, setApprovedPrograms] = useState([]);
+  const [allMasterExercises, setAllMasterExercises] = useState([]);
   const [loading,          setLoading]          = useState(true);
   const [saving,           setSaving]           = useState(false);
   const [error,            setError]            = useState("");
@@ -195,10 +195,11 @@ const TrainerResults = () => {
   const [exEquipFilter,    setExEquipFilter]    = useState("");
   const [timerSeconds,     setTimerSeconds]     = useState(draft?.timerSeconds ?? 0);
   const [isTimerRunning,   setIsTimerRunning]   = useState(false);
-  const [photoFile,        setPhotoFile]        = useState(null);
-  const [photoPreview,     setPhotoPreview]     = useState(null);
+  
+  // 📸 เปลี่ยนเป็น Array รองรับสูงสุด 10 รูป
+  const [photoFiles,       setPhotoFiles]       = useState([]);
+  const [photoPreviews,    setPhotoPreviews]    = useState([]);
 
-  // ── Modal state + helper functions (แทน alert()/confirm()) ──
   const [modalState, setModalState] = useState({ open: false });
   const resolveRef = useRef(null);
 
@@ -223,21 +224,27 @@ const TrainerResults = () => {
   };
 
   useEffect(() => {
-    const fetchPrograms = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch(`${API}/approved-programs`, {
-          headers: authHeaders(),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "โหลดโปรแกรมไม่สำเร็จ");
-        setApprovedPrograms(Array.isArray(data) ? data : []);
+        const [resProg, resEx] = await Promise.all([
+          fetch(`${API}/approved-programs`, { headers: authHeaders() }),
+          fetch(EXERCISES_API, { headers: authHeaders() })
+        ]);
+
+        const dataProg = await resProg.json();
+        const dataEx = await resEx.json();
+
+        if (!resProg.ok) throw new Error(dataProg.message || "โหลดโปรแกรมไม่สำเร็จ");
+        
+        setApprovedPrograms(Array.isArray(dataProg) ? dataProg : []);
+        setAllMasterExercises(Array.isArray(dataEx) ? dataEx : (dataEx.data || []));
       } catch (err) {
-        setError(err.message || "โหลดโปรแกรมไม่สำเร็จ");
+        setError(err.message || "โหลดข้อมูลไม่สำเร็จ");
       } finally {
         setLoading(false);
       }
     };
-    fetchPrograms();
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -291,19 +298,16 @@ const TrainerResults = () => {
 
     const program = approvedPrograms.find((p) => p._id === id);
 
-    // 📝 popup ถามผู้ใช้ก่อนเริ่มการฝึก
     const confirmStart = await showConfirm(
       `เริ่มการฝึกโปรแกรม "${program.program_name}"?`,
       "ระบบจะเริ่มนับเวลาทันที"
     );
 
-    // ถ้าผู้ใช้กด "ยกเลิก" ให้รีเซ็ตค่าซีเล็คกลับเป็นค่าว่างแล้วหยุดทำงาน
     if (!confirmStart) {
       selectEl.value = "";
       return;
     }
 
-    // ถ้ากด "ตกลง" ถึงจะทำงานต่อและเริ่มจับเวลา
     setSelectedProgram(program);
     setWorkoutSessions(
       (program.exercises || []).map((ex) => ({
@@ -323,7 +327,7 @@ const TrainerResults = () => {
     setTimerSeconds(0);
     setIsTimerRunning(true);
   };
-  
+
   const addSet = (exercise_id) =>
     setWorkoutSessions((prev) =>
       prev.map((s) =>
@@ -385,34 +389,42 @@ const TrainerResults = () => {
       prev.filter((s) => s.exercise_id !== exercise_id),
     );
 
-  const allExercises = selectedProgram?.exercises || [];
   const muscleTypes = [
     ...new Set(
-      allExercises.map((e) => e.exercise_id?.exercise_type).filter(Boolean),
+      allMasterExercises.map((e) => e.exercise_type).filter(Boolean),
     ),
   ];
   const equipTypes = [
     ...new Set(
-      allExercises.map((e) => e.exercise_id?.equipment_type).filter(Boolean),
+      allMasterExercises.map((e) => e.equipment_type).filter(Boolean),
     ),
   ];
-
-  const filteredModal = allExercises.filter((ex) => {
-    const name = ex.exercise_id?.exercise_name || "";
-    return (
-      name.toLowerCase().includes(exSearch.toLowerCase()) &&
-      (!exMuscleFilter || ex.exercise_id?.exercise_type === exMuscleFilter) &&
-      (!exEquipFilter || ex.exercise_id?.equipment_type === exEquipFilter)
-    );
-  });
 
   const isExerciseAdded = (exercise_id) =>
     workoutSessions.some(
       (s) => s.exercise_id === (exercise_id?._id || exercise_id),
     );
 
+  const filteredModal = allMasterExercises
+    .filter((ex) => {
+      const name = ex.exercise_name || "";
+      return (
+        name.toLowerCase().includes(exSearch.toLowerCase()) &&
+        (!exMuscleFilter || ex.exercise_type === exMuscleFilter) &&
+        (!exEquipFilter || ex.equipment_type === exEquipFilter)
+      );
+    })
+    .sort((a, b) => {
+      const aAdded = isExerciseAdded(a._id || a.exercise_id);
+      const bAdded = isExerciseAdded(b._id || b.exercise_id);
+
+      if (aAdded && !bAdded) return -1;
+      if (!aAdded && bAdded) return 1;
+      return (a.exercise_name || "").localeCompare(b.exercise_name || "");
+    });
+
   const toggleExerciseInModal = (ex) => {
-    const exId = ex.exercise_id?._id || ex.exercise_id;
+    const exId = ex._id || ex.exercise_id;
     if (isExerciseAdded(exId)) {
       removeExercise(exId);
       return;
@@ -421,10 +433,10 @@ const TrainerResults = () => {
       ...prev,
       {
         exercise_id: exId,
-        exercise_name: ex.exercise_id?.exercise_name || "",
-        exercise_type: ex.exercise_id?.exercise_type || "",
-        equipment: ex.exercise_id?.equipment_type || "",
-        exercise_category: ex.exercise_id?.exercise_category || "weight",
+        exercise_name: ex.exercise_name || "",
+        exercise_type: ex.exercise_type || "",
+        equipment: ex.equipment_type || "",
+        exercise_category: ex.exercise_category || "weight",
         order: prev.length + 1,
         note: "",
         sets: [
@@ -434,25 +446,49 @@ const TrainerResults = () => {
     ]);
   };
 
+  // 📸 จัดการเพิ่มรูปภาพ (แนบได้สูงสุด 10 รูป)
   const handlePhotoSelect = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      await showAlert("ไฟล์ไม่ถูกต้อง", "กรุณาเลือกไฟล์รูปภาพเท่านั้น");
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length === 0) return;
+
+    if (photoFiles.length + selectedFiles.length > 10) {
+      await showAlert("แนบรูปเกินจำนวน", "สามารถแนบรูปภาพได้สูงสุดไม่เกิน 10 รูปเท่านั้น", "warning");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      await showAlert("ไฟล์ใหญ่เกินไป", "ขนาดรูปต้องไม่เกิน 5MB");
-      return;
+
+    const validFiles = [];
+    const validPreviews = [];
+
+    for (const file of selectedFiles) {
+      if (!file.type.startsWith("image/")) {
+        await showAlert("ไฟล์ไม่ถูกต้อง", `ไฟล์ ${file.name} ไม่ใช่รูปภาพ`);
+        continue;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        await showAlert("ไฟล์ใหญ่เกินไป", `รูป ${file.name} มีขนาดเกิน 5MB`);
+        continue;
+      }
+      validFiles.push(file);
+      validPreviews.push(URL.createObjectURL(file));
     }
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
+
+    setPhotoFiles((prev) => [...prev, ...validFiles]);
+    setPhotoPreviews((prev) => [...prev, ...validPreviews]);
+    e.target.value = ""; // รีเซ็ต input ให้เลือกไฟล์เดิมซ้ำได้
   };
 
-  const removePhoto = () => {
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
-    setPhotoFile(null);
-    setPhotoPreview(null);
+  // 📸 ลบรูปเฉพาะดัชนีที่เลือก
+  const removePhotoAt = (index) => {
+    URL.revokeObjectURL(photoPreviews[index]);
+    setPhotoFiles((prev) => prev.filter((_, i) => i !== index));
+    setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // 📸 ลบรูปภาพทั้งหมด
+  const removeAllPhotos = () => {
+    photoPreviews.forEach((url) => URL.revokeObjectURL(url));
+    setPhotoFiles([]);
+    setPhotoPreviews([]);
   };
 
   const handleSave = async () => {
@@ -470,7 +506,7 @@ const TrainerResults = () => {
       const proceed = await showConfirm("ยังไม่มีเซตที่ทำเสร็จ", "ต้องการบันทึกหรือไม่?");
       if (!proceed) return;
     }
-    if (!photoFile) {
+    if (photoFiles.length === 0) {
       const proceed = await showConfirm("ยังไม่ได้แนบรูปยืนยันการฝึก", "ต้องการบันทึกโดยไม่มีรูปหรือไม่?");
       if (!proceed) return;
     }
@@ -497,9 +533,12 @@ const TrainerResults = () => {
       formData.append("duration",      timerSeconds);
       formData.append("note",          logNote);
       formData.append("sets",          JSON.stringify(sets));
-      if (photoFile) formData.append("photo", photoFile);
+      
+      // 📸 วนลูปแนบไฟล์รูปภาพทั้งหมดลงใน FormData (Backend ควรรับฟิลด์ชื่อ photos)
+      photoFiles.forEach((file) => {
+        formData.append("photos", file);
+      });
 
-      // ✅ แก้ไขตรงนี้: ดึง token จาก localStorage ตรงๆ
       const token = localStorage.getItem("token");
       const res = await fetch(API, {
         method: "POST",
@@ -517,14 +556,13 @@ const TrainerResults = () => {
         "success"
       );
 
-      // ล้างค่าหลังจากบันทึกเสร็จ
       localStorage.removeItem(DRAFT_KEY);
       setSelectedProgram(null);
       setWorkoutSessions([]);
       setTimerSeconds(0);
       setIsTimerRunning(false);
       setLogNote("");
-      removePhoto();
+      removeAllPhotos();
     } catch {
       await showAlert("เกิดข้อผิดพลาด", "", "error");
     }
@@ -753,25 +791,65 @@ const TrainerResults = () => {
               </div>
             )}
 
-            {/* แนบรูปยืนยันการฝึก */}
+            {/* 📸 แนบรูปยืนยันการฝึก (รองรับสูงสุด 10 รูป) */}
             {workoutSessions.length > 0 && (
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">📷 รูปยืนยันการฝึก</label>
-                {photoPreview ? (
-                  <div className="relative inline-block">
-                    <img src={photoPreview} alt="รูปยืนยันการฝึก" className="w-48 h-48 object-cover rounded-xl border border-gray-200 shadow-sm" />
-                    <button type="button" onClick={removePhoto} className="absolute -top-2 -right-2 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center w-48 h-48 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors text-gray-400">
-                    <Plus className="w-8 h-8 mb-1" />
-                    <span className="text-xs font-medium">ถ่าย / เลือกรูป</span>
-                    <input type="file" accept="image/*" capture="environment" onChange={handlePhotoSelect} className="hidden" />
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    📷 รูปยืนยันการฝึก <span className="text-xs text-gray-500">({photoFiles.length}/10 รูป)</span>
                   </label>
-                )}
-                <p className="text-xs text-gray-400 mt-1.5">แนบรูปขณะฝึกซ้อมเพื่อยืนยันว่ามีการเทรนจริง (ไม่เกิน 5MB)</p>
+                  {photoFiles.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={removeAllPhotos}
+                      className="text-xs text-red-500 hover:text-red-700 underline"
+                    >
+                      ลบรูปทั้งหมด
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                  {/* แสดงรูปภาพที่แนบแล้ว */}
+                  {photoPreviews.map((preview, index) => (
+                    <div key={index} className="relative group aspect-square rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100">
+                      <img
+                        src={preview}
+                        alt={`รูปยืนยัน ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePhotoAt(index)}
+                        className="absolute top-1 right-1 w-6 h-6 bg-red-500/80 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors shadow-md"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
+                        {index + 1}
+                      </span>
+                    </div>
+                  ))}
+
+                  {/* ปุ่มกดเลือกรูปภาพเพิ่มเติม (ซ่อนเมื่อครบ 10 รูป) */}
+                  {photoFiles.length < 10 && (
+                    <label className="flex flex-col items-center justify-center aspect-square border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors text-gray-400 p-2">
+                      <ImageIcon className="w-6 h-6 mb-1 text-purple-500" />
+                      <span className="text-xs font-medium text-center text-gray-600">เพิ่มรูปภาพ</span>
+                      <span className="text-[10px] text-gray-400">เลือกเพิ่มได้</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handlePhotoSelect}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  * สามารถแนบรูปขณะฝึกซ้อมได้สูงสุด 10 รูป (ขนาดไม่เกิน 5MB ต่อรูป)
+                </p>
               </div>
             )}
 
@@ -788,7 +866,7 @@ const TrainerResults = () => {
                     setTimerSeconds(0);
                     setIsTimerRunning(false);
                     setLogNote("");
-                    removePhoto();
+                    removeAllPhotos();
                   }}
                   className="px-4 md:px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-semibold text-sm md:text-base"
                 >
@@ -867,13 +945,16 @@ const TrainerResults = () => {
                 <p className="text-center py-6 text-gray-500 text-sm">ไม่พบท่าที่ตรงกับเงื่อนไข</p>
               ) : (
                 filteredModal.map((ex) => {
-                  const exId = ex.exercise_id?._id || ex.exercise_id;
+                  const exId = ex._id || ex.exercise_id;
                   const added = isExerciseAdded(exId);
                   return (
-                    <div key={exId} className="flex justify-between items-center p-2.5 hover:bg-gray-800 rounded-lg transition-colors">
+                    <div key={exId} className={`flex justify-between items-center p-2.5 rounded-lg transition-colors ${added ? "bg-gray-800/80 border border-purple-500/30" : "hover:bg-gray-800"}`}>
                       <div>
-                        <p className="font-medium text-sm">{ex.exercise_id?.exercise_name}</p>
-                        <p className="text-xs text-gray-400">{ex.exercise_id?.exercise_type} · {ex.exercise_id?.equipment_type}</p>
+                        <p className="font-medium text-sm flex items-center gap-2">
+                          {ex.exercise_name}
+                          {added && <span className="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/40 px-1.5 py-0.5 rounded">เลือกแล้ว</span>}
+                        </p>
+                        <p className="text-xs text-gray-400">{ex.exercise_type} · {ex.equipment_type}</p>
                       </div>
                       <button
                         onClick={() => toggleExerciseInModal(ex)}
@@ -898,7 +979,7 @@ const TrainerResults = () => {
         </div>
       )}
 
-      {/* ── Action Modal (alert / confirm ทั้งหมดในหน้านี้) ── */}
+      {/* Action Modal */}
       <ActionModal state={modalState} onClose={closeModal} />
     </div>
   );

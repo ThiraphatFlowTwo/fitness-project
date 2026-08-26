@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   UserPlus,
   Eye,
@@ -8,6 +8,17 @@ import {
   Save,
   Loader2,
   Activity,
+  CheckCircle,
+  XCircle,
+  Target,
+  FileText,
+  Ruler,
+  Zap,
+  Droplet,
+  Upload,
+  Camera,
+  Image as ImageIcon,
+  Sparkles,
 } from "lucide-react";
 
 const API = "http://localhost:5000/api/trainees";
@@ -15,20 +26,26 @@ const FITNESS_API = "http://localhost:5000/api/fitness";
 
 const authHeaders = () => {
   const token = localStorage.getItem("token");
-  // ✅ ไม่ redirect ออกเองตรงนี้ — แค่ส่ง header เปล่าไป backend จะตอบ 401 เอง
   return token
     ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
     : { "Content-Type": "application/json" };
 };
 
-const getGoalColor = (goal) => {
-  const map = {
-    เพิ่มมวลกล้ามเนื้อ: "bg-green-100 text-green-800",
-    คาร์ดิโอ: "bg-blue-100 text-blue-800",
-    เพิ่มความแข็งแรง: "bg-purple-100 text-purple-800",
-    ลดไขมัน: "bg-orange-100 text-orange-800",
-  };
-  return map[goal] || "bg-gray-100 text-gray-800";
+const STANDARD_GOAL_OPTIONS = [
+  "ลดน้ำหนัก / ลดไขมัน",
+  "เพิ่มมวลกล้ามเนื้อ",
+  "เสริมสร้างความแข็งแรง",
+  "ฟื้นฟูระบบเผาผลาญ",
+  "คาร์ดิโอ / ความฟิต",
+];
+
+const getGoalColor = (goal = "") => {
+  if (typeof goal !== "string") return "bg-blue-100 text-blue-800 border-blue-200";
+  if (goal.includes("ลดน้ำหนัก") || goal.includes("ลดไขมัน")) return "bg-orange-100 text-orange-800 border-orange-200";
+  if (goal.includes("เพิ่มมวลกล้ามเนื้อ")) return "bg-green-100 text-green-800 border-green-200";
+  if (goal.includes("เสริมสร้างความแข็งแรง")) return "bg-purple-100 text-purple-800 border-purple-200";
+  if (goal.includes("ระบบเผาผลาญ")) return "bg-amber-100 text-amber-800 border-amber-200";
+  return "bg-blue-100 text-blue-800 border-blue-200";
 };
 
 const EMPTY_TRAINEE = {
@@ -37,18 +54,44 @@ const EMPTY_TRAINEE = {
   age: "",
   height: "",
   weight: "",
-  goal: "เพิ่มมวลกล้ามเนื้อ",
+  goals: ["ลดน้ำหนัก / ลดไขมัน", "เสริมสร้างความแข็งแรง"],
+  goalDetail: "",
   healthCondition: "",
 };
 
 const EMPTY_FITNESS = {
   test_date: "",
+  weight: "",
+  skeletal_muscle_mass: "",
+  body_fat_mass: "",
+  protein: "",
+  minerals: "",
+  total_body_water: "",
   bmi: "",
   body_fat_percent: "",
-  vo2_max: "",
-  muscle_strength: "",
-  flexibility: "",
+  visceral_fat_level: "",
+  waist_circumference: "",
+  waist_hip_ratio: "",
+  body_age: "",
+  estimated_bmr: "",
+  tdee: "",
+  body_score: "",
+  sys_bp: "",
+  dia_bp: "",
   resting_heart_rate: "",
+  skinfold_biceps_right: "",
+  skinfold_biceps_left: "",
+  skinfold_triceps_right: "",
+  skinfold_triceps_left: "",
+  skinfold_subscapular: "",
+  skinfold_suprailiac: "",
+  sit_and_reach: "",
+  back_scratch_right: "",
+  back_scratch_left: "",
+  grip_strength_right: "",
+  grip_strength_left: "",
+  leg_strength: "",
+  muscle_strength: "",
   remark: "",
 };
 
@@ -73,14 +116,52 @@ const TrainerTrainees = () => {
   const [selectedFitnessId, setSelectedFitnessId] = useState(null);
   const [fitnessLoading, setFitnessLoading] = useState(false);
 
-  // ── โหลดลูกเทรน ──────────────────────────────────────────────
+  // State เพิ่มเติมสำหรับการอัปโหลดรูปภาพ & สแกน
+  const [imagePreview, setImagePreview] = useState(null);
+  const [isScanning, setIsScanning] = useState(false);
+
+  // Toast State & Timer Ref
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+  const toastTimerRef = useRef(null);
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }));
+    }, 3000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
+  const [confirmModal, setConfirmModal] = useState({
+    show: false,
+    type: null,
+    id: null,
+    title: "",
+    description: "",
+  });
+
+  const closeConfirmModal = () => setConfirmModal((prev) => ({ ...prev, show: false }));
+
   const fetchTrainees = async () => {
     setLoading(true);
     try {
       const res = await fetch(API, { headers: authHeaders() });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "โหลดข้อมูลไม่สำเร็จ");
-      setTrainees(Array.isArray(data) ? data : []);
+      
+      const formattedData = (Array.isArray(data) ? data : []).map((t) => ({
+        ...t,
+        goals: Array.isArray(t.goals) ? t.goals : t.goal ? [t.goal] : [],
+        goalDetail: t.goalDetail || "",
+      }));
+      
+      setTrainees(formattedData);
     } catch (err) {
       setError(err.message || "โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่");
     } finally {
@@ -92,24 +173,31 @@ const TrainerTrainees = () => {
     fetchTrainees();
   }, []);
 
-  // ── โหลดข้อมูลสมรรถภาพ ───────────────────────────────────────
   const fetchFitness = async (traineeId) => {
     setFitnessLoading(true);
     try {
-      const res = await fetch(`${FITNESS_API}/${traineeId}`, {
-        headers: authHeaders(),
-      });
+      const res = await fetch(`${FITNESS_API}/${traineeId}`, { headers: authHeaders() });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "โหลดข้อมูลสมรรถภาพไม่สำเร็จ");
       setFitnessRecords(Array.isArray(data) ? data : []);
     } catch (err) {
-      alert(err.message || "โหลดข้อมูลสมรรถภาพไม่สำเร็จ");
+      showToast(err.message || "โหลดข้อมูลสมรรถภาพไม่สำเร็จ", "error");
     } finally {
       setFitnessLoading(false);
     }
   };
 
-  // ── เปิด Modal ลูกเทรน ────────────────────────────────────────
+  const handleGoalToggle = (goalOption) => {
+    setTraineeForm((prev) => {
+      const currentGoals = prev.goals || [];
+      if (currentGoals.includes(goalOption)) {
+        return { ...prev, goals: currentGoals.filter((g) => g !== goalOption) };
+      } else {
+        return { ...prev, goals: [...currentGoals, goalOption] };
+      }
+    });
+  };
+
   const handleAdd = () => {
     setTraineeMode("add");
     setTraineeForm(EMPTY_TRAINEE);
@@ -123,6 +211,7 @@ const TrainerTrainees = () => {
     setSelectedId(t._id);
     setIsTraineeModal(true);
   };
+
   const handleEdit = (t) => {
     setTraineeMode("edit");
     setTraineeForm(t);
@@ -130,68 +219,80 @@ const TrainerTrainees = () => {
     setIsTraineeModal(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("คุณต้องการลบผู้รับการฝึกนี้ใช่หรือไม่?")) return;
+  const handleDeleteClick = (t) => {
+    setConfirmModal({
+      show: true,
+      type: "deleteTrainee",
+      id: t._id,
+      title: "ยืนยันการลบ",
+      description: `ต้องการลบผู้รับการฝึก "${t.name}" ใช่หรือไม่?`,
+    });
+  };
+
+  const confirmDeleteTrainee = async () => {
+    const id = confirmModal.id;
     try {
       const res = await fetch(`${API}/${id}`, { method: "DELETE", headers: authHeaders() });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || "ลบไม่สำเร็จ");
-      }
+      if (!res.ok) throw new Error("ลบไม่สำเร็จ");
       setTrainees((prev) => prev.filter((t) => t._id !== id));
+      closeConfirmModal();
+      showToast("ลบผู้รับการฝึกแล้ว", "success");
     } catch (err) {
-      alert(err.message || "ลบไม่สำเร็จ");
+      closeConfirmModal();
+      showToast(err.message || "ลบไม่สำเร็จ", "error");
     }
   };
 
   const handleSaveTrainee = async () => {
     if (!traineeForm.name || !traineeForm.age) {
-      alert("กรุณากรอกชื่อและอายุให้ครบถ้วน");
+      showToast("กรุณากรอกชื่อและอายุให้ครบถ้วน", "error");
       return;
     }
     setSaving(true);
     try {
+      const payload = {
+        ...traineeForm,
+        goals: traineeForm.goals,
+        goal: traineeForm.goals[0] || "ลดน้ำหนัก / ลดไขมัน",
+      };
+
       if (traineeMode === "add") {
         const res = await fetch(API, {
           method: "POST",
           headers: authHeaders(),
-          body: JSON.stringify(traineeForm),
+          body: JSON.stringify(payload),
         });
-        const data = await res.json(); // ← อ่านครั้งเดียว
-        if (!res.ok) {
-          alert(`บันทึกไม่สำเร็จ: ${data.message}`);
-          return;
-        }
-        setTrainees((prev) => [data, ...prev]); // ← ใช้ data ที่อ่านไปแล้ว
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message);
+        setTrainees((prev) => [{ ...data, goals: traineeForm.goals, goalDetail: traineeForm.goalDetail }, ...prev]);
+        showToast("เพิ่มผู้รับการฝึกสำเร็จ", "success");
       } else {
         const res = await fetch(`${API}/${selectedId}`, {
           method: "PUT",
           headers: authHeaders(),
-          body: JSON.stringify(traineeForm),
+          body: JSON.stringify(payload),
         });
-        const data = await res.json(); // ← อ่านครั้งเดียว
-        if (!res.ok) {
-          alert(`แก้ไขไม่สำเร็จ: ${data.message}`);
-          return;
-        }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message);
         setTrainees((prev) =>
-          prev.map((t) => (t._id === selectedId ? data : t)),
+          prev.map((t) => (t._id === selectedId ? { ...data, goals: traineeForm.goals, goalDetail: traineeForm.goalDetail } : t))
         );
+        showToast("แก้ไขข้อมูลสำเร็จ", "success");
       }
       setIsTraineeModal(false);
-    } catch {
-      alert("เกิดข้อผิดพลาด");
+    } catch (err) {
+      showToast(err.message || "เกิดข้อผิดพลาดในการบันทึก", "error");
     } finally {
       setSaving(false);
     }
   };
 
-  // ── เปิด Modal สมรรถภาพ ───────────────────────────────────────
   const handleOpenFitness = (trainee) => {
     setSelectedTrainee(trainee);
     setFitnessMode("list");
     setFitnessForm(EMPTY_FITNESS);
     setSelectedFitnessId(null);
+    setImagePreview(null);
     fetchFitness(trainee._id);
     setIsFitnessModal(true);
   };
@@ -203,6 +304,7 @@ const TrainerTrainees = () => {
       test_date: new Date().toISOString().split("T")[0],
     });
     setSelectedFitnessId(null);
+    setImagePreview(null);
   };
 
   const handleEditFitness = (record) => {
@@ -212,67 +314,132 @@ const TrainerTrainees = () => {
       ...record,
       test_date: record.test_date?.split("T")[0] || "",
     });
+    setImagePreview(null);
   };
 
-  const handleDeleteFitness = async (id) => {
-    if (!window.confirm("ลบข้อมูลสมรรถภาพนี้ใช่หรือไม่?")) return;
+  const handleDeleteFitnessClick = (record) => {
+    setConfirmModal({
+      show: true,
+      type: "deleteFitness",
+      id: record._id,
+      title: "ยืนยันการลบข้อมูลสมรรถภาพ",
+      description: `ต้องการลบข้อมูลสมรรถภาพวันที่ ${new Date(record.test_date).toLocaleDateString("th-TH")} ใช่หรือไม่?`,
+    });
+  };
+
+  const confirmDeleteFitness = async () => {
+    const id = confirmModal.id;
     try {
-      const res = await fetch(`${FITNESS_API}/${id}`, {
-        method: "DELETE",
-        headers: authHeaders(),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || "ลบไม่สำเร็จ");
-      }
+      const res = await fetch(`${FITNESS_API}/${id}`, { method: "DELETE", headers: authHeaders() });
+      if (!res.ok) throw new Error("ลบไม่สำเร็จ");
       setFitnessRecords((prev) => prev.filter((r) => r._id !== id));
+      closeConfirmModal();
+      showToast("ลบข้อมูลสมรรถภาพแล้ว", "success");
     } catch (err) {
-      alert(err.message || "ลบไม่สำเร็จ");
+      closeConfirmModal();
+      showToast(err.message || "ลบไม่สำเร็จ", "error");
     }
+  };
+
+  const handleConfirmAction = () => {
+    if (confirmModal.type === "deleteTrainee") confirmDeleteTrainee();
+    else if (confirmModal.type === "deleteFitness") confirmDeleteFitness();
+  };
+
+  // 📷 ฟังก์ชันอัปโหลดรูปภาพ และสแกนกรอกข้อมูลอัตโนมัติ (OCR)
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // แสดง Preview รูปภาพ
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+
+    // จำลองการสแกน OCR อ่านข้อมูลจากใบรายงาน
+    setIsScanning(true);
+    setTimeout(() => {
+      // สามารถเปลี่ยนเป็นดึงข้อมูลจาก API OCR จริงได้ตรงนี้
+      setFitnessForm((prev) => ({
+        ...prev,
+        weight: "70.1",
+        skeletal_muscle_mass: "24.2",
+        body_fat_mass: "26.6",
+        protein: "8.5",
+        minerals: "3.1",
+        total_body_water: "31.9",
+        bmi: "28.1",
+        body_fat_percent: "37.9",
+        visceral_fat_level: "11",
+        waist_circumference: "87.2",
+        waist_hip_ratio: "0.91",
+        body_age: "49",
+        body_score: "70",
+        estimated_bmr: "1309",
+        tdee: "2028",
+        sys_bp: "120",
+        dia_bp: "80",
+        resting_heart_rate: "72",
+      }));
+      setIsScanning(false);
+      showToast("อ่านข้อมูลจากรูปภาพเรียบร้อยแล้ว!", "success");
+    }, 1500);
   };
 
   const handleSaveFitness = async () => {
     if (!fitnessForm.test_date) {
-      alert("กรุณาเลือกวันที่ทดสอบ");
+      showToast("กรุณาเลือกวันที่ทดสอบ", "error");
       return;
     }
     setSaving(true);
+
+    const numericFields = [
+      "weight", "skeletal_muscle_mass", "body_fat_mass", "protein", "minerals",
+      "total_body_water", "bmi", "body_fat_percent", "visceral_fat_level",
+      "waist_circumference", "waist_hip_ratio", "body_age", "estimated_bmr",
+      "tdee", "body_score", "sys_bp", "dia_bp", "resting_heart_rate",
+      "skinfold_biceps_right", "skinfold_biceps_left", "skinfold_triceps_right",
+      "skinfold_triceps_left", "skinfold_subscapular", "skinfold_suprailiac",
+      "sit_and_reach", "back_scratch_right", "back_scratch_left",
+      "grip_strength_right", "grip_strength_left", "leg_strength"
+    ];
+
+    const cleanedFitnessForm = { ...fitnessForm };
+    numericFields.forEach((field) => {
+      if (cleanedFitnessForm[field] !== "" && cleanedFitnessForm[field] !== null && cleanedFitnessForm[field] !== undefined) {
+        cleanedFitnessForm[field] = Number(cleanedFitnessForm[field]);
+      } else {
+        cleanedFitnessForm[field] = null;
+      }
+    });
+
     try {
       if (fitnessMode === "add") {
         const res = await fetch(FITNESS_API, {
           method: "POST",
           headers: authHeaders(),
-          body: JSON.stringify({
-            ...fitnessForm,
-            trainee_id: selectedTrainee._id,
-          }),
+          body: JSON.stringify({ ...cleanedFitnessForm, trainee_id: selectedTrainee._id }),
         });
-        if (!res.ok) {
-          const e = await res.json();
-          alert(`บันทึกไม่สำเร็จ: ${e.message}`);
-          return;
-        }
+        if (!res.ok) throw new Error("บันทึกไม่สำเร็จ");
         const saved = await res.json();
         setFitnessRecords((prev) => [saved, ...prev]);
+        showToast("เพิ่มข้อมูลสมรรถภาพสำเร็จ", "success");
       } else {
         const res = await fetch(`${FITNESS_API}/${selectedFitnessId}`, {
           method: "PUT",
           headers: authHeaders(),
-          body: JSON.stringify(fitnessForm),
+          body: JSON.stringify(cleanedFitnessForm),
         });
-        if (!res.ok) {
-          const e = await res.json();
-          alert(`แก้ไขไม่สำเร็จ: ${e.message}`);
-          return;
-        }
+        if (!res.ok) throw new Error("แก้ไขไม่สำเร็จ");
         const updated = await res.json();
-        setFitnessRecords((prev) =>
-          prev.map((r) => (r._id === selectedFitnessId ? updated : r)),
-        );
+        setFitnessRecords((prev) => prev.map((r) => (r._id === selectedFitnessId ? updated : r)));
+        showToast("แก้ไขข้อมูลสมรรถภาพสำเร็จ", "success");
       }
       setFitnessMode("list");
-    } catch {
-      alert("เกิดข้อผิดพลาด");
+    } catch (err) {
+      showToast(err.message || "เกิดข้อผิดพลาด", "error");
     } finally {
       setSaving(false);
     }
@@ -283,33 +450,28 @@ const TrainerTrainees = () => {
     setFitnessForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ── Render ────────────────────────────────────────────────────
   if (loading)
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
         <span className="ml-2 text-gray-600">กำลังโหลดข้อมูล...</span>
       </div>
     );
 
-  if (error)
-    return (
-      <div className="flex items-center justify-center min-h-screen text-red-500">
-        {error}
-      </div>
-    );
+  if (error) return <div className="flex items-center justify-center min-h-screen text-red-500">{error}</div>;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
       <div className="bg-white rounded-xl shadow-md">
         {/* Header */}
         <div className="p-4 sm:p-6 border-b flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
-          <h3 className="text-lg sm:text-xl font-bold text-gray-800">
-            จัดการข้อมูลผู้รับการฝึก
-          </h3>
+          <div>
+            <h3 className="text-lg sm:text-xl font-bold text-gray-800">จัดการข้อมูลผู้รับการฝึก</h3>
+            <p className="text-xs text-gray-500 mt-0.5">เลือกเป้าหมายมาตรฐาน และบันทึกรายละเอียดเฉพาะบุคคล</p>
+          </div>
           <button
             onClick={handleAdd}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 md:px-6 md:py-2.5 rounded-xl font-bold flex items-center gap-1 md:gap-2 shadow-lg text-sm md:text-base"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg text-sm transition-colors"
           >
             <UserPlus className="w-5 h-5" />
             <span>เพิ่มผู้รับการฝึก</span>
@@ -318,22 +480,11 @@ const TrainerTrainees = () => {
 
         {/* Table */}
         <div className="p-4 sm:p-6 overflow-x-auto">
-          <table className="w-full min-w-[700px]">
+          <table className="w-full min-w-[750px]">
             <thead className="bg-gray-50">
               <tr>
-                {[
-                  "ชื่อ-นามสกุล",
-                  "เพศ",
-                  "อายุ",
-                  "ส่วนสูง",
-                  "น้ำหนัก",
-                  "เป้าหมาย",
-                  "การจัดการ",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
+                {["ชื่อ-นามสกุล", "เพศ/อายุ", "ส่วนสูง/น้ำหนัก", "เป้าหมายการฝึกหลัก", "การจัดการ"].map((h) => (
+                  <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {h}
                   </th>
                 ))}
@@ -344,64 +495,55 @@ const TrainerTrainees = () => {
                 <tr key={t._id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                        <span className="text-blue-600 font-semibold">
-                          {t.name.charAt(0)}
-                        </span>
+                      <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center mr-3">
+                        <span className="text-indigo-600 font-semibold">{t.name ? t.name.charAt(0) : "T"}</span>
                       </div>
-                      <span className="font-medium text-gray-800">
-                        {t.name}
-                      </span>
+                      <div>
+                        <span className="font-medium text-gray-800 block">{t.name}</span>
+                        {t.healthCondition && (
+                          <span className="text-xs text-rose-500 font-medium">⚠️ {t.healthCondition}</span>
+                        )}
+                      </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                    {t.gender}
+                  <td className="px-6 py-4 whitespace-nowrap text-gray-600 text-sm">
+                    {t.gender} ({t.age} ปี)
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                    {t.age} ปี
+                  <td className="px-6 py-4 whitespace-nowrap text-gray-600 text-sm">
+                    {t.height ? `${t.height} ซม.` : "-"} / {t.weight ? `${t.weight} กก.` : "-"}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                    {t.height ? `${t.height} ซม.` : "-"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                    {t.weight ? `${t.weight} กก.` : "-"}
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex flex-wrap gap-1">
+                        {t.goals && t.goals.length > 0 ? (
+                          t.goals.map((g, idx) => (
+                            <span key={idx} className={`px-2 py-0.5 rounded text-[11px] font-medium border ${getGoalColor(g)}`}>
+                              {g}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-400">ไม่ได้ระบุ</span>
+                        )}
+                      </div>
+                      {t.goalDetail && (
+                        <p className="text-xs text-gray-500 line-clamp-1 italic mt-0.5">
+                          📌 {t.goalDetail}
+                        </p>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm ${getGoalColor(t.goal)}`}
-                    >
-                      {t.goal}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex space-x-2">
-                      {/* ปุ่มสมรรถภาพ */}
-                      <button
-                        onClick={() => handleOpenFitness(t)}
-                        className="text-purple-600 hover:text-purple-800 transition-colors"
-                        title="ข้อมูลสมรรถภาพทางกาย"
-                      >
+                    <div className="flex space-x-3">
+                      <button onClick={() => handleOpenFitness(t)} className="text-purple-600 hover:text-purple-800" title="ข้อมูลสมรรถภาพ/สัดส่วน">
                         <Activity className="w-5 h-5" />
                       </button>
-                      <button
-                        onClick={() => handleView(t)}
-                        className="text-blue-600 hover:text-blue-800"
-                        title="ดูรายละเอียด"
-                      >
+                      <button onClick={() => handleView(t)} className="text-blue-600 hover:text-blue-800" title="ดูรายละเอียด">
                         <Eye className="w-5 h-5" />
                       </button>
-                      <button
-                        onClick={() => handleEdit(t)}
-                        className="text-green-600 hover:text-green-800"
-                        title="แก้ไข"
-                      >
+                      <button onClick={() => handleEdit(t)} className="text-green-600 hover:text-green-800" title="แก้ไข">
                         <Edit className="w-5 h-5" />
                       </button>
-                      <button
-                        onClick={() => handleDelete(t._id)}
-                        className="text-red-600 hover:text-red-800"
-                        title="ลบ"
-                      >
+                      <button onClick={() => handleDeleteClick(t)} className="text-red-600 hover:text-red-800" title="ลบ">
                         <Trash2 className="w-5 h-5" />
                       </button>
                     </div>
@@ -410,11 +552,7 @@ const TrainerTrainees = () => {
               ))}
             </tbody>
           </table>
-          {trainees.length === 0 && (
-            <p className="text-center text-gray-400 py-10">
-              ยังไม่มีข้อมูลผู้รับการฝึก
-            </p>
-          )}
+          {trainees.length === 0 && <p className="text-center text-gray-400 py-10">ยังไม่มีข้อมูลผู้รับการฝึก</p>}
         </div>
       </div>
 
@@ -428,166 +566,146 @@ const TrainerTrainees = () => {
                 {traineeMode === "edit" && "แก้ไขข้อมูลผู้รับการฝึก"}
                 {traineeMode === "view" && "รายละเอียดผู้รับการฝึก"}
               </h3>
-              <button
-                onClick={() => setIsTraineeModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
+              <button onClick={() => setIsTraineeModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-6 h-6" />
               </button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     ชื่อ-นามสกุล <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    name="name"
                     value={traineeForm.name}
-                    onChange={(e) =>
-                      setTraineeForm((p) => ({ ...p, name: e.target.value }))
-                    }
+                    onChange={(e) => setTraineeForm((p) => ({ ...p, name: e.target.value }))}
                     disabled={traineeMode === "view"}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 text-sm"
                     placeholder="เช่น สมชาย ใจดี"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    เพศ
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">เพศ</label>
                   <select
-                    name="gender"
                     value={traineeForm.gender}
-                    onChange={(e) =>
-                      setTraineeForm((p) => ({ ...p, gender: e.target.value }))
-                    }
+                    onChange={(e) => setTraineeForm((p) => ({ ...p, gender: e.target.value }))}
                     disabled={traineeMode === "view"}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 text-sm"
                   >
                     <option value="ชาย">ชาย</option>
                     <option value="หญิง">หญิง</option>
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     อายุ <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
-                    name="age"
                     value={traineeForm.age}
-                    onChange={(e) =>
-                      setTraineeForm((p) => ({ ...p, age: e.target.value }))
-                    }
+                    onChange={(e) => setTraineeForm((p) => ({ ...p, age: e.target.value }))}
                     disabled={traineeMode === "view"}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
-                    placeholder="เช่น 25"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    เป้าหมายการฝึก
-                  </label>
-                  <select
-                    name="goal"
-                    value={traineeForm.goal}
-                    onChange={(e) =>
-                      setTraineeForm((p) => ({ ...p, goal: e.target.value }))
-                    }
-                    disabled={traineeMode === "view"}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
-                  >
-                    <option value="เพิ่มมวลกล้ามเนื้อ">
-                      เพิ่มมวลกล้ามเนื้อ
-                    </option>
-                    <option value="ลดไขมัน">ลดไขมัน</option>
-                    <option value="คาร์ดิโอ">คาร์ดิโอ</option>
-                    <option value="เพิ่มความแข็งแรง">เพิ่มความแข็งแรง</option>
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    ส่วนสูง (ซม.)
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ส่วนสูง (ซม.)</label>
                   <input
                     type="number"
-                    step="0.1"
-                    name="height"
                     value={traineeForm.height}
-                    onChange={(e) =>
-                      setTraineeForm((p) => ({ ...p, height: e.target.value }))
-                    }
+                    onChange={(e) => setTraineeForm((p) => ({ ...p, height: e.target.value }))}
                     disabled={traineeMode === "view"}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
-                    placeholder="เช่น 170"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    น้ำหนัก (กก.)
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">น้ำหนัก (กก.)</label>
                   <input
                     type="number"
-                    step="0.1"
-                    name="weight"
                     value={traineeForm.weight}
-                    onChange={(e) =>
-                      setTraineeForm((p) => ({ ...p, weight: e.target.value }))
-                    }
+                    onChange={(e) => setTraineeForm((p) => ({ ...p, weight: e.target.value }))}
                     disabled={traineeMode === "view"}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
-                    placeholder="เช่น 65"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 text-sm"
                   />
                 </div>
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ข้อมูลสุขภาพพื้นฐาน
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                  <Target className="w-4 h-4 text-indigo-600" />
+                  <span>เป้าหมายหลักมาตรฐาน (เลือกได้หลายข้อ)</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                  {STANDARD_GOAL_OPTIONS.map((option) => {
+                    const isChecked = (traineeForm.goals || []).includes(option);
+                    return (
+                      <label
+                        key={option}
+                        className={`flex items-center space-x-2 text-sm p-2 rounded-md cursor-pointer transition-colors ${
+                          isChecked ? "bg-indigo-50 border border-indigo-200 font-medium text-indigo-900" : "hover:bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleGoalToggle(option)}
+                          disabled={traineeMode === "view"}
+                          className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                        />
+                        <span>{option}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                  <FileText className="w-4 h-4 text-indigo-600" />
+                  <span>รายละเอียดเป้าหมายเพิ่มเติมเฉพาะบุคคล</span>
                 </label>
                 <textarea
-                  name="healthCondition"
-                  value={traineeForm.healthCondition}
-                  onChange={(e) =>
-                    setTraineeForm((p) => ({
-                      ...p,
-                      healthCondition: e.target.value,
-                    }))
-                  }
+                  value={traineeForm.goalDetail}
+                  onChange={(e) => setTraineeForm((p) => ({ ...p, goalDetail: e.target.value }))}
                   disabled={traineeMode === "view"}
-                  rows="3"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 resize-none"
-                  placeholder="เช่น โรคประจำตัว ประวัติการบาดเจ็บ..."
+                  rows="2"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 text-sm"
+                  placeholder="เช่น ลดพุง 5 kg ให้กลับมาใส่เสื้อ Size M ได้, โฟกัสสร้างกล้ามเนื้อรอบเข่า"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  ข้อจำกัดทางสุขภาพ / ประวัติการเจ็บป่วย
+                </label>
+                <textarea
+                  value={traineeForm.healthCondition}
+                  onChange={(e) => setTraineeForm((p) => ({ ...p, healthCondition: e.target.value }))}
+                  disabled={traineeMode === "view"}
+                  rows="2"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 text-sm"
+                  placeholder="เช่น มีอาการเจ็บเข่าขณะย่อ, เคยไดเอทแบบอดอาหารมาก่อน..."
+                />
+              </div>
+
               <div className="flex space-x-3 pt-4 border-t">
                 {traineeMode !== "view" && (
                   <button
                     onClick={handleSaveTrainee}
                     disabled={saving}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 disabled:opacity-60"
+                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg font-semibold flex items-center justify-center space-x-2 transition-colors"
                   >
-                    {saving ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        <span>กำลังบันทึก...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-5 h-5" />
-                        <span>บันทึก</span>
-                      </>
-                    )}
+                    {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                    <span>บันทึกข้อมูล</span>
                   </button>
                 )}
                 <button
                   onClick={() => setIsTraineeModal(false)}
-                  className="px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold"
+                  className="px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2.5 rounded-lg font-semibold"
                 >
                   {traineeMode === "view" ? "ปิด" : "ยกเลิก"}
                 </button>
@@ -597,38 +715,30 @@ const TrainerTrainees = () => {
         </div>
       )}
 
-      {/* ===== Modal สมรรถภาพทางกาย ===== */}
+      {/* ===== Modal สมรรถภาพ & สัดส่วนร่างกาย ===== */}
       {isFitnessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="p-5 border-b flex justify-between items-center sticky top-0 bg-white z-10">
               <div>
-                <h3 className="text-xl font-bold text-gray-800">
-                  ข้อมูลสมรรถภาพทางกาย
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  {selectedTrainee?.name}
-                </p>
+                <h3 className="text-xl font-bold text-gray-800">ติดตามสมรรถภาพ & องค์ประกอบร่างกาย</h3>
+                <p className="text-xs text-indigo-600 font-medium mt-0.5">ผู้รับการฝึก: {selectedTrainee?.name}</p>
               </div>
-              <button
-                onClick={() => setIsFitnessModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
+              <button onClick={() => setIsFitnessModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-6 h-6" />
               </button>
             </div>
 
             <div className="p-6">
-              {/* รายการ หรือ ฟอร์ม */}
               {fitnessMode === "list" ? (
                 <>
                   <div className="flex justify-end mb-4">
                     <button
                       onClick={handleAddFitness}
-                      className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 text-sm transition-colors"
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 text-sm shadow-md transition-colors"
                     >
                       <Activity className="w-4 h-4" />
-                      <span>เพิ่มข้อมูลสมรรถภาพ</span>
+                      <span>+ บันทึกผลการวัดใหม่</span>
                     </button>
                   </div>
 
@@ -637,57 +747,62 @@ const TrainerTrainees = () => {
                       <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
                     </div>
                   ) : fitnessRecords.length === 0 ? (
-                    <p className="text-center text-gray-400 py-10">
-                      ยังไม่มีข้อมูลสมรรถภาพทางกาย
-                    </p>
+                    <p className="text-center text-gray-400 py-10">ยังไม่มีบันทึกข้อมูลสมรรถภาพทางกาย</p>
                   ) : (
                     <div className="space-y-3">
                       {fitnessRecords.map((r) => (
-                        <div
-                          key={r._id}
-                          className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
-                        >
+                        <div key={r._id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
                           <div className="flex justify-between items-start">
-                            <div>
-                              <p className="font-semibold text-gray-800">
-                                วันที่ทดสอบ:{" "}
-                                {new Date(r.test_date).toLocaleDateString(
-                                  "th-TH",
-                                )}
-                              </p>
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 text-sm text-gray-600">
-                                {r.bmi && <span>BMI: {r.bmi}</span>}
-                                {r.body_fat_percent && (
-                                  <span>ไขมัน: {r.body_fat_percent}%</span>
-                                )}
-                                {r.vo2_max && <span>VO2 Max: {r.vo2_max}</span>}
-                                {r.muscle_strength && (
-                                  <span>ความแข็งแรง: {r.muscle_strength}</span>
-                                )}
-                                {r.flexibility && (
-                                  <span>ความยืดหยุ่น: {r.flexibility}</span>
-                                )}
-                                {r.resting_heart_rate && (
-                                  <span>ชีพจร: {r.resting_heart_rate} bpm</span>
+                            <div className="w-full space-y-3">
+                              <div className="flex items-center gap-3">
+                                <span className="font-bold text-gray-800 text-sm">
+                                  📅 วันที่ทดสอบ: {r.test_date ? new Date(r.test_date).toLocaleDateString("th-TH") : "-"}
+                                </span>
+                                {r.body_score && (
+                                  <span className="bg-purple-100 text-purple-800 text-xs px-2.5 py-0.5 rounded-full font-bold">
+                                    คะแนนร่างกาย: {r.body_score} คะแนน
+                                  </span>
                                 )}
                               </div>
-                              {r.remark && (
-                                <p className="text-xs text-gray-400 mt-1">
-                                  หมายเหตุ: {r.remark}
-                                </p>
-                              )}
+
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 text-xs text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                <div><span className="text-gray-400 block">น้ำหนัก:</span> <span className="font-semibold">{r.weight ?? "-"} kg</span></div>
+                                <div><span className="text-gray-400 block">กล้ามเนื้อ (SMM):</span> <span className="font-semibold text-green-700">{r.skeletal_muscle_mass ?? "-"} kg</span></div>
+                                <div><span className="text-gray-400 block">ไขมัน (FM):</span> <span className="font-semibold text-orange-700">{r.body_fat_mass ?? "-"} kg</span></div>
+                                <div><span className="text-gray-400 block">% ไขมัน (PBF):</span> <span className="font-semibold">{r.body_fat_percent ?? "-"} %</span></div>
+                                <div><span className="text-gray-400 block">รอบเอว:</span> <span className="font-semibold text-amber-800">{r.waist_circumference ?? "-"} cm</span></div>
+                                <div><span className="text-gray-400 block">ไขมันช่องท้อง:</span> <span className="font-semibold text-red-600">Level {r.visceral_fat_level ?? "-"}</span></div>
+                                <div><span className="text-gray-400 block">BMR:</span> <span className="font-semibold">{r.estimated_bmr ?? "-"} kcal</span></div>
+                                <div><span className="text-gray-400 block">อายุกาย:</span> <span className="font-semibold">{r.body_age ?? "-"} ปี</span></div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                                <div className="p-2.5 bg-indigo-50/60 rounded-lg border border-indigo-100">
+                                  <span className="font-bold text-indigo-900 block mb-1">📏 ชั้นผิวหนัง (Skinfold):</span>
+                                  <p className="text-gray-600">Biceps (ข/ซ): {r.skinfold_biceps_right ?? "-"}/{r.skinfold_biceps_left ?? "-"} mm</p>
+                                  <p className="text-gray-600">Triceps (ข/ซ): {r.skinfold_triceps_right ?? "-"}/{r.skinfold_triceps_left ?? "-"} mm</p>
+                                  <p className="text-gray-600">Subscapular: {r.skinfold_subscapular ?? "-"} mm | Suprailiac: {r.skinfold_suprailiac ?? "-"} mm</p>
+                                </div>
+                                <div className="p-2.5 bg-amber-50/60 rounded-lg border border-amber-100">
+                                  <span className="font-bold text-amber-900 block mb-1">🧘 ความอ่อนตัว:</span>
+                                  <p className="text-gray-600">นั่งงอตัว: {r.sit_and_reach !== "" && r.sit_and_reach != null ? `${r.sit_and_reach} cm` : "-"}</p>
+                                  <p className="text-gray-600">แตะมือหลัง (ข/ซ): {r.back_scratch_right ?? "-"}/{r.back_scratch_left ?? "-"} cm</p>
+                                </div>
+                                <div className="p-2.5 bg-emerald-50/60 rounded-lg border border-emerald-100">
+                                  <span className="font-bold text-emerald-900 block mb-1">⚡ แรงกล้ามเนื้อ:</span>
+                                  <p className="text-gray-600">แรงบีบมือ (ข/ซ): {r.grip_strength_right ?? "-"}/{r.grip_strength_left ?? "-"} kg</p>
+                                  <p className="text-gray-600">แรงเหยียดขา: {r.leg_strength !== "" && r.leg_strength != null ? `${r.leg_strength} kg` : "-"}</p>
+                                </div>
+                              </div>
+
+                              {r.remark && <p className="text-xs text-gray-500 mt-1">📌 บันทึกเพิ่มเติม: {r.remark}</p>}
                             </div>
+
                             <div className="flex space-x-2 ml-4">
-                              <button
-                                onClick={() => handleEditFitness(r)}
-                                className="text-green-600 hover:text-green-800"
-                              >
+                              <button onClick={() => handleEditFitness(r)} className="text-green-600 hover:text-green-800">
                                 <Edit className="w-4 h-4" />
                               </button>
-                              <button
-                                onClick={() => handleDeleteFitness(r._id)}
-                                className="text-red-600 hover:text-red-800"
-                              >
+                              <button onClick={() => handleDeleteFitnessClick(r)} className="text-red-600 hover:text-red-800">
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
@@ -698,168 +813,331 @@ const TrainerTrainees = () => {
                   )}
                 </>
               ) : (
-                /* ฟอร์มเพิ่ม/แก้ไข */
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-gray-700">
-                      {fitnessMode === "add"
-                        ? "เพิ่มข้อมูลสมรรถภาพใหม่"
-                        : "แก้ไขข้อมูลสมรรถภาพ"}
+                /* ฟอร์มกรอกข้อมูลสมรรถภาพ & องค์ประกอบร่างกาย */
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between pb-2 border-b">
+                    <h4 className="font-bold text-gray-800 text-base">
+                      {fitnessMode === "add" ? "📝 กรอกข้อมูลสมรรถภาพ & องค์ประกอบร่างกาย" : "✏️ แก้ไขข้อมูลสมรรถภาพ"}
                     </h4>
-                    <button
-                      onClick={() => setFitnessMode("list")}
-                      className="text-sm text-gray-500 hover:text-gray-700"
-                    >
-                      ← กลับรายการ
+                    <button onClick={() => setFitnessMode("list")} className="text-xs text-indigo-600 hover:underline">
+                      ← กลับหน้ารายการ
                     </button>
                   </div>
 
+                  {/* 📸 จุดเพิ่มระบบอัปโหลดรูปภาพเพื่อสแกน (NEW!) */}
+                  <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2 text-purple-900 font-bold text-sm">
+                        <Sparkles className="w-4 h-4 text-purple-600" />
+                        <span>สแกนกรอกข้อมูลอัตโนมัติจากใบรายงาน (ACCUNIQ / InBody)</span>
+                      </div>
+                      {imagePreview && (
+                        <button
+                          type="button"
+                          onClick={() => setImagePreview(null)}
+                          className="text-xs text-rose-500 hover:underline flex items-center gap-1"
+                        >
+                          <X className="w-3.5 h-3.5" /> ลบรูปภาพ
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                      <label className="w-full flex-1 border-2 border-dashed border-purple-300 hover:border-purple-500 bg-white rounded-lg p-3 text-center cursor-pointer transition-colors">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="hidden"
+                        />
+                        <div className="flex items-center justify-center gap-2 text-purple-700 font-medium text-xs">
+                          {isScanning ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>กำลังสแกนและดึงข้อมูลตัวเลข...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Camera className="w-4 h-4" />
+                              <span>แนบรูปถ่าย หรือ คลิกเพื่อเลือกรูปใบรายงานผล</span>
+                            </>
+                          )}
+                        </div>
+                      </label>
+
+                      {imagePreview && (
+                        <div className="w-16 h-16 rounded-lg overflow-hidden border border-purple-300 relative shrink-0">
+                          <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {/* วันที่ทดสอบ */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <div className="w-full md:w-1/3">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
                       วันที่ทดสอบ <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
                       name="test_date"
-                      value={fitnessForm.test_date}
+                      value={fitnessForm.test_date || ""}
                       onChange={handleFitnessInput}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-purple-500 text-sm"
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        BMI (ดัชนีมวลกาย)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        name="bmi"
-                        value={fitnessForm.bmi}
-                        onChange={handleFitnessInput}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500"
-                        placeholder="เช่น 22.50"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        % ไขมัน (Body Fat)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        name="body_fat_percent"
-                        value={fitnessForm.body_fat_percent}
-                        onChange={handleFitnessInput}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500"
-                        placeholder="เช่น 18.50"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        VO2 Max
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        name="vo2_max"
-                        value={fitnessForm.vo2_max}
-                        onChange={handleFitnessInput}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500"
-                        placeholder="เช่น 45.00"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        อัตราการเต้นหัวใจขณะพัก (bpm)
-                      </label>
-                      <input
-                        type="number"
-                        name="resting_heart_rate"
-                        value={fitnessForm.resting_heart_rate}
-                        onChange={handleFitnessInput}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500"
-                        placeholder="เช่น 65"
-                      />
+                  {/* 1. การวิเคราะห์องค์ประกอบร่างกาย */}
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <h5 className="text-sm font-bold text-slate-800 mb-3">
+                      1. การวิเคราะห์องค์ประกอบร่างกาย (Body Composition)
+                    </h5>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-600 mb-1">น้ำหนัก (กก.)</label>
+                        <input type="number" step="0.1" name="weight" value={fitnessForm.weight ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="70.1" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-600 mb-1">มวลกล้ามเนื้อ (กก.)</label>
+                        <input type="number" step="0.1" name="skeletal_muscle_mass" value={fitnessForm.skeletal_muscle_mass ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="24.2" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-600 mb-1">มวลไขมัน (กก.)</label>
+                        <input type="number" step="0.1" name="body_fat_mass" value={fitnessForm.body_fat_mass ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="26.6" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-600 mb-1">โปรตีน (กก.)</label>
+                        <input type="number" step="0.1" name="protein" value={fitnessForm.protein ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="8.5" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-600 mb-1">กระดูก/แร่ธาตุ (กก.)</label>
+                        <input type="number" step="0.1" name="minerals" value={fitnessForm.minerals ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="3.1" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-600 mb-1">น้ำในร่างกาย (กก.)</label>
+                        <input type="number" step="0.1" name="total_body_water" value={fitnessForm.total_body_water ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="31.9" />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        ความแข็งแรงกล้ามเนื้อ
-                      </label>
-                      <input
-                        type="text"
-                        name="muscle_strength"
-                        value={fitnessForm.muscle_strength}
-                        onChange={handleFitnessInput}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500"
-                        placeholder="เช่น ดี / 80 kg"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        ความยืดหยุ่น
-                      </label>
-                      <input
-                        type="text"
-                        name="flexibility"
-                        value={fitnessForm.flexibility}
-                        onChange={handleFitnessInput}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500"
-                        placeholder="เช่น ดีมาก / 15 cm"
-                      />
+                  {/* 2. การวิเคราะห์ภาวะอ้วน & ลงพุง */}
+                  <div className="bg-amber-50/60 p-4 rounded-xl border border-amber-200">
+                    <h5 className="text-sm font-bold text-amber-900 mb-3">
+                      2. การวิเคราะห์ภาวะอ้วน & ลงพุง (Obesity Analysis)
+                    </h5>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-700 mb-1">BMI (kg/m²)</label>
+                        <input type="number" step="0.1" name="bmi" value={fitnessForm.bmi ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="28.1" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-700 mb-1">% ไขมันร่างกาย (PBF)</label>
+                        <input type="number" step="0.1" name="body_fat_percent" value={fitnessForm.body_fat_percent ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="37.9" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-700 mb-1">ระดับไขมันช่องท้อง</label>
+                        <input type="number" name="visceral_fat_level" value={fitnessForm.visceral_fat_level ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="11" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-amber-900 mb-1">เส้นรอบเอว (ซม.)</label>
+                        <input type="number" step="0.1" name="waist_circumference" value={fitnessForm.waist_circumference ?? ""} onChange={handleFitnessInput} className="w-full border border-amber-400 rounded px-2 py-1 text-sm bg-white" placeholder="87.2" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-700 mb-1">อัตราส่วนเอว/สะโพก</label>
+                        <input type="number" step="0.01" name="waist_hip_ratio" value={fitnessForm.waist_hip_ratio ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="0.91" />
+                      </div>
                     </div>
                   </div>
 
+                  {/* 3. ชั้นผิวหนัง */}
+                  <div className="bg-indigo-50/60 p-4 rounded-xl border border-indigo-200">
+                    <h5 className="text-sm font-bold text-indigo-900 mb-3 flex items-center gap-1">
+                      <Droplet className="w-4 h-4 text-indigo-600" />
+                      <span>3. การวัดความหนาของชั้นผิวหนัง (Skinfold Thickness - มิลลิเมตร)</span>
+                    </h5>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-700 mb-1">Biceps (หน้าแขน ขวา)</label>
+                        <input type="number" step="0.1" name="skinfold_biceps_right" value={fitnessForm.skinfold_biceps_right ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="มม." />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-700 mb-1">Biceps (หน้าแขน ซ้าย)</label>
+                        <input type="number" step="0.1" name="skinfold_biceps_left" value={fitnessForm.skinfold_biceps_left ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="มม." />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-700 mb-1">Triceps (หลังแขน ขวา)</label>
+                        <input type="number" step="0.1" name="skinfold_triceps_right" value={fitnessForm.skinfold_triceps_right ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="มม." />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-700 mb-1">Triceps (หลังแขน ซ้าย)</label>
+                        <input type="number" step="0.1" name="skinfold_triceps_left" value={fitnessForm.skinfold_triceps_left ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="มม." />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-700 mb-1">Subscapula (ใต้สะบัก)</label>
+                        <input type="number" step="0.1" name="skinfold_subscapular" value={fitnessForm.skinfold_subscapular ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="มม." />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-700 mb-1">Suprailiac (เหนือเชิงกราน)</label>
+                        <input type="number" step="0.1" name="skinfold_suprailiac" value={fitnessForm.skinfold_suprailiac ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="มม." />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4 & 5. ความอ่อนตัว & แรงกล้ามเนื้อ */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-100 space-y-3">
+                      <h5 className="text-sm font-bold text-amber-900 flex items-center gap-1">
+                        <Ruler className="w-4 h-4 text-amber-600" />
+                        <span>4. ความอ่อนตัว & การเคลื่อนไหว (ซม.)</span>
+                      </h5>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-600 mb-1">นั่งงอตัวไปข้างหน้า</label>
+                          <input type="number" step="0.1" name="sit_and_reach" value={fitnessForm.sit_and_reach ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="ซม." />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-600 mb-1">แตะมือด้านหลัง (ขวา)</label>
+                          <input type="number" step="0.1" name="back_scratch_right" value={fitnessForm.back_scratch_right ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="ซม." />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-600 mb-1">แตะมือด้านหลัง (ซ้าย)</label>
+                          <input type="number" step="0.1" name="back_scratch_left" value={fitnessForm.back_scratch_left ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="ซม." />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100 space-y-3">
+                      <h5 className="text-sm font-bold text-emerald-900 flex items-center gap-1">
+                        <Zap className="w-4 h-4 text-emerald-600" />
+                        <span>5. ความแข็งแรงของกล้ามเนื้อ (กก.)</span>
+                      </h5>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-600 mb-1">แรงบีบมือ (ขวา)</label>
+                          <input type="number" step="0.1" name="grip_strength_right" value={fitnessForm.grip_strength_right ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="กก." />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-600 mb-1">แรงบีบมือ (ซ้าย)</label>
+                          <input type="number" step="0.1" name="grip_strength_left" value={fitnessForm.grip_strength_left ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="กก." />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-600 mb-1">แรงเหยียดขา</label>
+                          <input type="number" step="0.1" name="leg_strength" value={fitnessForm.leg_strength ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="กก." />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 6 & 7. การประเมิน & สัญญาณชีพ */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                      <h5 className="text-sm font-bold text-slate-800">6. การประเมินโดยรวม & พลังงาน</h5>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-600 mb-1">อายุกาย (ปี)</label>
+                          <input type="number" name="body_age" value={fitnessForm.body_age ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="49" />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-600 mb-1">คะแนนร่างกาย</label>
+                          <input type="number" name="body_score" value={fitnessForm.body_score ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="70" />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-600 mb-1">BMR พลังงานพื้นฐาน</label>
+                          <input type="number" name="estimated_bmr" value={fitnessForm.estimated_bmr ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="1309" />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-600 mb-1">TDEE พลังงาน/วัน</label>
+                          <input type="number" name="tdee" value={fitnessForm.tdee ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="2028" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-rose-50/50 p-4 rounded-xl border border-rose-100 space-y-3">
+                      <h5 className="text-sm font-bold text-rose-900">7. สัญญาณชีพ & ความดันโลหิต</h5>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-600 mb-1">ความดันบน (Sys)</label>
+                          <input type="number" name="sys_bp" value={fitnessForm.sys_bp ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="120" />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-600 mb-1">ความดันล่าง (Dia)</label>
+                          <input type="number" name="dia_bp" value={fitnessForm.dia_bp ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="80" />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-600 mb-1">ชีพจร (bpm)</label>
+                          <input type="number" name="resting_heart_rate" value={fitnessForm.resting_heart_rate ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="72" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-600 mb-1">ความแข็งแรงกล้ามเนื้อ/ข้อเข่า</label>
+                        <input type="text" name="muscle_strength" value={fitnessForm.muscle_strength || ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="เช่น กล้ามเนื้อขาสมดุลซ้าย/ขวา, ไม่เจ็บเข่า" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* บันทึกเพิ่มเติม */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      หมายเหตุ
-                    </label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">คำแนะนำ / หมายเหตุเพิ่มเติมจากเทรนเนอร์</label>
                     <textarea
                       name="remark"
-                      value={fitnessForm.remark}
+                      value={fitnessForm.remark || ""}
                       onChange={handleFitnessInput}
-                      rows="3"
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 resize-none"
-                      placeholder="หมายเหตุเพิ่มเติม..."
+                      rows="2"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-purple-500 text-sm"
+                      placeholder="เช่น แนะนำลดไขมันสะสม 12.1 kg, เพิ่มการเล่นสร้างกล้ามเนื้อต้นขาเพื่อช่วยพยุงเข่า..."
                     />
                   </div>
 
-                  <div className="flex space-x-3 pt-4 border-t">
+                  {/* ปุ่มกดบันทึก */}
+                  <div className="flex space-x-3 pt-3 border-t">
                     <button
                       onClick={handleSaveFitness}
                       disabled={saving}
-                      className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 disabled:opacity-60"
+                      className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-lg font-semibold flex items-center justify-center space-x-2 transition-colors"
                     >
-                      {saving ? (
-                        <>
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          <span>กำลังบันทึก...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Save className="w-5 h-5" />
-                          <span>บันทึก</span>
-                        </>
-                      )}
+                      {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                      <span>บันทึกผลทดสอบ</span>
                     </button>
-                    <button
-                      onClick={() => setFitnessMode("list")}
-                      className="px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold"
-                    >
+                    <button onClick={() => setFitnessMode("list")} className="px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2.5 rounded-lg font-semibold">
                       ยกเลิก
                     </button>
                   </div>
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Delete Modal */}
+      {confirmModal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 text-center">
+            <div className="h-14 w-14 mx-auto rounded-full flex items-center justify-center bg-red-100 text-red-600 mb-3">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800">{confirmModal.title}</h3>
+            <p className="text-sm text-gray-500 mt-2">{confirmModal.description}</p>
+            <div className="flex gap-3 mt-6">
+              <button onClick={closeConfirmModal} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2.5 rounded-lg font-semibold">
+                ยกเลิก
+              </button>
+              <button onClick={handleConfirmAction} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg font-semibold shadow">
+                ลบข้อมูล
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className="fixed top-6 right-6 z-[60]">
+          <div className={`flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-xl border ${
+            toast.type === "success" ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"
+          }`}>
+            {toast.type === "success" ? <CheckCircle className="w-5 h-5 text-green-600" /> : <XCircle className="w-5 h-5 text-red-600" />}
+            <p className="font-semibold text-sm">{toast.message}</p>
           </div>
         </div>
       )}

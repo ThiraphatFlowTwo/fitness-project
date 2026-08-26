@@ -15,8 +15,6 @@ const protect = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret123");
     
     // 2. ดึงข้อมูลผู้ใช้จากฐานข้อมูลขึ้นมาดูสถานะจริง พร้อมดึงรายละเอียดปีการศึกษาที่นักศึกษาคนนี้สังกัดอยู่ (populate)
-    // รองรับ token ปัจจุบันที่ authController ออกด้วย key `userId`
-    // และ token เก่าที่อาจใช้ key `id`
     const userId = decoded.userId || decoded.id;
     const user = await User.findById(userId).populate("academic_year_id");
     
@@ -27,7 +25,7 @@ const protect = async (req, res, next) => {
     // ── 🔒 ด่านตรวจสิทธิ์เฉพาะกลุ่มนักศึกษา (Trainer) ──
     if (user.role === "trainer") {
       
-      // ตรวจสอบว่าปีการศึกษาที่เด็กคนนี้ผูกอยู่ ถูกปิดสิทธิ์ไปแล้วหรือยัง (เมื่อแอดมินสลับเทอมใหม่ อันเก่าจะกลายเป็น inactive)
+      // ตรวจสอบว่าปีการศึกษาที่เด็กคนนี้ผูกอยู่ ถูกปิดสิทธิ์ไปแล้วหรือยัง
       if (!user.academic_year_id || user.academic_year_id.status !== "active") {
         return res.status(403).json({ 
           message: "สิทธิ์การเข้าใช้งานระบบของคุณหมดอายุแล้ว (เนื่องจากสิ้นสุดปีการศึกษา/ภาคเรียนของคุณ)" 
@@ -42,8 +40,9 @@ const protect = async (req, res, next) => {
 
     // 3. ส่งข้อมูลผู้ใช้ (ที่ดึงมาจาก DB แบบสมบูรณ์) ไปยัง Router ถัดไป
     req.user = user;
-    req.userId = user._id; // เพิ่มไว้รองรับโค้ดเก่าในโปรแกรมบางตัวที่ใช้ req.userId
-    req.role = user.role;  // เพิ่มไว้รองรับโค้ดเก่าในโปรแกรมบางตัวที่ใช้ req.role
+    req.user.id = user._id.toString(); // 🔥 [เพิ่ม] ให้เรียกใช้ req.user.id ได้โดยไม่พัง
+    req.userId = user._id; 
+    req.role = user.role;  
 
     next();
   } catch (err) {
@@ -53,14 +52,31 @@ const protect = async (req, res, next) => {
 
 // middleware เช็ค admin
 const adminOnly = (req, res, next) => {
-  // เนื่องจาก req.user ได้รับข้อมูลเต็มจาก DB แล้ว จึงเช็คผ่าน req.user.role ได้ตามปกติ
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ message: "Admin only (เฉพาะผู้ดูแลระบบเท่านั้น)" });
+  if (req.user && req.user.role === "admin") {
+    return next();
   }
-  next();
+  return res.status(403).json({ message: "Admin only (เฉพาะผู้ดูแลระบบเท่านั้น)" });
+};
+
+// 🔥 [เพิ่มใหม่] middleware เช็ค instructor (อาจารย์ผู้สอน)
+const instructorOnly = (req, res, next) => {
+  if (req.user && (req.user.role === "instructor" || req.user.role === "admin")) {
+    return next();
+  }
+  return res.status(403).json({ message: "Instructor only (เฉพาะอาจารย์ผู้สอนเท่านั้น)" });
+};
+
+// 🔥 [เพิ่มใหม่] middleware เช็ค trainer (นักศึกษา/เทรนเนอร์)
+const trainerOnly = (req, res, next) => {
+  if (req.user && (req.user.role === "trainer" || req.user.role === "admin")) {
+    return next();
+  }
+  return res.status(403).json({ message: "Trainer only (เฉพาะเทรนเนอร์เท่านั้น)" });
 };
 
 module.exports = {
   protect,
   adminOnly,
+  instructorOnly,
+  trainerOnly,
 };

@@ -13,6 +13,8 @@ import {
   PlayCircle,
   PauseCircle,
   X,
+  AlertTriangle,
+  Info,
 } from "lucide-react";
 
 export default function ManageAcademicYear() {
@@ -35,6 +37,31 @@ export default function ManageAcademicYear() {
     start_date: "",
     end_date: "",
   });
+
+  // ===== TOAST STATE =====
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    window.clearTimeout(showToast._t);
+    showToast._t = window.setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }));
+    }, 3000);
+  };
+
+  // ===== CONFIRM MODAL STATE (delete / toggle) =====
+  const [confirmModal, setConfirmModal] = useState({
+    show: false,
+    type: null, // "delete" | "toggle"
+    id: null,
+    title: "",
+    description: "",
+    confirmLabel: "",
+    tone: "danger", // "danger" | "warning" | "success"
+  });
+
+  const closeConfirmModal = () =>
+    setConfirmModal((prev) => ({ ...prev, show: false }));
 
   const fetchData = async () => {
     const res = await api.get("/academic-years");
@@ -106,25 +133,68 @@ export default function ManageAcademicYear() {
       setErrors({});
 
       fetchData();
-      alert("เพิ่มปีการศึกษาสำเร็จ");
+      showToast("เพิ่มปีการศึกษาแล้ว", "success");
     } catch (err) {
-      alert(err.response?.data?.message || "เพิ่มข้อมูลไม่สำเร็จ");
+      showToast(err.response?.data?.message || "เพิ่มข้อมูลไม่สำเร็จ", "error");
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm("ยืนยันการลบ?")) return;
-    await api.delete(`/academic-years/${id}`);
-    fetchData();
+  // ---- DELETE FLOW ----
+  const handleDeleteClick = (item) => {
+    setConfirmModal({
+      show: true,
+      type: "delete",
+      id: item._id,
+      title: "ยืนยันการลบ",
+      description: `ต้องการลบปีการศึกษา ${item.academic_year} / ภาค ${item.semester} ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้`,
+      confirmLabel: "ลบข้อมูล",
+      tone: "danger",
+    });
   };
 
-  const handleToggleStatus = async (id) => {
+  const confirmDelete = async () => {
     try {
-      await api.patch(`/academic-years/${id}/toggle-status`);
+      await api.delete(`/academic-years/${confirmModal.id}`);
+      closeConfirmModal();
       fetchData();
+      showToast("ลบปีการศึกษาแล้ว", "success");
     } catch (err) {
-      alert("เปลี่ยนสถานะไม่สำเร็จ");
+      closeConfirmModal();
+      showToast(err.response?.data?.message || "ลบข้อมูลไม่สำเร็จ", "error");
     }
+  };
+
+  // ---- TOGGLE STATUS FLOW ----
+  const handleToggleClick = (item) => {
+    const willActivate = item.status !== "active";
+    setConfirmModal({
+      show: true,
+      type: "toggle",
+      id: item._id,
+      title: willActivate ? "ยืนยันการเปิดใช้งาน" : "ยืนยันการปิดใช้งาน",
+      description: willActivate
+        ? `ต้องการเปิดใช้งานปีการศึกษา ${item.academic_year} / ภาค ${item.semester} ใช่หรือไม่?`
+        : `ต้องการปิดใช้งานปีการศึกษา ${item.academic_year} / ภาค ${item.semester} ใช่หรือไม่?`,
+      confirmLabel: willActivate ? "เปิดใช้งาน" : "ปิดใช้งาน",
+      tone: willActivate ? "success" : "warning",
+    });
+  };
+
+  const confirmToggle = async () => {
+    try {
+      await api.patch(`/academic-years/${confirmModal.id}/toggle-status`);
+      closeConfirmModal();
+      fetchData();
+      showToast("เปลี่ยนสถานะแล้ว", "success");
+    } catch (err) {
+      closeConfirmModal();
+      showToast("เปลี่ยนสถานะไม่สำเร็จ", "error");
+    }
+  };
+
+  const handleConfirmAction = () => {
+    if (confirmModal.type === "delete") confirmDelete();
+    else if (confirmModal.type === "toggle") confirmToggle();
   };
 
   // เปิด popup พร้อมโหลดข้อมูลเดิม
@@ -159,15 +229,38 @@ export default function ManageAcademicYear() {
         end_date: editForm.end_date,
       });
 
-      alert("แก้ไขข้อมูลสำเร็จ");
       setShowEdit(false);
       fetchData();
+      showToast("แก้ไขข้อมูลสำเร็จ", "success");
     } catch (err) {
-      alert("แก้ไขไม่สำเร็จ");
+      showToast(err.response?.data?.message || "แก้ไขไม่สำเร็จ", "error");
     }
   };
 
   const activeYear = list.find((item) => item.status === "active");
+
+  // ===== TONE STYLES FOR CONFIRM MODAL =====
+  const toneStyles = {
+    danger: {
+      icon: <Trash2 className="w-7 h-7 text-white" />,
+      iconBg: "bg-gradient-to-br from-red-500 to-rose-600",
+      button: "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700",
+      ring: "ring-red-100",
+    },
+    warning: {
+      icon: <AlertTriangle className="w-7 h-7 text-white" />,
+      iconBg: "bg-gradient-to-br from-amber-500 to-orange-500",
+      button: "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600",
+      ring: "ring-amber-100",
+    },
+    success: {
+      icon: <CheckCircle className="w-7 h-7 text-white" />,
+      iconBg: "bg-gradient-to-br from-green-500 to-emerald-600",
+      button: "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700",
+      ring: "ring-green-100",
+    },
+  };
+  const activeTone = toneStyles[confirmModal.tone] || toneStyles.danger;
 
   return (
     <>
@@ -455,7 +548,7 @@ export default function ManageAcademicYear() {
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-center gap-2">
                             <button
-                              onClick={() => handleToggleStatus(item._id)}
+                              onClick={() => handleToggleClick(item)}
                               className={`group flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105 shadow-sm ${
                                 item.status === "active"
                                   ? "bg-red-100 text-red-700 hover:bg-red-200"
@@ -483,7 +576,7 @@ export default function ManageAcademicYear() {
                             </button>
 
                             <button
-                              onClick={() => handleDelete(item._id)}
+                              onClick={() => handleDeleteClick(item)}
                               className="group flex items-center gap-1 bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-700 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105 shadow-sm"
                               title="ลบ"
                             >
@@ -503,65 +596,173 @@ export default function ManageAcademicYear() {
           {/* ===== EDIT POPUP MODAL ===== */}
           {showEdit && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 animate-[fadeIn_0.15s_ease-out]">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-bold">แก้ไขปีการศึกษา</h2>
-                  <button onClick={() => setShowEdit(false)}>
-                    <X className="w-6 h-6" />
+                  <div className="flex items-center gap-2">
+                    <div className="h-9 w-9 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-lg flex items-center justify-center">
+                      <Edit2 className="w-5 h-5 text-white" />
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-800">แก้ไขปีการศึกษา</h2>
+                  </div>
+                  <button
+                    onClick={() => setShowEdit(false)}
+                    className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg p-1.5 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
 
-                <input
-                  className="w-full border p-3 rounded-xl mb-3"
-                  value={editForm.academic_year}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, academic_year: e.target.value })
-                  }
-                  placeholder="ปีการศึกษา"
-                />
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">ปีการศึกษา</label>
+                    <input
+                      className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      value={editForm.academic_year}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, academic_year: e.target.value })
+                      }
+                      placeholder="ปีการศึกษา"
+                    />
+                  </div>
 
-                <input
-                  className="w-full border p-3 rounded-xl mb-3"
-                  value={editForm.semester}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, semester: e.target.value })
-                  }
-                  placeholder="ภาคการศึกษา"
-                />
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">ภาคการศึกษา</label>
+                    <input
+                      className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      value={editForm.semester}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, semester: e.target.value })
+                      }
+                      placeholder="ภาคการศึกษา"
+                    />
+                  </div>
 
-                <input
-                  type="date"
-                  className="w-full border p-3 rounded-xl mb-3"
-                  value={editForm.start_date}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, start_date: e.target.value })
-                  }
-                />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1">วันที่เริ่มต้น</label>
+                      <input
+                        type="date"
+                        className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                        value={editForm.start_date}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, start_date: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1">วันที่สิ้นสุด</label>
+                      <input
+                        type="date"
+                        className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                        value={editForm.end_date}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, end_date: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
 
-                <input
-                  type="date"
-                  className="w-full border p-3 rounded-xl mb-3"
-                  value={editForm.end_date}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, end_date: e.target.value })
-                  }
-                />
-
-                <div className="flex gap-3 mt-4">
+                <div className="flex gap-3 mt-6">
                   <button
                     onClick={handleUpdate}
-                    className="flex-1 bg-green-600 text-white py-3 rounded-xl font-semibold"
+                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]"
                   >
                     บันทึก
                   </button>
 
                   <button
                     onClick={() => setShowEdit(false)}
-                    className="flex-1 bg-gray-200 py-3 rounded-xl font-semibold"
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-semibold transition-all"
                   >
                     ยกเลิก
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===== CONFIRM MODAL (delete / toggle status) ===== */}
+          {confirmModal.show && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center animate-[fadeIn_0.15s_ease-out]">
+                <div
+                  className={`h-16 w-16 mx-auto rounded-2xl flex items-center justify-center shadow-lg ring-8 ${activeTone.iconBg} ${activeTone.ring}`}
+                >
+                  {activeTone.icon}
+                </div>
+
+                <h3 className="text-lg font-bold text-slate-800 mt-4">
+                  {confirmModal.title}
+                </h3>
+                <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+                  {confirmModal.description}
+                </p>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={closeConfirmModal}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-semibold transition-all"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    onClick={handleConfirmAction}
+                    className={`flex-1 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] ${activeTone.button}`}
+                  >
+                    {confirmModal.confirmLabel}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===== TOAST NOTIFICATION ===== */}
+          {toast.show && (
+            <div className="fixed top-6 right-6 z-[60] animate-[fadeIn_0.2s_ease-out]">
+              <div
+                className={`flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl border-2 backdrop-blur-sm min-w-[280px] ${
+                  toast.type === "success"
+                    ? "bg-green-50/95 border-green-200"
+                    : toast.type === "error"
+                    ? "bg-red-50/95 border-red-200"
+                    : "bg-blue-50/95 border-blue-200"
+                }`}
+              >
+                <div
+                  className={`h-9 w-9 shrink-0 rounded-full flex items-center justify-center ${
+                    toast.type === "success"
+                      ? "bg-green-500"
+                      : toast.type === "error"
+                      ? "bg-red-500"
+                      : "bg-blue-500"
+                  }`}
+                >
+                  {toast.type === "success" ? (
+                    <CheckCircle className="w-5 h-5 text-white" />
+                  ) : toast.type === "error" ? (
+                    <XCircle className="w-5 h-5 text-white" />
+                  ) : (
+                    <Info className="w-5 h-5 text-white" />
+                  )}
+                </div>
+                <p
+                  className={`font-semibold text-sm ${
+                    toast.type === "success"
+                      ? "text-green-800"
+                      : toast.type === "error"
+                      ? "text-red-800"
+                      : "text-blue-800"
+                  }`}
+                >
+                  {toast.message}
+                </p>
+                <button
+                  onClick={() => setToast((prev) => ({ ...prev, show: false }))}
+                  className="ml-2 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
           )}
