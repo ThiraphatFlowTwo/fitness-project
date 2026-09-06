@@ -52,32 +52,149 @@ const FITNESS_API = "http://localhost:5000/api/fitness";
 const LOG_API = "http://localhost:5000/api/logs";
 
 // ==========================================
-// HELPER FUNCTIONS (ดึงค่าจาก Keys ครอบคลุมทุกชื่อย่อ/คำย่อ)
+// HELPER FUNCTIONS (FULL AUTO-DETECT & KEY FALLBACK)
 // ==========================================
-const getVal = (record, keys = []) => {
-  if (!record) return null;
+
+// ฟังก์ชันดึงค่าที่ตรวจจับทั้ง Exact Key และ Pattern คำค้นหา
+const getVal = (record, keys = [], searchPatterns = []) => {
+  if (!record || typeof record !== "object") return null;
+
+  // 1. ค้นหาแบบ Exact Key จาก Array ที่ระบุไว้ก่อน
   for (const k of keys) {
     if (record[k] !== undefined && record[k] !== null && record[k] !== "") {
       const parsed = Number(record[k]);
       return isNaN(parsed) ? record[k] : parsed;
     }
   }
+
+  // 2. Fallback: ถ้าไม่เจอ exact key ให้ค้นจาก Key ทั้งหมดใน Record โดยอิงจาก pattern คำ
+  if (searchPatterns.length > 0) {
+    const allKeys = Object.keys(record);
+    for (const p of searchPatterns) {
+      const matchedKey = allKeys.find((k) =>
+        k.toLowerCase().includes(p.toLowerCase())
+      );
+      if (
+        matchedKey &&
+        record[matchedKey] !== undefined &&
+        record[matchedKey] !== null &&
+        record[matchedKey] !== ""
+      ) {
+        const parsed = Number(record[matchedKey]);
+        return isNaN(parsed) ? record[matchedKey] : parsed;
+      }
+    }
+  }
+
   return null;
 };
 
-const getWeight = (r) => getVal(r, ["weight", "body_weight", "bodyWeight"]);
-const getBmi = (r) => getVal(r, ["bmi", "body_mass_index"]);
-const getBodyFat = (r) => getVal(r, ["body_fat_percent", "bodyFat", "body_fat", "fat_percent", "pbf", "PBF"]);
-const getFatMass = (r) => getVal(r, ["fat_mass", "fatMass", "body_fat_mass"]);
-const getMuscleMass = (r) => getVal(r, ["muscle_mass", "muscleMass", "skeletal_muscle_mass", "muscle"]);
-const getVisceralFat = (r) => getVal(r, ["visceral_fat", "visceralFat", "visceral_fat_level", "visceral"]);
-const getBodyWater = (r) => getVal(r, ["body_water", "bodyWater", "water_percent", "water", "tbw"]);
-const getBoneMass = (r) => getVal(r, ["bone_mass", "boneMass", "bone", "bone_mineral"]);
-const getProtein = (r) => getVal(r, ["protein", "protein_percent", "proteinPercent", "protein_mass"]);
-const getWaist = (r) => getVal(r, ["waist", "waist_cm", "waistCircumference", "waistline"]);
-const getWhr = (r) => getVal(r, ["whr", "waist_hip_ratio", "waistToHipRatio"]);
-const getBmr = (r) => getVal(r, ["bmr", "calories", "basal_metabolic_rate"]);
-const getBodyAge = (r) => getVal(r, ["body_age", "bodyAge", "metabolic_age"]);
+const getWeight = (r) =>
+  getVal(r, ["weight", "body_weight", "bodyWeight", "wt", "weight_kg"], ["weight", "wt"]);
+
+const getBmi = (r) =>
+  getVal(r, ["bmi", "body_mass_index", "bodyMassIndex"], ["bmi"]);
+
+const getBodyFat = (r) =>
+  getVal(
+    r,
+    ["body_fat_percent", "bodyFat", "body_fat", "fat_percent", "pbf", "PBF", "fatPercent", "bodyFatPercent"],
+    ["fat", "pbf"]
+  );
+
+const getFatMass = (r) =>
+  getVal(r, ["fat_mass", "fatMass", "body_fat_mass", "bfm", "BFM"], ["fat_mass", "bfm"]);
+
+const getMuscleMass = (r) =>
+  getVal(
+    r,
+    ["muscle_mass", "muscleMass", "skeletal_muscle_mass", "smm", "SMM", "muscle"],
+    ["muscle", "smm"]
+  );
+
+// --- กระดูก / แร่ธาตุ (ครอบคลุมทุก Scale และ Database Field) ---
+const getBoneMass = (r) =>
+  getVal(
+    r,
+    [
+      "bone_mass",
+      "boneMass",
+      "bone",
+      "bone_mineral",
+      "bone_mineral_mass",
+      "bone_mass_kg",
+      "boneMassKg",
+      "mineral",
+      "mineral_mass",
+      "minerals",
+      "bmc",
+      "BMC",
+      "bone_density",
+      "boneDensity",
+    ],
+    ["bone", "mineral", "bmc"]
+  );
+
+// --- น้ำในร่างกาย ---
+const getBodyWater = (r) =>
+  getVal(
+    r,
+    [
+      "body_water",
+      "bodyWater",
+      "water_percent",
+      "waterPercent",
+      "water",
+      "tbw",
+      "TBW",
+      "total_body_water",
+      "body_water_mass",
+      "water_mass",
+      "bodyWaterKg",
+    ],
+    ["water", "tbw"]
+  );
+
+// --- เส้นรอบเอว ---
+const getWaist = (r) =>
+  getVal(
+    r,
+    [
+      "waist",
+      "waist_cm",
+      "waistCircumference",
+      "waistline",
+      "waist_size",
+      "waist_length",
+      "waist_inch",
+      "waist_circumference",
+      "waistCm",
+    ],
+    ["waist"]
+  );
+
+const getVisceralFat = (r) =>
+  getVal(
+    r,
+    ["visceral_fat", "visceralFat", "visceral_fat_level", "visceral", "vfl", "VFL"],
+    ["visceral", "vfl"]
+  );
+
+const getProtein = (r) =>
+  getVal(
+    r,
+    ["protein", "protein_percent", "proteinPercent", "protein_mass", "protein_kg"],
+    ["protein"]
+  );
+
+const getWhr = (r) =>
+  getVal(r, ["whr", "waist_hip_ratio", "waistToHipRatio", "WHR"], ["whr", "hip"]);
+
+const getBmr = (r) =>
+  getVal(r, ["bmr", "calories", "basal_metabolic_rate", "BMR"], ["bmr"]);
+
+const getBodyAge = (r) =>
+  getVal(r, ["body_age", "bodyAge", "metabolic_age", "metabolicAge"], ["age"]);
 
 // ==========================================
 // STYLES & BADGES
@@ -96,7 +213,9 @@ const EvaluationBadge = ({ evaluation }) => {
   const style = colorStyles[evaluation.color] || colorStyles.gray;
 
   return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] md:text-xs font-bold border ${style}`}>
+    <span
+      className={`inline-block px-2 py-0.5 rounded-full text-[10px] md:text-xs font-bold border ${style}`}
+    >
       {evaluation.label}
     </span>
   );
@@ -190,11 +309,15 @@ const TrainerProgress = () => {
 
   const metrics = useMemo(() => {
     if (fitnessRecords.length === 0) return null;
+
     const sorted = [...fitnessRecords].sort(
       (a, b) => new Date(a.test_date) - new Date(b.test_date)
     );
     const latest = sorted[sorted.length - 1];
     const previous = sorted.length > 1 ? sorted[sorted.length - 2] : latest;
+
+    // 🔍 ปริ้นท์เพื่อการ Debugging บนเบราว์เซอร์
+    console.log("📌 Latest Record Data Payload:", latest);
 
     const diff = (cur, prev) => {
       const c = parseFloat(cur);
@@ -260,7 +383,9 @@ const TrainerProgress = () => {
 
   const monthlyData = useMemo(() => {
     if (!fitnessRecords || fitnessRecords.length === 0) return [];
-    const sorted = [...fitnessRecords].sort((a, b) => new Date(a.test_date) - new Date(b.test_date));
+    const sorted = [...fitnessRecords].sort(
+      (a, b) => new Date(a.test_date) - new Date(b.test_date)
+    );
     const grouped = {};
 
     sorted.forEach((record) => {
@@ -291,7 +416,11 @@ const TrainerProgress = () => {
       .map((r) => {
         const d = new Date(r.test_date);
         return {
-          fullDate: d.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" }),
+          fullDate: d.toLocaleDateString("th-TH", {
+            day: "numeric",
+            month: "short",
+            year: "2-digit",
+          }),
           date: d.toLocaleDateString("th-TH", { month: "short", day: "numeric" }),
           weight: getWeight(r),
           bmi: getBmi(r),
@@ -360,7 +489,9 @@ const TrainerProgress = () => {
             </div>
             <div className="flex-1 bg-purple-50 border border-purple-100 p-3 md:p-4 rounded-2xl relative overflow-hidden">
               <Target className="absolute -right-2 -bottom-2 w-12 h-12 md:w-16 md:h-16 text-purple-200/50" />
-              <p className="text-[10px] font-bold text-purple-400 uppercase mb-1">เป้าหมายปัจจุบัน</p>
+              <p className="text-[10px] font-bold text-purple-400 uppercase mb-1">
+                เป้าหมายปัจจุบัน
+              </p>
               <p className="text-base md:text-lg font-bold text-purple-700 flex items-center gap-2">
                 <Award className="w-4 h-4 md:w-5 md:h-5 shrink-0" />
                 {selectedTrainee?.goal || "-"}
@@ -375,7 +506,9 @@ const TrainerProgress = () => {
             ].map((item) => (
               <div key={item.label} className="flex items-center justify-between">
                 <span className="text-xs text-slate-400 font-bold uppercase">{item.label}</span>
-                <span className="text-xl md:text-2xl font-black text-slate-800">{item.value}</span>
+                <span className="text-xl md:text-2xl font-black text-slate-800">
+                  {item.value}
+                </span>
               </div>
             ))}
             {metrics?.lastDate && (
@@ -413,21 +546,62 @@ const TrainerProgress = () => {
                   </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
                     {[
-                      { label: "น้ำหนัก", val: metrics.weight.value, unit: "กก.", icon: Weight, color: "text-purple-600 bg-purple-50" },
-                      { label: "มวลกล้ามเนื้อ", val: metrics.muscleMass.value, unit: "กก.", icon: BicepsFlexed, color: "text-amber-600 bg-amber-50" },
-                      { label: "มวลไขมัน", val: metrics.fatMass.value, unit: "กก.", icon: Flame, color: "text-red-500 bg-red-50" },
-                      { label: "โปรตีน", val: metrics.protein.value, unit: "กก.", icon: BicepsFlexed, color: "text-indigo-600 bg-indigo-50" },
-                      { label: "กระดูก/แร่ธาตุ", val: metrics.boneMass.value, unit: "กก.", icon: Zap, color: "text-emerald-600 bg-emerald-50" },
-                      { label: "น้ำในร่างกาย", val: metrics.bodyWater.value, unit: "กก.", icon: Droplet, color: "text-blue-500 bg-blue-50" },
+                      {
+                        label: "น้ำหนัก",
+                        val: metrics.weight.value,
+                        unit: "กก.",
+                        icon: Weight,
+                        color: "text-purple-600 bg-purple-50",
+                      },
+                      {
+                        label: "มวลกล้ามเนื้อ",
+                        val: metrics.muscleMass.value,
+                        unit: "กก.",
+                        icon: BicepsFlexed,
+                        color: "text-amber-600 bg-amber-50",
+                      },
+                      {
+                        label: "มวลไขมัน",
+                        val: metrics.fatMass.value,
+                        unit: "กก.",
+                        icon: Flame,
+                        color: "text-red-500 bg-red-50",
+                      },
+                      {
+                        label: "โปรตีน",
+                        val: metrics.protein.value,
+                        unit: "กก.",
+                        icon: BicepsFlexed,
+                        color: "text-indigo-600 bg-indigo-50",
+                      },
+                      {
+                        label: "กระดูก/แร่ธาตุ",
+                        val: metrics.boneMass.value,
+                        unit: "กก.",
+                        icon: Zap,
+                        color: "text-emerald-600 bg-emerald-50",
+                      },
+                      {
+                        label: "น้ำในร่างกาย",
+                        val: metrics.bodyWater.value,
+                        unit: "กก.",
+                        icon: Droplet,
+                        color: "text-blue-500 bg-blue-50",
+                      },
                     ].map((item, idx) => {
                       const IconComp = item.icon;
                       return (
-                        <div key={idx} className="p-3 md:p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
+                        <div
+                          key={idx}
+                          className="p-3 md:p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col justify-between"
+                        >
                           <div className="flex items-center gap-2 mb-2">
                             <div className={`p-1.5 rounded-lg ${item.color}`}>
                               <IconComp className="w-4 h-4" />
                             </div>
-                            <span className="text-[11px] font-bold text-slate-400">{item.label}</span>
+                            <span className="text-[11px] font-bold text-slate-400">
+                              {item.label}
+                            </span>
                           </div>
                           <div>
                             <span className="text-lg md:text-xl font-bold text-slate-800">
@@ -449,15 +623,48 @@ const TrainerProgress = () => {
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
                     {[
-                      { label: "BMI", val: metrics.bmi.value, unit: "kg/m²", eval: metrics.bmi.evaluation, icon: Activity },
-                      { label: "% ไขมันร่างกาย (PBF)", val: metrics.pbf.value, unit: "%", eval: metrics.pbf.evaluation, icon: Percent },
-                      { label: "ระดับไขมันช่องท้อง", val: metrics.visceralFat.value, unit: "ระดับ", eval: metrics.visceralFat.evaluation, icon: Flame },
-                      { label: "เส้นรอบเอว", val: metrics.waist.value, unit: "ซม.", eval: metrics.waist.evaluation, icon: Ruler },
-                      { label: "อัตราส่วนเอว/สะโพก", val: metrics.whr.value, unit: "", eval: metrics.whr.evaluation, icon: Target },
+                      {
+                        label: "BMI",
+                        val: metrics.bmi.value,
+                        unit: "kg/m²",
+                        eval: metrics.bmi.evaluation,
+                        icon: Activity,
+                      },
+                      {
+                        label: "% ไขมันร่างกาย (PBF)",
+                        val: metrics.pbf.value,
+                        unit: "%",
+                        eval: metrics.pbf.evaluation,
+                        icon: Percent,
+                      },
+                      {
+                        label: "ระดับไขมันช่องท้อง",
+                        val: metrics.visceralFat.value,
+                        unit: "ระดับ",
+                        eval: metrics.visceralFat.evaluation,
+                        icon: Flame,
+                      },
+                      {
+                        label: "เส้นรอบเอว",
+                        val: metrics.waist.value,
+                        unit: "ซม.",
+                        eval: metrics.waist.evaluation,
+                        icon: Ruler,
+                      },
+                      {
+                        label: "อัตราส่วนเอว/สะโพก",
+                        val: metrics.whr.value,
+                        unit: "",
+                        eval: metrics.whr.evaluation,
+                        icon: Target,
+                      },
                     ].map((item, idx) => {
                       const IconComp = item.icon;
                       return (
-                        <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
+                        <div
+                          key={idx}
+                          className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col justify-between"
+                        >
                           <div>
                             <div className="flex justify-between items-start mb-2">
                               <div className="p-2 bg-white rounded-xl shadow-xs text-slate-600">
@@ -465,7 +672,9 @@ const TrainerProgress = () => {
                               </div>
                               <EvaluationBadge evaluation={item.eval} />
                             </div>
-                            <span className="text-xs font-bold text-slate-400">{item.label}</span>
+                            <span className="text-xs font-bold text-slate-400">
+                              {item.label}
+                            </span>
                             <div className="mt-1">
                               <span className="text-xl md:text-2xl font-black text-slate-800">
                                 {item.val != null ? item.val : "-"}
@@ -872,12 +1081,17 @@ const TrainerProgress = () => {
                     {[
                       { label: "โปรแกรม", value: logDetail.program_id?.program_name || "-" },
                       { label: "จำนวนท่า", value: `${viewLog.exercise_count || 0} ท่า` },
-                      { label: "เซตสำเร็จ", value: `${viewLog.completed_sets || 0}/${viewLog.set_count || 0}` },
+                      {
+                        label: "เซตสำเร็จ",
+                        value: `${viewLog.completed_sets || 0}/${viewLog.set_count || 0}`,
+                      },
                       { label: "เวลา", value: formatTime(logDetail.duration) },
                     ].map((item) => (
                       <div key={item.label} className="p-2 md:p-3 bg-slate-50 rounded-xl">
                         <p className="text-xs text-slate-400 mb-1">{item.label}</p>
-                        <p className="text-xs md:text-sm font-semibold text-slate-700">{item.value}</p>
+                        <p className="text-xs md:text-sm font-semibold text-slate-700">
+                          {item.value}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -906,9 +1120,14 @@ const TrainerProgress = () => {
                             รายละเอียดในแต่ละท่า
                           </h4>
                           {Object.values(grouped).map((group, idx) => (
-                            <div key={idx} className="border border-slate-100 rounded-2xl p-3 md:p-4 bg-slate-50/50">
+                            <div
+                              key={idx}
+                              className="border border-slate-100 rounded-2xl p-3 md:p-4 bg-slate-50/50"
+                            >
                               <div className="flex items-center justify-between mb-2">
-                                <span className="font-bold text-slate-700 text-sm">{group.name}</span>
+                                <span className="font-bold text-slate-700 text-sm">
+                                  {group.name}
+                                </span>
                                 {group.type && (
                                   <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">
                                     {group.type}
@@ -926,7 +1145,8 @@ const TrainerProgress = () => {
                                     }`}
                                   >
                                     <span className="text-xs font-semibold">
-                                      เซต {set.set_number || sIdx + 1}: {set.weight ?? 0}kg × {set.reps ?? 0}
+                                      เซต {set.set_number || sIdx + 1}: {set.weight ?? 0}kg ×{" "}
+                                      {set.reps ?? 0}
                                     </span>
                                     {set.completed ? (
                                       <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />

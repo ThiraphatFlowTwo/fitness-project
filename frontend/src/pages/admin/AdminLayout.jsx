@@ -17,6 +17,7 @@ import api from "../../services/api";
 import { useTopbarData } from "../../hooks/useTopbarData";
 import NotificationDropdown from "../../components/ui/NotificationDropdown";
 import axios from "axios";
+import logoImg from "../../assets/logo.png";
 
 const menuItems = [
   { path: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -248,21 +249,26 @@ export default function AdminLayout() {
             : "-translate-x-full lg:w-0 lg:overflow-hidden"
         } ${collapsed ? "lg:w-20" : "lg:w-64"}`}
       >
-        {/* Logo */}
+        {/* Logo Section */}
         <div
-          className={`flex items-center gap-3 px-5 py-5 border-b border-white/10 ${collapsed ? "justify-center px-0" : ""}`}
+          className={`flex items-center gap-3 px-4 py-4 border-b border-white/10 ${collapsed ? "justify-center px-0" : ""}`}
         >
-          <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0 shadow-lg">
-            <Shield className="w-5 h-5 text-white" />
-          </div>
+          {/* รูปโลโก้แสดงผลตรงๆ ไม่มีกล่องสี่เหลี่ยมครอบ */}
+          <img
+            src={logoImg}
+            alt="JUAD CLUB Logo"
+            className="w-14 h-14 object-contain shrink-0 drop-shadow-md"
+          />
           {!collapsed && (
             <div className="overflow-hidden">
-              <p className="font-bold text-white text-sm leading-tight">
+              <p className="font-bold text-white text-base leading-tight">
                 Admin Panel
               </p>
-              <p className="text-slate-300 text-xs truncate">
-                นักศึกษาสาขาวิชาวิทยาศาสตร์การกีฬา และการออกกำลังกาย
-                มหาวิทยาลัยราชภัฏเลย
+              <p className="text-slate-300 text-[11px] leading-tight truncate mt-0.5">
+                นักศึกษาสาขาวิชาวิทยาศาสตร์การกีฬา
+              </p>
+              <p className="text-slate-300 text-[11px] leading-tight truncate">
+                และการออกกำลังกาย มรภ.เลย
               </p>
             </div>
           )}
@@ -426,11 +432,10 @@ export default function AdminLayout() {
                         notifications.map((noti) => (
                           <div
                             key={noti._id}
-                            onClick={() => handleNotificationClick(noti)} // 👈 คลิกที่กล่องจะทำฟังก์ชันคลิกไปที่หน้าเว็บทันที
+                            onClick={() => handleNotificationClick(noti)}
                             className={`p-3.5 transition-colors relative group flex gap-2.5 items-start cursor-pointer
                               ${!noti.isRead ? "bg-indigo-50/50 hover:bg-indigo-100/70" : "hover:bg-slate-50"}`}
                           >
-                            {/* สีแถบสัญลักษณ์ข้างหน้าแยกตามประเภทแจ้งเตือน */}
                             <span
                               className={`w-2 h-2 rounded-full shrink-0 mt-1.5
                               ${noti.type === "success" ? "bg-green-500" : noti.type === "warning" ? "bg-amber-500" : "bg-indigo-500"}`}
@@ -446,7 +451,6 @@ export default function AdminLayout() {
                                 {noti.message}
                               </p>
 
-                              {/* 👤 แสดงข้อมูล User ต้นเรื่อง (ถ้าถูกส่งมาจาก Backend ใน Object 'senderId' หรือ 'senderName') */}
                               {noti.senderId && (
                                 <span className="inline-block mt-1 text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">
                                   โดย: {noti.senderId.name || "ไม่ระบุชื่อ"} (
@@ -467,11 +471,10 @@ export default function AdminLayout() {
                               </span>
                             </div>
 
-                            {/* ปุ่มไอคอนทำเครื่องหมายว่าอ่านแล้วเฉยๆ โดยไม่อยากกดเข้าไปดูหน้าเว็บ */}
                             {!noti.isRead && (
                               <button
                                 onClick={(e) => {
-                                  e.stopPropagation(); // ป้องกันไม่ให้ส่งผลต่อการเปลี่ยนหน้าเว็บบนกล่องใหญ่
+                                  e.stopPropagation();
                                   handleMarkAsRead(noti._id);
                                 }}
                                 title="ทำเป็นอ่านแล้ว"

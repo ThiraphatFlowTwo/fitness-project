@@ -2,7 +2,6 @@ import { useState } from "react";
 import api from "../services/api";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Dumbbell,
   User,
   Lock,
   Eye,
@@ -13,6 +12,7 @@ import {
   Zap,
   Mail, // 📧 เพิ่ม Icon จดหมายเพื่อความเหมาะสมกับอีเมล
 } from "lucide-react";
+import logoImg from "../assets/logo.png";
 
 // ── Custom Alert Modal ──────────────────────────────────────
 function AlertModal({ open, type = "error", title, message, onClose }) {
@@ -236,9 +236,11 @@ export default function Login() {
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900/90 to-violet-900/85" />
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center">
-              <Dumbbell className="w-5 h-5 text-white" />
-            </div>
+            <img
+              src={logoImg}
+              alt="Logo"
+              className="w-24 h-24 object-contain shrink-0 drop-shadow-md"
+            />
             <div>
               <p className="font-bold text-white text-sm">
                 ระบบจัดการเทรนเนอร์
@@ -276,9 +278,11 @@ export default function Login() {
       {/* ── Right Panel (Form) ── */}
       <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 bg-slate-50 overflow-y-auto">
         <div className="lg:hidden flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center shadow-lg">
-            <Dumbbell className="w-5 h-5 text-white" />
-          </div>
+          <img
+            src={logoImg}
+            alt="Logo"
+            className="w-12 h-12 object-contain shrink-0 drop-shadow-md"
+          />
           <div>
             <p className="font-bold text-slate-800 text-sm">
               ระบบจัดการเทรนเนอร์

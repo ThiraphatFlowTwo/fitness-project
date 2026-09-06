@@ -12,12 +12,7 @@ import {
   XCircle,
   Target,
   FileText,
-  Ruler,
-  Zap,
-  Droplet,
-  Upload,
   Camera,
-  Image as ImageIcon,
   Sparkles,
 } from "lucide-react";
 
@@ -79,18 +74,6 @@ const EMPTY_FITNESS = {
   sys_bp: "",
   dia_bp: "",
   resting_heart_rate: "",
-  skinfold_biceps_right: "",
-  skinfold_biceps_left: "",
-  skinfold_triceps_right: "",
-  skinfold_triceps_left: "",
-  skinfold_subscapular: "",
-  skinfold_suprailiac: "",
-  sit_and_reach: "",
-  back_scratch_right: "",
-  back_scratch_left: "",
-  grip_strength_right: "",
-  grip_strength_left: "",
-  leg_strength: "",
   muscle_strength: "",
   remark: "",
 };
@@ -361,7 +344,6 @@ const TrainerTrainees = () => {
     // จำลองการสแกน OCR อ่านข้อมูลจากใบรายงาน
     setIsScanning(true);
     setTimeout(() => {
-      // สามารถเปลี่ยนเป็นดึงข้อมูลจาก API OCR จริงได้ตรงนี้
       setFitnessForm((prev) => ({
         ...prev,
         weight: "70.1",
@@ -388,22 +370,37 @@ const TrainerTrainees = () => {
     }, 1500);
   };
 
+  // 🌟 บันทึกข้อมูลสมรรถภาพ (ตรวจสอบการบันทึกซ้ำวันเดิม)
   const handleSaveFitness = async () => {
     if (!fitnessForm.test_date) {
       showToast("กรุณาเลือกวันที่ทดสอบ", "error");
       return;
     }
+
+    // 🔍 ตรวจสอบว่ามีบันทึกของวันที่เลือกไว้แล้วหรือยัง
+    const inputDate = fitnessForm.test_date.split("T")[0];
+    const isDuplicate = fitnessRecords.some((r) => {
+      const recordDate = r.test_date?.split("T")[0];
+      if (fitnessMode === "add") {
+        return recordDate === inputDate;
+      }
+      // กรณีโหมด edit ไม่นับรายการที่กำลังแก้ไขอยู่
+      return recordDate === inputDate && r._id !== selectedFitnessId;
+    });
+
+    if (isDuplicate) {
+      const formattedDate = new Date(fitnessForm.test_date).toLocaleDateString("th-TH");
+      showToast(`วันที่ ${formattedDate} มีบันทึกอยู่แล้ว กรุณาลบรายการเดิมของวันนั้นออกก่อน`, "error");
+      return;
+    }
+
     setSaving(true);
 
     const numericFields = [
       "weight", "skeletal_muscle_mass", "body_fat_mass", "protein", "minerals",
       "total_body_water", "bmi", "body_fat_percent", "visceral_fat_level",
       "waist_circumference", "waist_hip_ratio", "body_age", "estimated_bmr",
-      "tdee", "body_score", "sys_bp", "dia_bp", "resting_heart_rate",
-      "skinfold_biceps_right", "skinfold_biceps_left", "skinfold_triceps_right",
-      "skinfold_triceps_left", "skinfold_subscapular", "skinfold_suprailiac",
-      "sit_and_reach", "back_scratch_right", "back_scratch_left",
-      "grip_strength_right", "grip_strength_left", "leg_strength"
+      "tdee", "body_score", "sys_bp", "dia_bp", "resting_heart_rate"
     ];
 
     const cleanedFitnessForm = { ...fitnessForm };
@@ -776,25 +773,6 @@ const TrainerTrainees = () => {
                                 <div><span className="text-gray-400 block">อายุกาย:</span> <span className="font-semibold">{r.body_age ?? "-"} ปี</span></div>
                               </div>
 
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
-                                <div className="p-2.5 bg-indigo-50/60 rounded-lg border border-indigo-100">
-                                  <span className="font-bold text-indigo-900 block mb-1">📏 ชั้นผิวหนัง (Skinfold):</span>
-                                  <p className="text-gray-600">Biceps (ข/ซ): {r.skinfold_biceps_right ?? "-"}/{r.skinfold_biceps_left ?? "-"} mm</p>
-                                  <p className="text-gray-600">Triceps (ข/ซ): {r.skinfold_triceps_right ?? "-"}/{r.skinfold_triceps_left ?? "-"} mm</p>
-                                  <p className="text-gray-600">Subscapular: {r.skinfold_subscapular ?? "-"} mm | Suprailiac: {r.skinfold_suprailiac ?? "-"} mm</p>
-                                </div>
-                                <div className="p-2.5 bg-amber-50/60 rounded-lg border border-amber-100">
-                                  <span className="font-bold text-amber-900 block mb-1">🧘 ความอ่อนตัว:</span>
-                                  <p className="text-gray-600">นั่งงอตัว: {r.sit_and_reach !== "" && r.sit_and_reach != null ? `${r.sit_and_reach} cm` : "-"}</p>
-                                  <p className="text-gray-600">แตะมือหลัง (ข/ซ): {r.back_scratch_right ?? "-"}/{r.back_scratch_left ?? "-"} cm</p>
-                                </div>
-                                <div className="p-2.5 bg-emerald-50/60 rounded-lg border border-emerald-100">
-                                  <span className="font-bold text-emerald-900 block mb-1">⚡ แรงกล้ามเนื้อ:</span>
-                                  <p className="text-gray-600">แรงบีบมือ (ข/ซ): {r.grip_strength_right ?? "-"}/{r.grip_strength_left ?? "-"} kg</p>
-                                  <p className="text-gray-600">แรงเหยียดขา: {r.leg_strength !== "" && r.leg_strength != null ? `${r.leg_strength} kg` : "-"}</p>
-                                </div>
-                              </div>
-
                               {r.remark && <p className="text-xs text-gray-500 mt-1">📌 บันทึกเพิ่มเติม: {r.remark}</p>}
                             </div>
 
@@ -824,7 +802,7 @@ const TrainerTrainees = () => {
                     </button>
                   </div>
 
-                  {/* 📸 จุดเพิ่มระบบอัปโหลดรูปภาพเพื่อสแกน (NEW!) */}
+                  {/* 📸 จุดเพิ่มระบบอัปโหลดรูปภาพเพื่อสแกน */}
                   <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2 text-purple-900 font-bold text-sm">
@@ -949,89 +927,10 @@ const TrainerTrainees = () => {
                     </div>
                   </div>
 
-                  {/* 3. ชั้นผิวหนัง */}
-                  <div className="bg-indigo-50/60 p-4 rounded-xl border border-indigo-200">
-                    <h5 className="text-sm font-bold text-indigo-900 mb-3 flex items-center gap-1">
-                      <Droplet className="w-4 h-4 text-indigo-600" />
-                      <span>3. การวัดความหนาของชั้นผิวหนัง (Skinfold Thickness - มิลลิเมตร)</span>
-                    </h5>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-medium text-gray-700 mb-1">Biceps (หน้าแขน ขวา)</label>
-                        <input type="number" step="0.1" name="skinfold_biceps_right" value={fitnessForm.skinfold_biceps_right ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="มม." />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-medium text-gray-700 mb-1">Biceps (หน้าแขน ซ้าย)</label>
-                        <input type="number" step="0.1" name="skinfold_biceps_left" value={fitnessForm.skinfold_biceps_left ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="มม." />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-medium text-gray-700 mb-1">Triceps (หลังแขน ขวา)</label>
-                        <input type="number" step="0.1" name="skinfold_triceps_right" value={fitnessForm.skinfold_triceps_right ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="มม." />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-medium text-gray-700 mb-1">Triceps (หลังแขน ซ้าย)</label>
-                        <input type="number" step="0.1" name="skinfold_triceps_left" value={fitnessForm.skinfold_triceps_left ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="มม." />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-medium text-gray-700 mb-1">Subscapula (ใต้สะบัก)</label>
-                        <input type="number" step="0.1" name="skinfold_subscapular" value={fitnessForm.skinfold_subscapular ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="มม." />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-medium text-gray-700 mb-1">Suprailiac (เหนือเชิงกราน)</label>
-                        <input type="number" step="0.1" name="skinfold_suprailiac" value={fitnessForm.skinfold_suprailiac ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="มม." />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 4 & 5. ความอ่อนตัว & แรงกล้ามเนื้อ */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-100 space-y-3">
-                      <h5 className="text-sm font-bold text-amber-900 flex items-center gap-1">
-                        <Ruler className="w-4 h-4 text-amber-600" />
-                        <span>4. ความอ่อนตัว & การเคลื่อนไหว (ซม.)</span>
-                      </h5>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-[11px] font-medium text-gray-600 mb-1">นั่งงอตัวไปข้างหน้า</label>
-                          <input type="number" step="0.1" name="sit_and_reach" value={fitnessForm.sit_and_reach ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="ซม." />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-medium text-gray-600 mb-1">แตะมือด้านหลัง (ขวา)</label>
-                          <input type="number" step="0.1" name="back_scratch_right" value={fitnessForm.back_scratch_right ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="ซม." />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-medium text-gray-600 mb-1">แตะมือด้านหลัง (ซ้าย)</label>
-                          <input type="number" step="0.1" name="back_scratch_left" value={fitnessForm.back_scratch_left ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="ซม." />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100 space-y-3">
-                      <h5 className="text-sm font-bold text-emerald-900 flex items-center gap-1">
-                        <Zap className="w-4 h-4 text-emerald-600" />
-                        <span>5. ความแข็งแรงของกล้ามเนื้อ (กก.)</span>
-                      </h5>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-[11px] font-medium text-gray-600 mb-1">แรงบีบมือ (ขวา)</label>
-                          <input type="number" step="0.1" name="grip_strength_right" value={fitnessForm.grip_strength_right ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="กก." />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-medium text-gray-600 mb-1">แรงบีบมือ (ซ้าย)</label>
-                          <input type="number" step="0.1" name="grip_strength_left" value={fitnessForm.grip_strength_left ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="กก." />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-medium text-gray-600 mb-1">แรงเหยียดขา</label>
-                          <input type="number" step="0.1" name="leg_strength" value={fitnessForm.leg_strength ?? ""} onChange={handleFitnessInput} className="w-full border rounded px-2 py-1 text-sm bg-white" placeholder="กก." />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 6 & 7. การประเมิน & สัญญาณชีพ */}
+                  {/* 3 & 4. การประเมิน & สัญญาณชีพ */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                      <h5 className="text-sm font-bold text-slate-800">6. การประเมินโดยรวม & พลังงาน</h5>
+                      <h5 className="text-sm font-bold text-slate-800">3. การประเมินโดยรวม & พลังงาน</h5>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-[11px] font-medium text-gray-600 mb-1">อายุกาย (ปี)</label>
@@ -1053,7 +952,7 @@ const TrainerTrainees = () => {
                     </div>
 
                     <div className="bg-rose-50/50 p-4 rounded-xl border border-rose-100 space-y-3">
-                      <h5 className="text-sm font-bold text-rose-900">7. สัญญาณชีพ & ความดันโลหิต</h5>
+                      <h5 className="text-sm font-bold text-rose-900">4. สัญญาณชีพ & ความดันโลหิต</h5>
                       <div className="grid grid-cols-3 gap-3">
                         <div>
                           <label className="block text-[11px] font-medium text-gray-600 mb-1">ความดันบน (Sys)</label>

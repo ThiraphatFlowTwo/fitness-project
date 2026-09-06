@@ -4,6 +4,7 @@ import { Loader2, XCircle, Plus, Pencil, Trash2, Search, Save, Send, Undo2, X, C
 const API = "http://localhost:5000/api/programs";
 const TRAINEE_API = "http://localhost:5000/api/trainees";
 const EXERCISE_API = "http://localhost:5000/api/exercises";
+const IMAGE_URL = "http://localhost:5000/uploads/";
 
 const EMPTY_FORM = {
   name: "",
@@ -28,7 +29,6 @@ const STATUS_CONFIG = {
 const translateToThai = (text) => {
   if (!text) return "";
   const dict = {
-    // กลุ่มกล้ามเนื้อ / ประเภท
     chest: "หน้าอก",
     back: "หลัง",
     legs: "ขา",
@@ -42,8 +42,6 @@ const translateToThai = (text) => {
     full_body: "ทั่วร่างกาย",
     bodyweight: "น้ำหนักตัว",
     strength: "ความแข็งแรง",
-    
-    // อุปกรณ์
     dumbbell: "ดัมเบล",
     barbell: "บาร์เบล",
     kettlebell: "เคตเทิลเบล",
@@ -57,19 +55,22 @@ const translateToThai = (text) => {
   return dict[key] || text;
 };
 
-// Helper ฟังก์ชันดึง ID แบบปลอดภัย (แก้ไขใหม่: รองรับ Object ทุกรูปแบบ + แปลงเป็น String เสมอ)
+// Helper ฟังก์ชันดึง ID แบบปลอดภัย (แก้ไขบัค ID หาย)
 const getExerciseId = (ex) => {
   if (!ex) return null;
   if (typeof ex === "string") return ex;
+  if (typeof ex === "number") return String(ex);
   if (typeof ex === "object") {
-    if (ex._id) return String(ex._id);
-    if (ex.id) return String(ex.id);
     if (ex.exercise_id) {
       if (typeof ex.exercise_id === "string") return ex.exercise_id;
-      if (typeof ex.exercise_id === "object") return String(ex.exercise_id._id || ex.exercise_id.id || "");
+      if (typeof ex.exercise_id === "object") {
+        return String(ex.exercise_id._id || ex.exercise_id.id || "");
+      }
     }
+    if (ex._id) return String(ex._id);
+    if (ex.id) return String(ex.id);
   }
-  return String(ex);
+  return null;
 };
 
 // Helper เช็คว่าเป็นท่าประเภทวัดด้วยเวลา (Cardio/Time) หรือไม่
@@ -107,6 +108,7 @@ export default function TrainerPrograms() {
   const [hasAdvisor, setHasAdvisor]           = useState(true);
   const [isModalOpen, setIsModalOpen]         = useState(false);
   const [editingId, setEditingId]             = useState(null);
+  const [viewingDetailEx, setViewingDetailEx] = useState(null);
 
   // TOAST STATE
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
@@ -170,21 +172,18 @@ export default function TrainerPrograms() {
     loadAll();
   }, []);
 
-  // สรุปกลุ่มกล้ามเนื้อที่มีอยู่จริง + จำนวนรายการ
   const categoryCounts = exercises.reduce((acc, ex) => {
     const cat = ex.exercise_type || ex.category || ex.muscle_group;
     if (cat) acc[cat] = (acc[cat] || 0) + 1;
     return acc;
   }, {});
 
-  // สรุปอุปกรณ์ที่มีอยู่จริง + จำนวนรายการ
   const equipmentCounts = exercises.reduce((acc, ex) => {
     const eq = ex.equipment_type || ex.equipment;
     if (eq) acc[eq] = (acc[eq] || 0) + 1;
     return acc;
   }, {});
 
-  // กรองรายการท่าออกกำลังกาย
   const filteredExercises = exercises.filter((ex) => {
     const name = (ex.exercise_name || ex.name || "").toLowerCase();
     const search = exSearch.toLowerCase().trim();
@@ -209,7 +208,6 @@ export default function TrainerPrograms() {
     setIsModalOpen(true);
   };
 
-  // แก้ไขฟังก์ชัน handleEdit เพื่อดึงชื่อท่าได้อย่างถูกต้องแม้ถูกตีกลับ
   const handleEdit = (program) => {
     setEditingId(program._id);
     setFormData({
@@ -222,7 +220,6 @@ export default function TrainerPrograms() {
       const targetId = getExerciseId(item);
       const originalEx = exercises.find((e) => getExerciseId(e) === targetId) || {};
 
-      // ดึงชื่อท่าด้วยวิธี Fallback ครอบคลุมทุกโครงสร้าง Object
       const retrievedName =
         (typeof item.exercise_id === "object" && (item.exercise_id?.exercise_name || item.exercise_id?.name)) ||
         item.exercise_name ||
@@ -234,6 +231,7 @@ export default function TrainerPrograms() {
       return {
         ...originalEx,
         ...item,
+        _id: targetId,
         exercise_id: targetId,
         exercise_name: retrievedName,
         sets: item.sets ?? 3,
@@ -249,7 +247,6 @@ export default function TrainerPrograms() {
     setIsModalOpen(true);
   };
 
-  // ลบโปรแกรม
   const handleDeleteClick = (program) => {
     setConfirmModal({
       show: true,
@@ -280,7 +277,6 @@ export default function TrainerPrograms() {
     }
   };
 
-  // ส่งอนุมัติ / ยกเลิกการส่ง
   const handleWorkflowClick = (program, action) => {
     const isSubmit = action === "submit";
     setConfirmModal({
@@ -364,6 +360,7 @@ export default function TrainerPrograms() {
 
     const newExItem = {
       ...ex,
+      _id: targetId,
       exercise_id: targetId,
       exercise_name: ex.exercise_name || ex.name || "ท่าออกกำลังกาย",
       sets: 3,
@@ -606,9 +603,7 @@ export default function TrainerPrograms() {
                               {ex.exercise_name || "ท่าออกกำลังกาย"}
                             </p>
                             
-                            {/* Dynamic Inputs พิจารณาจากประเภทการวัดผล */}
                             <div className="grid grid-cols-2 gap-2">
-                              {/* ช่อง เซ็ต (มีทุกประเภท) */}
                               <div>
                                 <label className="block text-[10px] text-gray-400 mb-1">เซ็ต</label>
                                 <input
@@ -619,7 +614,6 @@ export default function TrainerPrograms() {
                                 />
                               </div>
 
-                              {/* แยกเป็น เวลา(นาที) หรือ ครั้ง(Reps) */}
                               {isTime ? (
                                 <div>
                                   <label className="block text-[10px] text-gray-400 mb-1">เวลา (นาที)</label>
@@ -664,7 +658,6 @@ export default function TrainerPrograms() {
                     />
                   </div>
 
-                  {/* Dynamic Filter Selects - ภาษาไทย */}
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     <select
                       className="text-xs border border-gray-200 rounded-lg p-1.5 bg-white outline-none text-gray-600"
@@ -705,36 +698,63 @@ export default function TrainerPrograms() {
                         const equipVal = ex.equipment_type || ex.equipment;
 
                         return (
-                          <div key={id} className="bg-white rounded-xl border border-gray-100 p-3 flex justify-between items-center hover:border-gray-200 transition-colors">
-                            <div>
-                              <p className="text-xs font-semibold text-gray-800 mb-1.5">
-                                {ex.exercise_name || ex.name}
-                              </p>
-                              <div className="flex gap-1.5 flex-wrap">
-                                {typeVal && (
-                                  <span className="text-[10px] bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium">
-                                    {translateToThai(typeVal)}
-                                  </span>
-                                )}
-                                {equipVal && (
-                                  <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                                    {translateToThai(equipVal)}
-                                  </span>
-                                )}
+                          <div key={id} className="bg-white rounded-xl border border-gray-100 p-2.5 flex items-center justify-between hover:border-gray-200 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={
+                                  ex.image
+                                    ? `${IMAGE_URL}${ex.image}`
+                                    : "https://via.placeholder.com/60?text=No+Image"
+                                }
+                                alt={ex.exercise_name || ex.name}
+                                className="w-12 h-12 object-cover rounded-lg border border-gray-100 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => setViewingDetailEx(ex)}
+                              />
+                              <div>
+                                <p 
+                                  onClick={() => setViewingDetailEx(ex)} 
+                                  className="text-xs font-semibold text-gray-800 mb-1 hover:text-indigo-600 cursor-pointer transition-colors"
+                                >
+                                  {ex.exercise_name || ex.name}
+                                </p>
+                                <div className="flex gap-1.5 flex-wrap">
+                                  {typeVal && (
+                                    <span className="text-[10px] bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium">
+                                      {translateToThai(typeVal)}
+                                    </span>
+                                  )}
+                                  {equipVal && (
+                                    <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                                      {translateToThai(equipVal)}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                            <button
-                              type="button"
-                              disabled={isAdded}
-                              onClick={() => handleAddExercise(ex)}
-                              className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
-                                isAdded
-                                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                  : "bg-gray-900 hover:bg-gray-700 text-white"
-                              }`}
-                            >
-                              {isAdded ? "เลือกแล้ว" : "+ เลือก"}
-                            </button>
+
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setViewingDetailEx(ex)}
+                                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                title="ดูรายละเอียด"
+                              >
+                                <Info className="w-4 h-4" />
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={isAdded}
+                                onClick={() => handleAddExercise(ex)}
+                                className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                                  isAdded
+                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                    : "bg-gray-900 hover:bg-gray-700 text-white"
+                                }`}
+                              >
+                                {isAdded ? "เลือกแล้ว" : "+ เลือก"}
+                              </button>
+                            </div>
                           </div>
                         );
                       })
@@ -760,6 +780,64 @@ export default function TrainerPrograms() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal ดูรายละเอียดท่าฝึก */}
+      {viewingDetailEx && (
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[60] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col shadow-2xl">
+            <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+              <h3 className="text-sm font-semibold text-gray-900">รายละเอียดท่าฝึก</h3>
+              <button 
+                onClick={() => setViewingDetailEx(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <img
+                src={
+                  viewingDetailEx.image
+                    ? `${IMAGE_URL}${viewingDetailEx.image}`
+                    : "https://via.placeholder.com/500x300?text=ไม่มีรูปภาพ"
+                }
+                alt={viewingDetailEx.exercise_name || viewingDetailEx.name}
+                className="w-full h-52 object-cover rounded-xl border border-gray-100"
+              />
+
+              <div>
+                <p className="text-xs text-gray-400 mb-1">ชื่อท่าฝึก</p>
+                <h4 className="text-lg font-bold text-gray-900">
+                  {viewingDetailEx.exercise_name || viewingDetailEx.name}
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="border border-gray-100 rounded-xl p-3 bg-gray-50">
+                  <p className="text-[10px] text-gray-400">กลุ่มกล้ามเนื้อ</p>
+                  <p className="font-semibold text-xs text-gray-800">
+                    {translateToThai(viewingDetailEx.exercise_type || viewingDetailEx.category || viewingDetailEx.muscle_group) || "-"}
+                  </p>
+                </div>
+                <div className="border border-gray-100 rounded-xl p-3 bg-gray-50">
+                  <p className="text-[10px] text-gray-400">อุปกรณ์</p>
+                  <p className="font-semibold text-xs text-gray-800">
+                    {translateToThai(viewingDetailEx.equipment_type || viewingDetailEx.equipment) || "-"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="border border-gray-100 rounded-xl p-3 bg-gray-50">
+                <p className="text-[10px] text-gray-400 mb-1">คำอธิบาย/วิธีฝึก</p>
+                <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">
+                  {viewingDetailEx.description || "ไม่มีรายละเอียดเพิ่มเติม"}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}

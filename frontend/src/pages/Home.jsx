@@ -11,6 +11,7 @@ import {
   Trophy,
   ChevronDown,
 } from "lucide-react";
+import logoImg from "../assets/logo.png"; // 🖼️ Import รูปภาพโลโก้เข้ามาใช้งาน
 
 const features = [
   {
@@ -72,11 +73,14 @@ export default function Home() {
     <div className="min-h-screen bg-white">
       {/* ── Navbar ── */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-lg border-b border-gray-100 shadow-sm">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex justify-between items-center">
+        <div className="max-w-6xl mx-auto px-6 h-20 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-violet-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Dumbbell className="w-5 h-5 text-white" />
-            </div>
+            {/* โลโก้บน Navbar */}
+            <img
+              src={logoImg}
+              alt="Logo"
+              className="w-14 h-14 object-contain shrink-0 drop-shadow-md"
+            />
             <div>
               <p className="text-sm font-bold text-slate-800 leading-tight">
                 ระบบจัดการเทรนเนอร์
@@ -97,8 +101,8 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* ── Hero (จัดตรงกลาง + ลบ Stat Cards ออกแล้ว) ── */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-16">
+      {/* ── Hero ── */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-28 pb-16">
         {/* BG Image */}
         <div
           className="absolute inset-0 bg-cover bg-center"
@@ -114,6 +118,17 @@ export default function Home() {
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 max-w-4xl mx-auto px-6 text-center flex flex-col items-center">
+          
+          {/* 🌟 โลโก้ตรงกลางเด่นพิเศษ ขยายใหญ่ + เอฟเฟกต์ไฟเรืองแสง 🌟 */}
+          <div className="relative mb-6 group cursor-pointer">
+            <div className="absolute inset-0 bg-gradient-to-tr from-blue-500 to-violet-500 rounded-full blur-2xl opacity-60 group-hover:opacity-80 transition-opacity duration-500 animate-pulse" />
+            <img
+              src={logoImg}
+              alt="Logo"
+              className="relative w-40 h-40 md:w-48 md:h-48 object-contain shrink-0 drop-shadow-[0_20px_25px_rgba(0,0,0,0.5)] transform hover:scale-105 transition-transform duration-300"
+            />
+          </div>
+
           {/* Badge */}
           <span className="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-blue-200 text-xs font-semibold px-4 py-1.5 rounded-full mb-6 backdrop-blur-sm">
             <Zap className="w-3 h-3" />
@@ -263,7 +278,12 @@ export default function Home() {
             }}
           />
           <div className="absolute inset-0 bg-gradient-to-r from-blue-900/95 to-violet-900/90" />
-          <div className="relative z-10 py-16 px-8 text-center">
+          <div className="relative z-10 py-16 px-8 text-center flex flex-col items-center">
+            <img
+              src={logoImg}
+              alt="Logo"
+              className="w-20 h-20 object-contain shrink-0 drop-shadow-xl mb-4"
+            />
             <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
               พร้อมเริ่มต้นใช้งานแล้วหรือยัง?
             </h2>
@@ -284,10 +304,12 @@ export default function Home() {
       {/* ── Footer ── */}
       <footer className="bg-slate-900 text-slate-400 py-10 text-center text-xs">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-violet-600 rounded-lg flex items-center justify-center">
-              <Dumbbell className="w-4 h-4 text-white" />
-            </div>
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <img
+              src={logoImg}
+              alt="Logo"
+              className="w-12 h-12 object-contain shrink-0 drop-shadow-md"
+            />
             <span className="font-bold text-white text-sm">
               ระบบจัดการเทรนเนอร์
             </span>

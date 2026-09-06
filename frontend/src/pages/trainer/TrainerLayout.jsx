@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useTopbarData } from "../../hooks/useTopbarData";
 import NotificationDropdown from "../../components/ui/NotificationDropdown";
+import logoImg from "../../assets/logo.png";
 
 const menuItems = [
   { id: "dashboard", label: "หน้าหลัก", icon: Home, path: "/trainer" },
@@ -265,21 +266,27 @@ export default function TrainerLayout() {
             : "-translate-x-full lg:w-0 lg:overflow-hidden"
         } ${collapsed ? "lg:w-20" : "lg:w-64"}`}
       >
-        {/* Logo */}
+        {/* Logo Section */}
         <div
-          className={`flex items-center gap-3 px-5 py-5 border-b border-white/10 ${collapsed ? "justify-center px-0" : ""}`}
+          className={`flex items-center gap-3 px-4 py-4 border-b border-white/10 ${collapsed ? "justify-center px-0" : ""}`}
         >
-          <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0 shadow-lg">
-            <Dumbbell className="w-5 h-5 text-white" />
-          </div>
+          {/* แสดงรูปโลโก้โดยตรง ไร้กล่องสี่เหลี่ยมครอบ */}
+          <img 
+            src={logoImg} 
+            alt="JUAD CLUB Logo" 
+            className="w-14 h-14 object-contain shrink-0 drop-shadow-md" 
+          />
+
           {!collapsed && (
             <div className="overflow-hidden">
-              <p className="font-bold text-white text-sm leading-tight">
+              <p className="font-bold text-white text-base leading-tight">
                 ระบบเทรนเนอร์
               </p>
-              <p className="text-slate-300 text-xs truncate">
-                นักศึกษาสาขาวิชาวิทยาศาสตร์การกีฬา และการออกกำลังกาย
-                มหาวิทยาลัยราชภัฏเลย
+              <p className="text-slate-300 text-[11px] leading-tight truncate mt-0.5">
+                นักศึกษาสาขาวิชาวิทยาศาสตร์การกีฬา
+              </p>
+              <p className="text-slate-300 text-[11px] leading-tight truncate">
+                และการออกกำลังกาย มรภ.เลย
               </p>
             </div>
           )}
@@ -287,7 +294,7 @@ export default function TrainerLayout() {
 
         {/* User Card */}
         {!collapsed && (
-          <div className="mx-4 mt-5 mb-2 rounded-2xl bg-white/10 border border-white/15 p-3 flex items-center gap-3">
+          <div className="mx-4 mt-4 mb-2 rounded-2xl bg-white/10 border border-white/15 p-3 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-400 to-sky-400 flex items-center justify-center shrink-0 shadow">
               <span className="text-white text-sm font-bold">
                 {getInitials(user?.name)}
