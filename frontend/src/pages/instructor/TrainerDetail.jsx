@@ -172,10 +172,10 @@ export default function TrainerDetail() {
   const st = STATUS_CONFIG[trainer?.status] || STATUS_CONFIG.pending;
 
   const traineeLogs = logs.filter(
-    (log) => log.trainee_id?._id === viewTrainee?._id,
+    (log) => String(log.trainee_id?._id || log.trainee_id) === String(viewTrainee?._id),
   );
   const traineeFitness = fitness.filter(
-    (f) => f.trainee_id?._id === viewTrainee?._id,
+    (f) => String(f.trainee_id?._id || f.trainee_id) === String(viewTrainee?._id),
   );
 
   return (
@@ -488,56 +488,112 @@ export default function TrainerDetail() {
                       <p>ไม่มีข้อมูลสมรรถภาพของลูกเทรนคนนี้</p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      <div className="overflow-x-auto border border-slate-100 rounded-xl">
-                        <table className="w-full text-left border-collapse">
-                          <thead className="bg-slate-50 text-slate-400 text-xs font-bold uppercase border-b border-slate-100">
-                            <tr>
-                              <th className="px-4 py-3">วันที่ทดสอบ</th>
-                              <th className="px-4 py-3 text-center">BMI</th>
-                              <th className="px-4 py-3 text-center">ไขมัน %</th>
-                              <th className="px-4 py-3 text-center">VO₂ Max</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 text-sm">
-                            {traineeFitness.map((f) => {
-                              const bmi = bmiBadge(f.bmi);
-                              return (
-                                <tr
-                                  key={f._id}
-                                  className="hover:bg-slate-50 transition-colors"
-                                >
-                                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
-                                    {new Date(f.test_date).toLocaleDateString(
-                                      "th-TH",
-                                      {
-                                        day: "numeric",
-                                        month: "short",
-                                        year: "numeric",
-                                      },
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    <span
-                                      className={`px-2 py-0.5 rounded-full text-xs font-semibold ${bmi.cls}`}
-                                    >
-                                      {bmi.label}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3 text-center text-slate-600">
-                                    {f.body_fat_percent != null
-                                      ? `${f.body_fat_percent}%`
-                                      : "-"}
-                                  </td>
-                                  <td className="px-4 py-3 text-center text-slate-600">
-                                    {f.vo2_max?.toFixed(1) || "-"}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+                    <div className="space-y-6">
+                      {traineeFitness.map((f, idx) => {
+                        const bmi = bmiBadge(f.bmi);
+                        return (
+                          <div key={f._id} className="border border-slate-100 rounded-xl overflow-hidden">
+                            {/* Header */}
+                            <div className="bg-slate-50 px-4 py-3 flex items-center justify-between border-b border-slate-100">
+                              <span className="font-bold text-slate-700 text-sm">
+                                บันทึกครั้งที่ {traineeFitness.length - idx}
+                              </span>
+                              <span className="text-xs text-slate-400">
+                                วันที่ทดสอบ: {new Date(f.test_date).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}
+                              </span>
+                            </div>
+
+                            <div className="p-4 space-y-4">
+                              {/* 1. Body Composition */}
+                              <div className="border border-slate-100 rounded-xl p-4">
+                                <p className="text-xs font-bold text-slate-500 mb-3">1. การวิเคราะห์องค์ประกอบร่างกาย (Body Composition)</p>
+                                <div className="grid grid-cols-3 gap-3">
+                                  {[
+                                    { label: "น้ำหนัก (กก.)", value: f.weight },
+                                    { label: "มวลกล้ามเนื้อ (กก.)", value: f.skeletal_muscle_mass },
+                                    { label: "มวลไขมัน (กก.)", value: f.body_fat_mass },
+                                    { label: "โปรตีน (กก.)", value: f.protein },
+                                    { label: "กระดูก/แร่ธาตุ (กก.)", value: f.minerals },
+                                    { label: "น้ำในร่างกาย (กก.)", value: f.total_body_water },
+                                  ].map((item, i) => (
+                                    <div key={i} className="bg-slate-50 rounded-lg p-2">
+                                      <p className="text-xs text-slate-400">{item.label}</p>
+                                      <p className="font-semibold text-slate-700 text-sm">{item.value ?? "-"}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* 2. Obesity Analysis */}
+                              <div className="border border-amber-100 bg-amber-50/30 rounded-xl p-4">
+                                <p className="text-xs font-bold text-amber-600 mb-3">2. การวิเคราะห์ภาวะอ้วน & ลงพุง (Obesity Analysis)</p>
+                                <div className="grid grid-cols-3 gap-3">
+                                  {[
+                                    { label: "BMI (kg/m²)", value: f.bmi, badge: bmi },
+                                    { label: "% ไขมันร่างกาย (PBF)", value: f.body_fat_percent != null ? `${f.body_fat_percent}%` : null },
+                                    { label: "ระดับไขมันช่องท้อง", value: f.visceral_fat_level },
+                                    { label: "เส้นรอบเอว (ซม.)", value: f.waist_circumference },
+                                    { label: "อัตราส่วนเอว/สะโพก", value: f.waist_hip_ratio },
+                                  ].map((item, i) => (
+                                    <div key={i} className="bg-white rounded-lg p-2 border border-amber-100">
+                                      <p className="text-xs text-slate-400">{item.label}</p>
+                                      {item.badge ? (
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${item.badge.cls}`}>{item.badge.label}</span>
+                                      ) : (
+                                        <p className="font-semibold text-slate-700 text-sm">{item.value ?? "-"}</p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* 3 & 4. Overall & Vital Signs */}
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="border border-slate-100 rounded-xl p-4">
+                                  <p className="text-xs font-bold text-slate-500 mb-3">3. การประเมินโดยรวม & พลังงาน</p>
+                                  <div className="space-y-2">
+                                    {[
+                                      { label: "อายุกาย (ปี)", value: f.body_age },
+                                      { label: "คะแนนร่างกาย", value: f.body_score },
+                                      { label: "BMR พลังงานพื้นฐาน", value: f.estimated_bmr },
+                                      { label: "TDEE พลังงาน/วัน", value: f.tdee },
+                                    ].map((item, i) => (
+                                      <div key={i} className="flex justify-between items-center">
+                                        <span className="text-xs text-slate-400">{item.label}</span>
+                                        <span className="text-xs font-semibold text-slate-700">{item.value ?? "-"}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="border border-red-100 bg-red-50/20 rounded-xl p-4">
+                                  <p className="text-xs font-bold text-red-500 mb-3">4. สัญญาณชีพ & ความดันโลหิต</p>
+                                  <div className="space-y-2">
+                                    {[
+                                      { label: "ความดันบน (Sys)", value: f.sys_bp },
+                                      { label: "ความดันล่าง (Dia)", value: f.dia_bp },
+                                      { label: "ชีพจร (bpm)", value: f.resting_heart_rate },
+                                      { label: "VO₂ Max", value: f.vo2_max?.toFixed(1) },
+                                    ].map((item, i) => (
+                                      <div key={i} className="flex justify-between items-center">
+                                        <span className="text-xs text-slate-400">{item.label}</span>
+                                        <span className="text-xs font-semibold text-slate-700">{item.value ?? "-"}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* คำแนะนำ */}
+                              {f.remark && (
+                                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
+                                  <p className="text-xs font-bold text-blue-600 mb-1">คำแนะนำ / หมายเหตุ</p>
+                                  <p className="text-sm text-slate-600">{f.remark}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

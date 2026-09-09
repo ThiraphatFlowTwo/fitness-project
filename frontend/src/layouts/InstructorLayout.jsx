@@ -7,7 +7,6 @@ import { useState, useEffect } from "react";
 import { useTopbarData } from "../hooks/useTopbarData";
 import NotificationDropdown from "../components/ui/NotificationDropdown";
 import axios from "axios";
-import logoImg from "../assets/logo.png";
 
 const menuItems = [
   { path: "/instructor",          label: "Dashboard",      icon: LayoutDashboard },
@@ -59,7 +58,7 @@ function LogoutConfirmModal({ open, onConfirm, onCancel }) {
           </div>
         </div>
 
-        <p className="text-slate-300 text-sm leading-relaxed mt-3 pl-[3.5rem] -mt-1">
+        <p className="text-slate-300 text-sm leading-relaxed mt-3 pl-[3.5rem]">
           คุณต้องการออกจากระบบใช่หรือไม่?
         </p>
 
@@ -96,6 +95,8 @@ export default function InstructorLayout() {
   const [collapsed,   setCollapsed]   = useState(false);
   const [user,        setUser]        = useState(null);
   const [notifications, setNotifications] = useState([]);
+  // ⚠️ เดิมโค้ดเรียก setNotiOpen ในฟังก์ชัน handleNotificationClick แต่ไม่เคยประกาศ state นี้ไว้ (จะพัง)
+  // เพิ่ม state ให้ครบเพื่อไม่ให้เกิด ReferenceError
   const [notiOpen, setNotiOpen] = useState(false);
   const { activeYear, notifCount, notifList, markAllRead, markRead } = useTopbarData("instructor");
 
@@ -178,9 +179,9 @@ export default function InstructorLayout() {
     setNotiOpen(false); // ปิด Dropdown
     if (noti.url) {
       if (noti.url === "/admin" || noti.url.startsWith("/trainer")) {
-        navigate("/instructor/programs"); // ➕ เปลี่ยนเส้นทางไปยังหน้าโปรแกรมฝึกซ้อมของอาจารย์
+      navigate("/instructor/programs"); // ➕ เปลี่ยนเส้นทางไปยังหน้าโปรแกรมฝึกซ้อมของอาจารย์
       } else {
-        navigate(noti.url); // ลิงก์ไปยังหน้าเป้าหมาย เช่น /instructor/programs
+      navigate(noti.url); // ลิงก์ไปยังหน้าเป้าหมาย เช่น /instructor/programs
       }
     }
   };
@@ -218,27 +219,15 @@ export default function InstructorLayout() {
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:w-0 lg:overflow-hidden"
         } ${collapsed ? "lg:w-20" : "lg:w-64"}`}
       >
-        {/* Logo Section */}
-        <div
-          className={`flex items-center gap-3 px-4 py-4 border-b border-white/10 ${collapsed ? "justify-center px-0" : ""}`}
-        >
-          {/* แสดงรูปโลโก้โดยตรง ไร้กล่องสี่เหลี่ยมครอบ */}
-          <img
-            src={logoImg}
-            alt="JUAD CLUB Logo"
-            className="w-14 h-14 object-contain shrink-0 drop-shadow-md"
-          />
+        {/* Logo */}
+        <div className={`flex items-center gap-3 px-5 py-5 border-b border-white/10 ${collapsed ? "justify-center px-0" : ""}`}>
+          <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0 shadow-lg">
+            <GraduationCap className="w-5 h-5 text-white" />
+          </div>
           {!collapsed && (
             <div className="overflow-hidden">
-              <p className="font-bold text-white text-base leading-tight">
-                Instructor Panel
-              </p>
-              <p className="text-slate-300 text-[11px] leading-tight truncate mt-0.5">
-                นักศึกษาสาขาวิชาวิทยาศาสตร์การกีฬา
-              </p>
-              <p className="text-slate-300 text-[11px] leading-tight truncate">
-                และการออกกำลังกาย มรภ.เลย
-              </p>
+              <p className="font-bold text-white text-sm leading-tight">Instructor Panel</p>
+              <p className="text-slate-300 text-xs truncate">มหาวิทยาลัยราชภัฏเลย</p>
             </div>
           )}
         </div>

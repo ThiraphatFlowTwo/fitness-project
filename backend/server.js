@@ -14,6 +14,10 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const path = require("path");
 require("dotenv").config();
 
+// แก้ปัญหา querySrv ECONNREFUSED โดยบังคับให้ Node ใช้ Google DNS
+const dns = require("dns");
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
+
 const app = express();
 
 connectDB();
@@ -34,7 +38,6 @@ app.use("/api/programs", programRoutes);
 app.use("/api/logs", trainingLogRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log("Server running on port", PORT));
